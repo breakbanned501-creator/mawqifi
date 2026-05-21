@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { Bell, Car, Map, MessageCircle, PlusCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import BottomNav from '@/components/BottomNav';
-import CampusMapGallery from '@/components/CampusMapGallery';
 import ErrorBanner from '@/components/ErrorBanner';
 import ParkingCard from '@/components/ParkingCard';
 import { useAuth } from '@/components/AuthProvider';
@@ -63,7 +62,7 @@ export default function Home() {
   const { active: activePosts, expired: expiredPosts } = partitionPosts(posts);
 
   return (
-    <main className="min-h-screen px-4 pb-28 pt-5">
+    <main className="page-with-chrome min-h-screen px-4 pt-5">
       <div className="container">
         <header className="mb-5">
           <div className="flex items-center justify-between gap-3">
@@ -120,8 +119,6 @@ export default function Home() {
             <span className="text-sm font-bold">خريطة الجامعة</span>
           </Link>
         </div>
-
-        <CampusMapGallery />
 
         <Link
           href="/create"

@@ -64,7 +64,7 @@ export default function CreatePage() {
   };
 
   return (
-    <main className="min-h-screen px-4 pb-28 pt-6">
+    <main className="page-with-chrome min-h-screen px-4 pt-6">
       <Toast message={toast} visible={Boolean(toast)} onHide={() => setToast('')} />
       <div className="mx-auto max-w-md space-y-5">
         <header className="flex items-center gap-3">

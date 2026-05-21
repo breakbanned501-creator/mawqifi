@@ -2,18 +2,21 @@
 
 import { MapPin } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
+import CampusMapGallery from '@/components/CampusMapGallery';
 import PageHeader from '@/components/PageHeader';
 import { collegesByZone, formatGate, kuZones } from '@/lib/university';
 
 export default function MapPage() {
   return (
-    <main className="min-h-screen px-4 pb-28 pt-6 text-white">
+    <main className="page-with-chrome min-h-screen px-4 pt-6 text-white">
       <div className="mx-auto max-w-md space-y-5">
         <PageHeader
           title="خريطة الجامعة"
           subtitle="مناطق وكليات إرشادية — لا حجز ولا تنظيم رسمي"
           backHref="/"
         />
+
+        <CampusMapGallery />
 
         {kuZones.map((zone) => {
           const colleges = collegesByZone(zone.id);

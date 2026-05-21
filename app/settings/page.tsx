@@ -65,7 +65,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <main className="min-h-screen px-4 pb-28 pt-6">
+    <main className="page-with-chrome min-h-screen px-4 pt-6">
       <div className="mx-auto max-w-md space-y-5">
         <PageHeader title="حسابي" subtitle="إدارة الحساب والتنبيهات" backHref="/" />
 

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Car, LogIn, UserPlus } from 'lucide-react';
 import { ensureUserProfile } from '@/lib/auth';
 import { getSupabase } from '@/lib/supabase';
+import AppFooter from '@/components/AppFooter';
 import Toast from '@/components/Toast';
 import ErrorBanner from '@/components/ErrorBanner';
 import { useAuth } from '@/components/AuthProvider';
@@ -76,7 +77,7 @@ export default function AuthPage() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col justify-center px-4 py-8">
+    <main className="flex min-h-screen flex-col justify-center px-4 py-8 pb-6">
       <Toast message={message} visible={Boolean(message)} onHide={() => setMessage('')} />
       <div className="mx-auto w-full max-w-md space-y-4">
         <div className="mb-4 text-center">
@@ -159,6 +160,7 @@ export default function AuthPage() {
           الضيوف يمكنهم النشر والمحادثة فوراً. الحساب بالبريد يحفظ بياناتك على كل الأجهزة.
         </p>
       </div>
+      <AppFooter />
     </main>
   );
 }

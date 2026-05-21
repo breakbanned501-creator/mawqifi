@@ -48,7 +48,7 @@ export default function NotificationsPage() {
   if (loading) return <LoadingScreen message="جاري تحميل التنبيهات..." />;
 
   return (
-    <main className="min-h-screen px-4 pb-28 pt-6">
+    <main className="page-with-chrome min-h-screen px-4 pt-6">
       <div className="mx-auto max-w-md space-y-5">
         <PageHeader
           title="التنبيهات"

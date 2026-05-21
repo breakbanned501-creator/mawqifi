@@ -4,6 +4,7 @@ import { type ChangeEvent, type KeyboardEvent, useEffect, useRef, useState } fro
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight, Camera, ImageIcon, MapPin, Send, X } from 'lucide-react';
+import AppFooter from '@/components/AppFooter';
 import Toast from '@/components/Toast';
 import CountdownTimer from '@/components/CountdownTimer';
 import ErrorBanner from '@/components/ErrorBanner';
@@ -398,6 +399,7 @@ export default function PostChatPage({ params }: PostChatPageProps) {
           </div>
         </footer>
       )}
+      <AppFooter />
     </main>
   );
 }

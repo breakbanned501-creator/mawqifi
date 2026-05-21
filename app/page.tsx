@@ -8,7 +8,7 @@ import ErrorBanner from '@/components/ErrorBanner';
 import ParkingCard from '@/components/ParkingCard';
 import { useAuth } from '@/components/AuthProvider';
 import { fetchNotifications, unreadCount } from '@/lib/notifications';
-import { fetchParkingPosts, partitionPosts } from '@/lib/posts';
+import { expireStalePosts, fetchParkingPosts, filterActivePosts } from '@/lib/posts';
 import { getSupabase } from '@/lib/supabase';
 import type { ParkingPost } from '@/lib/types';
 
@@ -27,7 +27,7 @@ export default function Home() {
         fetchParkingPosts(),
         fetchNotifications(userId),
       ]);
-      setPosts(nextPosts);
+      setPosts(filterActivePosts(nextPosts));
       setUnread(unreadCount(notifications));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذر تحميل المواقف');
@@ -59,7 +59,19 @@ export default function Home() {
     };
   }, [userId, refresh]);
 
-  const { active: activePosts, expired: expiredPosts } = partitionPosts(posts);
+  const handlePostExpired = useCallback((postId: string) => {
+    setPosts((current) => current.filter((post) => post.id !== postId));
+    void expireStalePosts().catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const tick = setInterval(() => {
+      setPosts((current) => filterActivePosts(current));
+    }, 1000);
+    return () => clearInterval(tick);
+  }, []);
+
+  const activePosts = filterActivePosts(posts);
 
   return (
     <main className="page-with-chrome min-h-screen px-4 pt-5">
@@ -134,7 +146,7 @@ export default function Home() {
               <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-cyan-500 border-t-transparent" />
               <p className="mt-4 text-white/60">جاري التحميل...</p>
             </div>
-          ) : activePosts.length === 0 && expiredPosts.length === 0 ? (
+          ) : activePosts.length === 0 ? (
             <div className="glass-card py-12 text-center">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-cyan-500/10">
                 <Car size={32} className="text-cyan-300" />
@@ -143,33 +155,22 @@ export default function Home() {
               <p className="text-sm leading-6 text-white/60">كن أول من يشارك موقفاً متاحاً للطلاب</p>
             </div>
           ) : (
-            <>
-              {activePosts.length > 0 && (
-                <div className="mb-6">
-                  <h2 className="mb-4 text-lg font-extrabold text-white">
-                    المواقف المتاحة ({activePosts.length})
-                  </h2>
-                  <div className="space-y-4">
-                    {activePosts.map((post) => (
-                      <ParkingCard key={post.id} post={post} currentUserId={userId!} onChanged={refresh} />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {expiredPosts.length > 0 && (
-                <div>
-                  <h2 className="mb-4 text-lg font-extrabold text-white/50">
-                    مواقف منتهية ({expiredPosts.length})
-                  </h2>
-                  <div className="space-y-4">
-                    {expiredPosts.map((post) => (
-                      <ParkingCard key={post.id} post={post} currentUserId={userId!} onChanged={refresh} />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
+            <div className="mb-6">
+              <h2 className="mb-4 text-lg font-extrabold text-white">
+                المواقف المتاحة ({activePosts.length})
+              </h2>
+              <div className="space-y-4">
+                {activePosts.map((post) => (
+                  <ParkingCard
+                    key={post.id}
+                    post={post}
+                    currentUserId={userId!}
+                    onChanged={refresh}
+                    onExpire={handlePostExpired}
+                  />
+                ))}
+              </div>
+            </div>
           )}
         </div>
       </div>

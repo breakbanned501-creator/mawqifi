@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Car, Clock, MapPin, MessageCircle, Trash2 } from 'lucide-react';
+import { Clock, MapPin, MessageCircle, Trash2 } from 'lucide-react';
 import type { ParkingPost } from '@/lib/types';
 import { deleteParkingPost, isPostActive } from '@/lib/posts';
 import { formatGate, formatZone } from '@/lib/university';
@@ -12,9 +12,10 @@ interface ParkingCardProps {
   post: ParkingPost;
   currentUserId: string;
   onChanged?: () => void;
+  onExpire?: (postId: string) => void;
 }
 
-export default function ParkingCard({ post, currentUserId, onChanged }: ParkingCardProps) {
+export default function ParkingCard({ post, currentUserId, onChanged, onExpire }: ParkingCardProps) {
   const active = isPostActive(post);
   const isOwner = post.user_id === currentUserId;
   const [deleting, setDeleting] = useState(false);
@@ -32,8 +33,10 @@ export default function ParkingCard({ post, currentUserId, onChanged }: ParkingC
     }
   };
 
+  if (!active) return null;
+
   return (
-    <article className={`glass-card animate-fade-up p-4 transition-transform active:scale-[0.99] ${active ? '' : 'opacity-60'}`}>
+    <article className="glass-card animate-fade-up p-4 transition-all duration-300 active:scale-[0.99]">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h3 className="text-lg font-extrabold leading-snug text-white">{post.college}</h3>
@@ -48,7 +51,10 @@ export default function ParkingCard({ post, currentUserId, onChanged }: ParkingC
           </div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
-          <CountdownTimer expiresAt={new Date(post.expires_at).getTime()} />
+          <CountdownTimer
+            expiresAt={new Date(post.expires_at).getTime()}
+            onComplete={() => onExpire?.(post.id)}
+          />
           {isOwner && (
             <button
               type="button"
@@ -64,9 +70,9 @@ export default function ParkingCard({ post, currentUserId, onChanged }: ParkingC
       </div>
 
       {post.car_desc && (
-        <div className="mb-3 flex items-center gap-2 rounded-2xl bg-white/5 px-3 py-2 text-sm text-white/80">
-          <Car className="h-4 w-4 shrink-0 text-cyan-300" />
-          <span>{post.car_desc}</span>
+        <div className="mb-3 rounded-2xl bg-white/5 px-3 py-2.5 text-sm leading-7 text-white/80">
+          <p className="mb-1 text-xs font-bold text-cyan-200/70">ملاحظات</p>
+          <p className="whitespace-pre-wrap">{post.car_desc}</p>
         </div>
       )}
 
@@ -89,14 +95,10 @@ export default function ParkingCard({ post, currentUserId, onChanged }: ParkingC
         ) : (
           <Link
             href={`/post/${post.id}`}
-            className={`flex shrink-0 items-center gap-2 rounded-2xl px-4 py-2 text-sm font-extrabold shadow-lg ${
-              active
-                ? 'bg-cyan-500 text-navy-900 shadow-cyan-500/20'
-                : 'pointer-events-none bg-white/10 text-white/40'
-            }`}
+            className="flex shrink-0 items-center gap-2 rounded-2xl bg-cyan-500 px-4 py-2 text-sm font-extrabold text-navy-900 shadow-lg shadow-cyan-500/20"
           >
             <MessageCircle className="h-4 w-4" />
-            {active ? 'تواصل' : 'مغلقة'}
+            تواصل
           </Link>
         )}
       </div>

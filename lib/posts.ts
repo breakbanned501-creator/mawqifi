@@ -37,10 +37,23 @@ export async function expireStalePosts(): Promise<void> {
   await supabase.rpc('expire_old_parking_posts');
 }
 
+export function getExpiryTimestamp(post: ParkingPost): number {
+  return new Date(post.expires_at).getTime();
+}
+
+export function getSecondsUntilExpiry(post: ParkingPost): number {
+  return Math.max(0, Math.floor((getExpiryTimestamp(post) - Date.now()) / 1000));
+}
+
+export function filterActivePosts(posts: ParkingPost[]): ParkingPost[] {
+  return posts.filter(isPostActive);
+}
+
 export async function fetchParkingPosts(): Promise<ParkingPost[]> {
   const supabase = getSupabase();
   await expireStalePosts();
 
+  const now = new Date().toISOString();
   const { data, error } = await supabase
     .from('parking_posts')
     .select(
@@ -58,10 +71,12 @@ export async function fetchParkingPosts(): Promise<ParkingPost[]> {
       users (username)
     `,
     )
+    .eq('status', 'active')
+    .gt('expires_at', now)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
-  return (data as ParkingPostRow[]).map(mapRow);
+  return filterActivePosts((data as ParkingPostRow[]).map(mapRow));
 }
 
 export type CreateParkingPostInput = {
@@ -147,12 +162,8 @@ export function isPostActive(post: ParkingPost): boolean {
   return new Date(post.expires_at).getTime() > Date.now() && post.status === 'active';
 }
 
+/** @deprecated Homepage shows active posts only — use filterActivePosts */
 export function partitionPosts(posts: ParkingPost[]) {
-  const active: ParkingPost[] = [];
-  const expired: ParkingPost[] = [];
-  for (const post of posts) {
-    if (isPostActive(post)) active.push(post);
-    else expired.push(post);
-  }
-  return { active, expired };
+  const active = filterActivePosts(posts);
+  return { active, expired: [] as ParkingPost[] };
 }

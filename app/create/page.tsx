@@ -10,12 +10,14 @@ import { useAuth } from '@/components/AuthProvider';
 import { createParkingPost } from '@/lib/posts';
 import { departurePresets, formatGate, formatZone, kuColleges } from '@/lib/university';
 
+const NOTES_MAX = 500;
+
 export default function CreatePage() {
   const router = useRouter();
   const { userId } = useAuth();
   const [college, setCollege] = useState(kuColleges[0].nameAr);
   const [gate, setGate] = useState(kuColleges[0].gates[0]);
-  const [carDesc, setCarDesc] = useState('');
+  const [notes, setNotes] = useState('');
   const [minutes, setMinutes] = useState(10);
   const [customMinutes, setCustomMinutes] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,13 +28,28 @@ export default function CreatePage() {
     () => kuColleges.find((item) => item.nameAr === college) ?? kuColleges[0],
     [college],
   );
-  const departureMinutes = customMinutes ? Number(customMinutes) : minutes;
+
+  const departureMinutes = useMemo(() => {
+    if (customMinutes.trim() !== '') {
+      const parsed = Number(customMinutes);
+      return Number.isFinite(parsed) ? Math.floor(parsed) : NaN;
+    }
+    return minutes;
+  }, [customMinutes, minutes]);
+
+  const isValidDuration =
+    Number.isFinite(departureMinutes) && departureMinutes >= 1 && departureMinutes <= 180;
+
+  const canPublish = Boolean(college && gate && userId && isValidDuration);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (loading || !userId || !college || !gate || !departureMinutes) return;
-    if (departureMinutes < 1 || departureMinutes > 180) {
-      setError('مدة المغادرة يجب أن تكون بين ١ و ١٨٠ دقيقة');
+    if (loading || !canPublish || !userId) {
+      if (!college || !gate) {
+        setError('اختر الكلية والبوابة قبل النشر');
+      } else if (!isValidDuration) {
+        setError('حدّد وقت مغادرة صالحاً بين ١ و ١٨٠ دقيقة');
+      }
       return;
     }
 
@@ -41,12 +58,14 @@ export default function CreatePage() {
 
     try {
       const expiresAt = new Date(Date.now() + departureMinutes * 60 * 1000).toISOString();
+      const trimmedNotes = notes.trim().slice(0, NOTES_MAX);
+
       await createParkingPost({
         userId,
         college,
         zone: selectedCollege.zone,
         gate,
-        carDesc: carDesc || null,
+        carDesc: trimmedNotes || null,
         departureMinutes,
         expiresAt,
       });
@@ -79,12 +98,13 @@ export default function CreatePage() {
 
         {error && <ErrorBanner message={error} />}
 
-        <form onSubmit={handleSubmit} className="glass-card space-y-5 p-5">
+        <form onSubmit={handleSubmit} className="glass-card animate-fade-up space-y-5 p-5">
           <div>
             <label className="mb-2 block text-sm font-bold text-white/70">الكلية</label>
             <select
               className="input"
               value={college}
+              required
               onChange={(e) => {
                 setCollege(e.target.value);
                 setGate(
@@ -107,7 +127,7 @@ export default function CreatePage() {
             </div>
             <div>
               <label className="mb-2 block text-sm font-bold text-white/70">أقرب بوابة</label>
-              <select className="input" value={gate} onChange={(e) => setGate(e.target.value)}>
+              <select className="input" value={gate} required onChange={(e) => setGate(e.target.value)}>
                 {selectedCollege.gates.map((item) => (
                   <option key={item} value={item}>
                     {formatGate(item)}
@@ -118,13 +138,24 @@ export default function CreatePage() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-bold text-white/70">وصف السيارة (اختياري)</label>
-            <input
-              className="input"
-              value={carDesc}
-              onChange={(e) => setCarDesc(e.target.value)}
-              placeholder="مثال: جيب أسود"
+            <label htmlFor="notes" className="mb-2 block text-sm font-bold text-white/70">
+              ملاحظات إضافية
+              <span className="ms-1 font-normal text-white/40">(اختياري)</span>
+            </label>
+            <textarea
+              id="notes"
+              className="textarea"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              maxLength={NOTES_MAX}
+              rows={5}
+              dir="rtl"
+              lang="ar"
+              placeholder="مثال: الموقف قريب من الباب، السيارة خلف الباص الأحمر"
             />
+            <p className="mt-2 text-xs text-white/40">
+              {notes.length}/{NOTES_MAX} — ساعد الطلاب بتحديد مكانك بدقة
+            </p>
           </div>
 
           <div>
@@ -138,7 +169,11 @@ export default function CreatePage() {
                     setMinutes(preset);
                     setCustomMinutes('');
                   }}
-                  className={`rounded-2xl py-3 text-sm font-extrabold ${minutes === preset && !customMinutes ? 'bg-cyan-500 text-navy-900' : 'bg-white/10 text-white/60'}`}
+                  className={`rounded-2xl py-3 text-sm font-extrabold transition-all ${
+                    minutes === preset && customMinutes.trim() === ''
+                      ? 'bg-cyan-500 text-navy-900 shadow-lg shadow-cyan-500/20'
+                      : 'bg-white/10 text-white/60 hover:bg-white/15'
+                  }`}
                 >
                   {preset} د
                 </button>
@@ -149,15 +184,28 @@ export default function CreatePage() {
               type="number"
               min={1}
               max={180}
+              inputMode="numeric"
               value={customMinutes}
-              onChange={(e) => setCustomMinutes(e.target.value)}
-              placeholder="دقائق مخصصة"
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === '' || Number(raw) >= 0) setCustomMinutes(raw);
+              }}
+              placeholder="دقائق مخصصة (١–١٨٠)"
             />
+            {customMinutes.trim() !== '' && !isValidDuration && (
+              <p className="mt-2 text-xs font-bold text-red-200">أدخل مدة بين ١ و ١٨٠ دقيقة</p>
+            )}
+            {isValidDuration && (
+              <p className="mt-2 text-xs font-bold text-cyan-200/80">
+                ينتهي الموقف تلقائياً بعد {departureMinutes} دقيقة
+              </p>
+            )}
           </div>
 
           <button
-            disabled={loading}
-            className="btn btn-primary flex w-full items-center justify-center gap-2 py-4 text-lg disabled:opacity-50"
+            type="submit"
+            disabled={loading || !canPublish}
+            className="btn btn-primary flex w-full items-center justify-center gap-2 py-4 text-lg transition-all disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Send className="h-5 w-5" />
             {loading ? 'جاري النشر...' : 'نشر الموقف'}

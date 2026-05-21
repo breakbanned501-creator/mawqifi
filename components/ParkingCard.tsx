@@ -1,23 +1,35 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import { Car, Clock, MapPin, MessageCircle, Trash2 } from 'lucide-react';
 import type { ParkingPost } from '@/lib/types';
-import { deleteStoredPost, isPostActive } from '@/lib/posts';
+import { deleteParkingPost, isPostActive } from '@/lib/posts';
 import { formatGate, formatZone } from '@/lib/university';
 import CountdownTimer from './CountdownTimer';
 
 interface ParkingCardProps {
   post: ParkingPost;
-  onDelete?: () => void;
+  currentUserId: string;
+  onChanged?: () => void;
 }
 
-export default function ParkingCard({ post, onDelete }: ParkingCardProps) {
+export default function ParkingCard({ post, currentUserId, onChanged }: ParkingCardProps) {
   const active = isPostActive(post);
+  const isOwner = post.user_id === currentUserId;
+  const [deleting, setDeleting] = useState(false);
 
-  const handleDelete = () => {
-    deleteStoredPost(post.id);
-    onDelete?.();
+  const handleDelete = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    try {
+      await deleteParkingPost(post.id, currentUserId);
+      onChanged?.();
+    } catch {
+      /* parent may show error via refresh */
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -37,11 +49,12 @@ export default function ParkingCard({ post, onDelete }: ParkingCardProps) {
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
           <CountdownTimer expiresAt={new Date(post.expires_at).getTime()} />
-          {post.user_id === 'local-user' && (
+          {isOwner && (
             <button
               type="button"
-              onClick={handleDelete}
-              className="rounded-xl p-2 text-white/45 transition-colors hover:bg-red-500/15 hover:text-red-200"
+              onClick={() => void handleDelete()}
+              disabled={deleting}
+              className="rounded-xl p-2 text-white/45 transition-colors hover:bg-red-500/15 hover:text-red-200 disabled:opacity-40"
               aria-label="حذف الموقف"
             >
               <Trash2 className="h-4 w-4" />
@@ -65,17 +78,27 @@ export default function ParkingCard({ post, onDelete }: ParkingCardProps) {
             يغادر خلال {post.departure_minutes} د
           </p>
         </div>
-        <Link
-          href={`/post/${post.id}`}
-          className={`flex shrink-0 items-center gap-2 rounded-2xl px-4 py-2 text-sm font-extrabold shadow-lg ${
-            active
-              ? 'bg-cyan-500 text-navy-900 shadow-cyan-500/20'
-              : 'pointer-events-none bg-white/10 text-white/40'
-          }`}
-        >
-          <MessageCircle className="h-4 w-4" />
-          {active ? 'تواصل' : 'مغلقة'}
-        </Link>
+        {isOwner ? (
+          <Link
+            href="/conversations"
+            className="flex shrink-0 items-center gap-2 rounded-2xl bg-white/10 px-4 py-2 text-sm font-extrabold text-white/70"
+          >
+            <MessageCircle className="h-4 w-4" />
+            محادثاتي
+          </Link>
+        ) : (
+          <Link
+            href={`/post/${post.id}`}
+            className={`flex shrink-0 items-center gap-2 rounded-2xl px-4 py-2 text-sm font-extrabold shadow-lg ${
+              active
+                ? 'bg-cyan-500 text-navy-900 shadow-cyan-500/20'
+                : 'pointer-events-none bg-white/10 text-white/40'
+            }`}
+          >
+            <MessageCircle className="h-4 w-4" />
+            {active ? 'تواصل' : 'مغلقة'}
+          </Link>
+        )}
       </div>
     </article>
   );

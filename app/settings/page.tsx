@@ -4,45 +4,36 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Bell, LogOut, ShieldCheck, User } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
+import ErrorBanner from '@/components/ErrorBanner';
 import PageHeader from '@/components/PageHeader';
-import { currentMockProfile } from '@/lib/mock';
-import { supabase } from '@/lib/supabase';
-import type { Profile } from '@/lib/types';
+import { useAuth } from '@/components/AuthProvider';
+import { signOut, updateUsername } from '@/lib/auth';
+import { fetchParkingPosts } from '@/lib/posts';
 
 export default function SettingsPage() {
-  const [profile, setProfile] = useState<Profile>(currentMockProfile);
+  const { profile, isGuest, refreshProfile, userId } = useAuth();
   const [notifyEnabled, setNotifyEnabled] = useState(false);
+  const [activePosts, setActivePosts] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [username, setUsername] = useState(profile?.username ?? '');
 
   useEffect(() => {
-    const stored = localStorage.getItem('mawqifi_local_user');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored) as { username?: string; email?: string };
-        setProfile((current) => ({
-          ...current,
-          username: parsed.username || current.username,
-        }));
-      } catch {
-        /* ignore */
-      }
-    }
-
-    if (!supabase) return;
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        setProfile({
-          id: data.user.id,
-          username: data.user.user_metadata.username || data.user.email || 'طالب جامعة الكويت',
-          avatar_url: data.user.user_metadata.avatar_url || null,
-          active_post_count: 0,
-        });
-      }
-    });
-
     if ('Notification' in window) {
       setNotifyEnabled(Notification.permission === 'granted');
     }
   }, []);
+
+  useEffect(() => {
+    setUsername(profile?.username ?? '');
+  }, [profile?.username]);
+
+  useEffect(() => {
+    if (!userId) return;
+    void fetchParkingPosts().then((posts) => {
+      setActivePosts(posts.filter((p) => p.user_id === userId && p.status === 'active').length);
+    });
+  }, [userId]);
 
   const requestNotifications = async () => {
     if (!('Notification' in window)) return;
@@ -50,10 +41,27 @@ export default function SettingsPage() {
     setNotifyEnabled(permission === 'granted');
   };
 
+  const saveUsername = async () => {
+    if (!userId || !username.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await updateUsername(userId, username.trim());
+      await refreshProfile();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذر حفظ الاسم');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const logout = async () => {
-    if (supabase) await supabase.auth.signOut();
-    localStorage.removeItem('mawqifi_local_user');
-    window.location.href = '/auth';
+    try {
+      await signOut();
+      window.location.href = '/';
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذر تسجيل الخروج');
+    }
   };
 
   return (
@@ -61,15 +69,35 @@ export default function SettingsPage() {
       <div className="mx-auto max-w-md space-y-5">
         <PageHeader title="حسابي" subtitle="إدارة الحساب والتنبيهات" backHref="/" />
 
+        {error && <ErrorBanner message={error} />}
+
         <section className="glass-card p-5">
           <div className="flex items-center gap-4">
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl bg-cyan-500/15 text-cyan-300">
               <User className="h-8 w-8" />
             </div>
-            <div>
-              <h2 className="text-lg font-extrabold text-white">{profile.username}</h2>
-              <p className="text-sm text-white/55">منشورات نشطة: {profile.active_post_count ?? 0}</p>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg font-extrabold text-white">{profile?.username}</h2>
+              <p className="text-sm text-white/55">
+                {isGuest ? 'حساب ضيف' : 'حساب مسجّل'} — منشورات نشطة: {activePosts}
+              </p>
             </div>
+          </div>
+          <div className="mt-4 flex gap-2">
+            <input
+              className="input min-w-0 flex-1"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="اسم العرض"
+            />
+            <button
+              type="button"
+              onClick={() => void saveUsername()}
+              disabled={saving}
+              className="btn btn-secondary shrink-0 px-4"
+            >
+              {saving ? '...' : 'حفظ'}
+            </button>
           </div>
         </section>
 
@@ -79,7 +107,7 @@ export default function SettingsPage() {
               <Bell className="h-5 w-5 text-cyan-300" />
               <div>
                 <h3 className="font-bold text-white">تنبيهات المتصفح</h3>
-                <p className="text-sm text-white/55">تنبيه عند نشر موقفك أو رسالة جديدة</p>
+                <p className="text-sm text-white/55">تنبيه عند رسالة جديدة</p>
               </div>
             </div>
             <button
@@ -104,27 +132,29 @@ export default function SettingsPage() {
             <div>
               <h3 className="font-bold text-white">تنبيه مهم</h3>
               <p className="mt-1 text-sm leading-7 text-white/65">
-                موقفي تطبيق مجتمعي للطلاب وغير تابع رسمياً لجامعة الكويت. لا يوجد حجز مواقف — فقط تنسيق ودي بين الطلاب.
+                موقفي تطبيق مجتمعي للطلاب وغير تابع رسمياً لجامعة الكويت. لا يوجد حجز مواقف — فقط تنسيق ودي.
               </p>
             </div>
           </div>
         </section>
 
-        <Link
-          href="/auth"
-          className="block rounded-3xl border border-white/10 bg-white/5 p-4 text-center font-bold text-white/80"
-        >
-          تسجيل الدخول / إنشاء حساب
-        </Link>
-
-        <button
-          type="button"
-          onClick={logout}
-          className="flex w-full items-center justify-center gap-2 rounded-3xl border border-red-400/20 bg-red-500/10 p-4 font-bold text-red-200"
-        >
-          <LogOut className="h-5 w-5" />
-          تسجيل الخروج
-        </button>
+        {!isGuest ? (
+          <button
+            type="button"
+            onClick={() => void logout()}
+            className="flex w-full items-center justify-center gap-2 rounded-3xl border border-red-400/20 bg-red-500/10 p-4 font-bold text-red-200"
+          >
+            <LogOut className="h-5 w-5" />
+            تسجيل الخروج
+          </button>
+        ) : (
+          <Link
+            href="/auth"
+            className="block rounded-3xl border border-cyan-400/25 bg-cyan-500/10 p-4 text-center font-bold text-cyan-100"
+          >
+            ربط حساب بالبريد الإلكتروني
+          </Link>
+        )}
       </div>
       <BottomNav />
     </main>

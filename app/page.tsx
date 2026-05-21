@@ -4,47 +4,60 @@ import { useCallback, useEffect, useState } from 'react';
 import { Bell, Car, Map, MessageCircle, PlusCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import BottomNav from '@/components/BottomNav';
-import SupabaseNotice from '@/components/SupabaseNotice';
+import ErrorBanner from '@/components/ErrorBanner';
 import ParkingCard from '@/components/ParkingCard';
-import { getNotifications, unreadCount } from '@/lib/notifications';
-import { loadPosts, partitionPosts } from '@/lib/posts';
+import { useAuth } from '@/components/AuthProvider';
+import { fetchNotifications, unreadCount } from '@/lib/notifications';
+import { fetchParkingPosts, partitionPosts } from '@/lib/posts';
+import { getSupabase } from '@/lib/supabase';
 import type { ParkingPost } from '@/lib/types';
-import { supabase } from '@/lib/supabase';
 
 export default function Home() {
+  const { userId } = useAuth();
   const [posts, setPosts] = useState<ParkingPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [unread, setUnread] = useState(0);
 
-  const refresh = useCallback(() => {
-    setPosts(loadPosts());
-    setUnread(unreadCount(getNotifications()));
-    setIsLoading(false);
-  }, []);
+  const refresh = useCallback(async () => {
+    if (!userId) return;
+    setError(null);
+    try {
+      const [nextPosts, notifications] = await Promise.all([
+        fetchParkingPosts(),
+        fetchNotifications(userId),
+      ]);
+      setPosts(nextPosts);
+      setUnread(unreadCount(notifications));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذر تحميل المواقف');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId]);
 
   useEffect(() => {
-    refresh();
-    const cleanupInterval = setInterval(refresh, 60000);
-    const realtimeInterval = setInterval(refresh, 30000);
+    void refresh();
+  }, [refresh]);
 
-    if (supabase) {
-      const client = supabase;
-      const channel = client
-        .channel('home-posts')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, refresh)
-        .subscribe();
-      return () => {
-        clearInterval(cleanupInterval);
-        clearInterval(realtimeInterval);
-        void client.removeChannel(channel);
-      };
-    }
+  useEffect(() => {
+    if (!userId) return;
+
+    const supabase = getSupabase();
+    const channel = supabase
+      .channel('home-parking-posts')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_posts' }, () => {
+        void refresh();
+      })
+      .subscribe();
+
+    const interval = setInterval(() => void refresh(), 60000);
 
     return () => {
-      clearInterval(cleanupInterval);
-      clearInterval(realtimeInterval);
+      clearInterval(interval);
+      void supabase.removeChannel(channel);
     };
-  }, [refresh]);
+  }, [userId, refresh]);
 
   const { active: activePosts, expired: expiredPosts } = partitionPosts(posts);
 
@@ -77,7 +90,10 @@ export default function Home() {
               </Link>
               <button
                 type="button"
-                onClick={refresh}
+                onClick={() => {
+                  setIsLoading(true);
+                  void refresh();
+                }}
                 className="rounded-2xl p-3 text-white/60 transition-colors hover:bg-white/10 hover:text-cyan-300"
                 aria-label="تحديث"
               >
@@ -87,9 +103,11 @@ export default function Home() {
           </div>
         </header>
 
-        <div className="mb-5">
-          <SupabaseNotice />
-        </div>
+        {error && (
+          <div className="mb-5">
+            <ErrorBanner message={error} onRetry={() => { setIsLoading(true); void refresh(); }} />
+          </div>
+        )}
 
         <div className="mb-5 grid grid-cols-2 gap-3">
           <Link href="/conversations" className="glass-card flex items-center gap-3 p-4 text-white">
@@ -133,7 +151,7 @@ export default function Home() {
                   </h2>
                   <div className="space-y-4">
                     {activePosts.map((post) => (
-                      <ParkingCard key={post.id} post={post} onDelete={refresh} />
+                      <ParkingCard key={post.id} post={post} currentUserId={userId!} onChanged={refresh} />
                     ))}
                   </div>
                 </div>
@@ -146,7 +164,7 @@ export default function Home() {
                   </h2>
                   <div className="space-y-4">
                     {expiredPosts.map((post) => (
-                      <ParkingCard key={post.id} post={post} onDelete={refresh} />
+                      <ParkingCard key={post.id} post={post} currentUserId={userId!} onChanged={refresh} />
                     ))}
                   </div>
                 </div>

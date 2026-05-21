@@ -1,168 +1,220 @@
 'use client';
 
-import { type ChangeEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type ChangeEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight, Camera, ImageIcon, MapPin, Send, X } from 'lucide-react';
 import Toast from '@/components/Toast';
 import CountdownTimer from '@/components/CountdownTimer';
-import { appendLocalMessage, getLocalMessages, saveLocalMessages } from '@/lib/chat';
-import { loadPosts } from '@/lib/posts';
-import { mockPosts } from '@/lib/mock';
+import ErrorBanner from '@/components/ErrorBanner';
+import LoadingScreen from '@/components/LoadingScreen';
+import { useAuth } from '@/components/AuthProvider';
+import { fetchMessages, sendMessage, uploadChatImage } from '@/lib/chat';
+import {
+  fetchConversationByPostForUser,
+  getOrCreateConversation,
+  markConversationRead,
+} from '@/lib/conversations';
+import { fetchParkingPostById, isPostActive } from '@/lib/posts';
+import { getSupabase } from '@/lib/supabase';
 import { formatGate, formatZone } from '@/lib/university';
-import { supabase } from '@/lib/supabase';
-import type { ChatMessage } from '@/lib/types';
-
-type RealtimeInsertPayload = {
-  new: Record<string, unknown>;
-};
+import type { ChatMessage, Conversation, ParkingPost } from '@/lib/types';
 
 interface PostChatPageProps {
   params: { id: string };
 }
 
 export default function PostChatPage({ params }: PostChatPageProps) {
-  const post = useMemo(() => {
-    const all = loadPosts();
-    return all.find((item) => item.id === params.id) ?? mockPosts.find((item) => item.id === params.id) ?? mockPosts[0];
-  }, [params.id]);
-
+  const { userId } = useAuth();
+  const [post, setPost] = useState<ParkingPost | null>(null);
+  const [conversation, setConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState('');
   const [typing, setTyping] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [toast, setToast] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
-  const expired = new Date(post.expires_at).getTime() <= Date.now();
+
+  const expired = post ? !isPostActive(post) : false;
+  const conversationId = conversation?.id;
 
   useEffect(() => {
-    if (!supabase) {
-      setMessages(getLocalMessages(params.id));
-      return;
-    }
+    if (!userId) return;
 
-    const client = supabase;
-    const loadMessages = async () => {
-      const result = await client
-        .from('messages')
-        .select('*')
-        .eq('conversation_id', params.id)
-        .order('created_at', { ascending: true });
-      if (result.data?.length) {
-        setMessages(result.data as ChatMessage[]);
-        saveLocalMessages(params.id, result.data as ChatMessage[]);
-      } else {
-        setMessages(getLocalMessages(params.id));
+    let cancelled = false;
+
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const loadedPost = await fetchParkingPostById(params.id);
+        if (!loadedPost) throw new Error('الموقف غير موجود');
+        if (cancelled) return;
+        setPost(loadedPost);
+
+        let conv: Conversation;
+        if (loadedPost.user_id === userId) {
+          const existing = await fetchConversationByPostForUser(params.id, userId);
+          if (!existing) {
+            setError('هذا موقفك. انتظر رسائل الطلاب من صفحة المحادثات.');
+            setLoading(false);
+            return;
+          }
+          conv = existing;
+        } else {
+          const result = await getOrCreateConversation(params.id, userId);
+          conv = result.conversation;
+        }
+
+        if (cancelled) return;
+        setConversation(conv);
+
+        const initialMessages = await fetchMessages(conv.id);
+        if (cancelled) return;
+        setMessages(initialMessages);
+        await markConversationRead(conv.id, userId);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'تعذر فتح المحادثة');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    };
+    })();
 
-    void loadMessages();
-    const channel = client
-      .channel(`chat:${params.id}`)
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id, userId]);
+
+  useEffect(() => {
+    if (!conversationId) return;
+
+    const supabase = getSupabase();
+    const channel = supabase
+      .channel(`chat:${conversationId}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
-        (payload: RealtimeInsertPayload) => {
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          const row = payload.new as ChatMessage;
           setMessages((current) => {
-            const next = [...current, payload.new as ChatMessage];
-            saveLocalMessages(params.id, next);
-            return next;
+            if (current.some((m) => m.id === row.id)) return current;
+            return [...current, row];
           });
+          if (userId) void markConversationRead(conversationId, userId);
         },
       )
       .subscribe();
 
     return () => {
-      void client.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
-  }, [params.id]);
+  }, [conversationId, userId]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const pushLocalMessage = (message: Omit<ChatMessage, 'id' | 'created_at' | 'conversation_id' | 'sender_id'>) => {
-    const full: ChatMessage = {
-      id: crypto.randomUUID(),
-      conversation_id: params.id,
-      sender_id: 'local-user',
-      created_at: new Date().toISOString(),
-      ...message,
-    };
-    setMessages(appendLocalMessage(params.id, full));
-  };
-
-  const sendMessage = async () => {
-    if (!text.trim() || expired) return;
+  const sendText = async () => {
+    if (!text.trim() || expired || !conversationId || !userId) return;
     const value = text.trim();
     setText('');
-
-    if (supabase) {
-      await supabase.from('messages').insert({
-        conversation_id: params.id,
+    setError(null);
+    try {
+      await sendMessage({
+        conversationId,
+        senderId: userId,
         type: 'text',
         text: value,
       });
-    } else {
-      pushLocalMessage({ type: 'text', text: value, image_url: null, latitude: null, longitude: null });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذر إرسال الرسالة');
+      setText(value);
     }
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter') void sendMessage();
+    if (event.key === 'Enter') void sendText();
   };
 
   const handleImage = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || expired) return;
+    if (!file || expired || !conversationId || !userId) return;
+
     setUploading(true);
-    const previewUrl = URL.createObjectURL(file);
-
-    if (supabase) {
-      const path = `chat/${params.id}/${Date.now()}-${file.name}`;
-      const upload = await supabase.storage.from('chat-images').upload(path, file, { upsert: false });
-      const publicUrl = upload.data
-        ? supabase.storage.from('chat-images').getPublicUrl(upload.data.path).data.publicUrl
-        : previewUrl;
-      await supabase.from('messages').insert({
-        conversation_id: params.id,
+    setError(null);
+    try {
+      const publicUrl = await uploadChatImage(conversationId, userId, file);
+      await sendMessage({
+        conversationId,
+        senderId: userId,
         type: 'image',
-        image_url: publicUrl,
+        imageUrl: publicUrl,
       });
-    } else {
-      pushLocalMessage({ type: 'image', text: null, image_url: previewUrl, latitude: null, longitude: null });
+      setToast('تم إرسال الصورة');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذر رفع الصورة');
+    } finally {
+      setUploading(false);
+      event.target.value = '';
     }
-
-    setToast('تم إرسال الصورة');
-    setUploading(false);
-    event.target.value = '';
   };
 
   const sendLocation = () => {
-    if (expired || !navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition((position) => {
-      const { latitude, longitude } = position.coords;
-      if (supabase) {
-        void supabase.from('messages').insert({
-          conversation_id: params.id,
-          type: 'location',
-          text: 'موقعي الحالي',
-          latitude,
-          longitude,
-        });
-      } else {
-        pushLocalMessage({
-          type: 'location',
-          text: 'موقعي الحالي',
-          image_url: null,
-          latitude,
-          longitude,
-        });
-      }
-      setToast('تم إرسال الموقع');
-    });
+    if (expired || !conversationId || !userId) return;
+
+    if (!navigator.geolocation) {
+      setError('المتصفح لا يدعم تحديد الموقع');
+      return;
+    }
+
+    setError(null);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          await sendMessage({
+            conversationId,
+            senderId: userId,
+            type: 'location',
+            text: 'موقعي الحالي',
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+          setToast('تم إرسال الموقع');
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'تعذر إرسال الموقع');
+        }
+      },
+      (geoError) => {
+        const messages: Record<number, string> = {
+          1: 'يجب السماح بالوصول إلى الموقع من إعدادات المتصفح',
+          2: 'تعذر تحديد الموقع حالياً',
+          3: 'انتهت مهلة تحديد الموقع، حاول مرة أخرى',
+        };
+        setError(messages[geoError.code] ?? 'تعذر الحصول على الموقع');
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
+    );
   };
+
+  if (loading) return <LoadingScreen message="جاري فتح المحادثة..." />;
+
+  if (!post) {
+    return (
+      <main className="flex min-h-screen items-center justify-center px-4">
+        <ErrorBanner message={error ?? 'الموقف غير موجود'} />
+      </main>
+    );
+  }
 
   return (
     <main className="flex min-h-screen flex-col bg-navy-950">
@@ -207,14 +259,23 @@ export default function PostChatPage({ params }: PostChatPageProps) {
                 <CountdownTimer expiresAt={new Date(post.expires_at).getTime()} />
               </div>
             )}
-            {typing && <p className="mt-1 text-xs text-cyan-300 animate-pulse-soft">يكتب الآن...</p>}
+            {typing && <p className="mt-1 animate-pulse-soft text-xs text-cyan-300">يكتب الآن...</p>}
           </div>
         </div>
       </header>
 
+      {error && (
+        <div className="mx-auto w-full max-w-md px-4 pt-3">
+          <ErrorBanner message={error} onRetry={() => setError(null)} />
+        </div>
+      )}
+
       <section className="mx-auto flex w-full max-w-md flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
+        {messages.length === 0 && !error && (
+          <p className="py-8 text-center text-sm text-white/45">ابدأ المحادثة بخصوص هذا الموقف</p>
+        )}
         {messages.map((message) => {
-          const mine = message.sender_id === 'local-user';
+          const mine = message.sender_id === userId;
           return (
             <div key={message.id} className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
               <div
@@ -237,32 +298,34 @@ export default function PostChatPage({ params }: PostChatPageProps) {
                     />
                   </button>
                 )}
-                {message.type === 'location' && message.latitude && message.longitude && (
-                  <div className="space-y-2">
-                    <div className="rounded-2xl bg-navy-900/60 p-4 text-center">
-                      <MapPin className="mx-auto h-8 w-8 text-cyan-300" />
-                      <p className="mt-2 text-sm font-bold">موقع الطالب الحالي</p>
+                {message.type === 'location' &&
+                  message.latitude != null &&
+                  message.longitude != null && (
+                    <div className="space-y-2">
+                      <div className="rounded-2xl bg-navy-900/60 p-4 text-center">
+                        <MapPin className="mx-auto h-8 w-8 text-cyan-300" />
+                        <p className="mt-2 text-sm font-bold">موقع الطالب الحالي</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-xs font-bold">
+                        <a
+                          className="rounded-xl bg-white/15 px-3 py-2"
+                          target="_blank"
+                          rel="noreferrer"
+                          href={`https://www.google.com/maps?q=${message.latitude},${message.longitude}`}
+                        >
+                          خرائط Google
+                        </a>
+                        <a
+                          className="rounded-xl bg-white/15 px-3 py-2"
+                          target="_blank"
+                          rel="noreferrer"
+                          href={`https://maps.apple.com/?q=${message.latitude},${message.longitude}`}
+                        >
+                          خرائط Apple
+                        </a>
+                      </div>
                     </div>
-                    <div className="flex flex-wrap gap-2 text-xs font-bold">
-                      <a
-                        className="rounded-xl bg-white/15 px-3 py-2"
-                        target="_blank"
-                        rel="noreferrer"
-                        href={`https://www.google.com/maps?q=${message.latitude},${message.longitude}`}
-                      >
-                        خرائط Google
-                      </a>
-                      <a
-                        className="rounded-xl bg-white/15 px-3 py-2"
-                        target="_blank"
-                        rel="noreferrer"
-                        href={`https://maps.apple.com/?q=${message.latitude},${message.longitude}`}
-                      >
-                        خرائط Apple
-                      </a>
-                    </div>
-                  </div>
-                )}
+                  )}
               </div>
               <span className="mt-1 text-[11px] text-white/35">
                 {new Date(message.created_at).toLocaleTimeString('ar-KW', {
@@ -276,7 +339,7 @@ export default function PostChatPage({ params }: PostChatPageProps) {
         <div ref={endRef} />
       </section>
 
-      {expired ? (
+      {expired || conversation?.closed ? (
         <div className="animate-fade-up border-t border-red-400/20 bg-red-500/10 px-4 py-5 text-center text-red-100">
           تم انتهاء الموقف وإغلاق المحادثة
         </div>
@@ -285,16 +348,30 @@ export default function PostChatPage({ params }: PostChatPageProps) {
           <div className="mx-auto flex max-w-md items-center gap-2">
             <label className="shrink-0 rounded-full bg-white/10 p-3 text-white/60">
               <Camera className="h-5 w-5" />
-              <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImage} />
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={handleImage}
+                disabled={uploading}
+              />
             </label>
             <label className="shrink-0 rounded-full bg-white/10 p-3 text-white/60">
               <ImageIcon className="h-5 w-5" />
-              <input type="file" accept="image/*" className="hidden" onChange={handleImage} />
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImage}
+                disabled={uploading}
+              />
             </label>
             <button
               type="button"
               onClick={sendLocation}
-              className="shrink-0 rounded-full bg-white/10 p-3 text-white/60"
+              disabled={uploading}
+              className="shrink-0 rounded-full bg-white/10 p-3 text-white/60 disabled:opacity-40"
               aria-label="إرسال الموقع"
             >
               <MapPin className="h-5 w-5" />
@@ -306,12 +383,13 @@ export default function PostChatPage({ params }: PostChatPageProps) {
               onChange={(e) => setText(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={uploading ? 'جاري رفع الصورة...' : 'اكتب رسالة...'}
-              className="min-w-0 flex-1 rounded-full border border-white/10 bg-navy-950 px-4 py-3 text-sm text-white outline-none placeholder:text-white/40 focus:border-cyan-500"
+              disabled={uploading}
+              className="min-w-0 flex-1 rounded-full border border-white/10 bg-navy-950 px-4 py-3 text-sm text-white outline-none placeholder:text-white/40 focus:border-cyan-500 disabled:opacity-50"
             />
             <button
               type="button"
-              onClick={() => void sendMessage()}
-              disabled={!text.trim()}
+              onClick={() => void sendText()}
+              disabled={!text.trim() || uploading}
               className="shrink-0 rounded-full bg-cyan-500 p-3 text-navy-900 disabled:opacity-40"
               aria-label="إرسال"
             >

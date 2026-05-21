@@ -1,37 +1,146 @@
-import { mockPosts } from './mock';
+import { getSupabase } from './supabase';
 import type { ParkingPost } from './types';
 
-export const POSTS_STORAGE_KEY = 'mawqifi_supabase_like_posts';
+type ParkingPostRow = {
+  id: string;
+  user_id: string;
+  college: string;
+  zone: 'A' | 'B';
+  gate: string;
+  car_desc: string | null;
+  departure_minutes: number;
+  expires_at: string;
+  status: 'active' | 'expired' | 'closed';
+  created_at: string;
+  users: { username: string } | { username: string }[] | null;
+};
 
-export function getStoredPosts(): ParkingPost[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(POSTS_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as ParkingPost[]) : [];
-  } catch {
-    return [];
-  }
+function mapRow(row: ParkingPostRow): ParkingPost {
+  const user = Array.isArray(row.users) ? row.users[0] : row.users;
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    college: row.college,
+    zone: row.zone,
+    gate: row.gate,
+    car_desc: row.car_desc,
+    departure_minutes: row.departure_minutes,
+    expires_at: row.expires_at,
+    status: row.status,
+    username: user?.username ?? 'طالب',
+    created_at: row.created_at,
+  };
 }
 
-export function saveStoredPosts(posts: ParkingPost[]): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(posts));
+export async function expireStalePosts(): Promise<void> {
+  const supabase = getSupabase();
+  await supabase.rpc('expire_old_parking_posts');
 }
 
-export function addStoredPost(post: ParkingPost): void {
-  saveStoredPosts([post, ...getStoredPosts()]);
+export async function fetchParkingPosts(): Promise<ParkingPost[]> {
+  const supabase = getSupabase();
+  await expireStalePosts();
+
+  const { data, error } = await supabase
+    .from('parking_posts')
+    .select(
+      `
+      id,
+      user_id,
+      college,
+      zone,
+      gate,
+      car_desc,
+      departure_minutes,
+      expires_at,
+      status,
+      created_at,
+      users (username)
+    `,
+    )
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return (data as ParkingPostRow[]).map(mapRow);
 }
 
-export function deleteStoredPost(id: string): void {
-  saveStoredPosts(getStoredPosts().filter((post) => post.id !== id));
+export type CreateParkingPostInput = {
+  userId: string;
+  college: string;
+  zone: 'A' | 'B';
+  gate: string;
+  carDesc: string | null;
+  departureMinutes: number;
+  expiresAt: string;
+};
+
+export async function createParkingPost(input: CreateParkingPostInput): Promise<ParkingPost> {
+  const supabase = getSupabase();
+
+  const { data, error } = await supabase
+    .from('parking_posts')
+    .insert({
+      user_id: input.userId,
+      college: input.college,
+      zone: input.zone,
+      gate: input.gate,
+      car_desc: input.carDesc,
+      departure_minutes: input.departureMinutes,
+      expires_at: input.expiresAt,
+      status: 'active',
+    })
+    .select(
+      `
+      id,
+      user_id,
+      college,
+      zone,
+      gate,
+      car_desc,
+      departure_minutes,
+      expires_at,
+      status,
+      created_at,
+      users (username)
+    `,
+    )
+    .single();
+
+  if (error) throw error;
+  return mapRow(data as ParkingPostRow);
 }
 
-export function loadPosts(includeDemo = true): ParkingPost[] {
-  const stored = getStoredPosts();
-  const source = stored.length > 0 || !includeDemo ? stored : [...mockPosts, ...stored];
-  return [...source].sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-  );
+export async function fetchParkingPostById(postId: string): Promise<ParkingPost | null> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('parking_posts')
+    .select(
+      `
+      id,
+      user_id,
+      college,
+      zone,
+      gate,
+      car_desc,
+      departure_minutes,
+      expires_at,
+      status,
+      created_at,
+      users (username)
+    `,
+    )
+    .eq('id', postId)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+  return mapRow(data as ParkingPostRow);
+}
+
+export async function deleteParkingPost(postId: string, userId: string): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase.from('parking_posts').delete().eq('id', postId).eq('user_id', userId);
+  if (error) throw error;
 }
 
 export function isPostActive(post: ParkingPost): boolean {

@@ -1,3 +1,5 @@
+import { fetchConversations } from './conversations';
+
 export type AppNotification = {
   id: string;
   title: string;
@@ -7,51 +9,19 @@ export type AppNotification = {
   href?: string;
 };
 
-const STORAGE_KEY = 'mawqifi_notifications';
+export async function fetchNotifications(userId: string): Promise<AppNotification[]> {
+  const conversations = await fetchConversations(userId);
 
-export const defaultNotifications: AppNotification[] = [
-  {
-    id: 'n1',
-    title: 'رسالة جديدة',
-    body: 'نورة: أنا عند البوابة ٥',
-    created_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-    read: false,
-    href: '/post/demo-education-gate-5',
-  },
-  {
-    id: 'n2',
-    title: 'موقف قريب منك',
-    body: 'كلية الهندسة — المنطقة ب — البوابة ٧',
-    created_at: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
-    read: false,
-    href: '/',
-  },
-  {
-    id: 'n3',
-    title: 'انتهى وقت الموقف',
-    body: 'تم إغلاق محادثة موقف سابق تلقائياً',
-    created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    read: true,
-  },
-];
-
-export function getNotifications(): AppNotification[] {
-  if (typeof window === 'undefined') return defaultNotifications;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultNotifications));
-      return defaultNotifications;
-    }
-    return JSON.parse(raw) as AppNotification[];
-  } catch {
-    return defaultNotifications;
-  }
-}
-
-export function saveNotifications(items: AppNotification[]): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  return conversations
+    .filter((c) => (c.unread_count ?? 0) > 0 && c.last_message)
+    .map((c) => ({
+      id: c.id,
+      title: c.post?.college ? `رسالة — ${c.post.college}` : 'رسالة جديدة',
+      body: c.last_message ?? '',
+      created_at: c.updated_at,
+      read: false,
+      href: `/post/${c.post_id}`,
+    }));
 }
 
 export function unreadCount(items: AppNotification[]): number {

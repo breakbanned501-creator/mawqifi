@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
 import { Cairo } from 'next/font/google'
+import AppFooter from '@/components/AppFooter'
 import AuthProvider from '@/components/AuthProvider'
 import './globals.css'
 
@@ -35,8 +36,13 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon.svg" />
         <meta name="theme-color" content="#0a1128" />
       </head>
-      <body className={`${cairo.variable} font-sans antialiased text-white`}>
-        <AuthProvider>{children}</AuthProvider>
+      <body className={`${cairo.variable} flex min-h-screen flex-col font-sans antialiased text-white`}>
+        <AuthProvider>
+          <div className="flex min-h-screen flex-1 flex-col">
+            {children}
+            <AppFooter />
+          </div>
+        </AuthProvider>
       </body>
     </html>
   )

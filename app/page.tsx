@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Bell, Car, Map, MessageCircle, PlusCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import BottomNav from '@/components/BottomNav';
+import CampusMapGallery from '@/components/CampusMapGallery';
 import ErrorBanner from '@/components/ErrorBanner';
 import ParkingCard from '@/components/ParkingCard';
 import { useAuth } from '@/components/AuthProvider';
@@ -119,6 +120,8 @@ export default function Home() {
             <span className="text-sm font-bold">خريطة الجامعة</span>
           </Link>
         </div>
+
+        <CampusMapGallery />
 
         <Link
           href="/create"

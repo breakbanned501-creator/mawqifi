@@ -13,6 +13,13 @@ html {
   scroll-behavior: smooth;
 }
 
+@media (display-mode: standalone) {
+  body {
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+  }
+}
+
 body {
   @apply bg-navy-950 font-sans text-white;
   min-height: 100vh;

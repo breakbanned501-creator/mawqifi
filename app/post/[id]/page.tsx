@@ -3,12 +3,13 @@
 import { type ChangeEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, Camera, ImageIcon, MapPin, Send, X } from 'lucide-react';
+import { ArrowRight, Camera, ImageIcon, MapPin, Send, X, Flag } from 'lucide-react';
 import AppFooter from '@/components/AppFooter';
 import Toast from '@/components/Toast';
 import CountdownTimer from '@/components/CountdownTimer';
 import ErrorBanner from '@/components/ErrorBanner';
 import LoadingScreen from '@/components/LoadingScreen';
+import ReportModal from '@/components/ReportModal';
 import { useAuth } from '@/components/AuthProvider';
 import { fetchMessages, sendMessage, uploadChatImage } from '@/lib/chat';
 import {
@@ -37,6 +38,8 @@ export default function PostChatPage({ params }: PostChatPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [toast, setToast] = useState('');
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [messageToReport, setMessageToReport] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
   const expired = post ? !isPostActive(post) : false;
@@ -207,6 +210,12 @@ export default function PostChatPage({ params }: PostChatPageProps) {
     );
   };
 
+  const handleReport = async (reason: string, details: string) => {
+    // In production, this would send to a backend endpoint
+    console.log('Report submitted:', { messageId: messageToReport, reason, details });
+    // For now, just log it
+  };
+
   if (loading) return <LoadingScreen message="جاري فتح المحادثة..." />;
 
   if (!post) {
@@ -279,54 +288,69 @@ export default function PostChatPage({ params }: PostChatPageProps) {
           const mine = message.sender_id === userId;
           return (
             <div key={message.id} className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
-              <div
-                className={`max-w-[82%] rounded-3xl px-4 py-3 ${
-                  mine
-                    ? 'rounded-be-md bg-cyan-500 text-navy-900'
-                    : 'rounded-bs-md bg-white/10 text-white'
-                }`}
-              >
-                {message.type === 'text' && <p className="text-sm leading-7">{message.text}</p>}
-                {message.type === 'image' && message.image_url && (
-                  <button type="button" onClick={() => setSelectedImage(message.image_url)}>
-                    <Image
-                      src={message.image_url}
-                      alt="صورة"
-                      width={240}
-                      height={180}
-                      className="rounded-2xl object-cover"
-                      unoptimized
-                    />
+              <div className="flex items-end gap-2">
+                <div
+                  className={`max-w-[82%] rounded-3xl px-4 py-3 ${
+                    mine
+                      ? 'rounded-be-md bg-cyan-500 text-navy-900'
+                      : 'rounded-bs-md bg-white/10 text-white'
+                  }`}
+                >
+                  {message.type === 'text' && <p className="text-sm leading-7">{message.text}</p>}
+                  {message.type === 'image' && message.image_url && (
+                    <button type="button" onClick={() => setSelectedImage(message.image_url)}>
+                      <Image
+                        src={message.image_url}
+                        alt="صورة"
+                        width={240}
+                        height={180}
+                        className="rounded-2xl object-cover"
+                        unoptimized
+                      />
+                    </button>
+                  )}
+                  {message.type === 'location' &&
+                    message.latitude != null &&
+                    message.longitude != null && (
+                      <div className="space-y-2">
+                        <div className="rounded-2xl bg-navy-900/60 p-4 text-center">
+                          <MapPin className="mx-auto h-8 w-8 text-cyan-300" />
+                          <p className="mt-2 text-sm font-bold">موقع الطالب الحالي</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2 text-xs font-bold">
+                          <a
+                            className="rounded-xl bg-white/15 px-3 py-2"
+                            target="_blank"
+                            rel="noreferrer"
+                            href={`https://www.google.com/maps?q=${message.latitude},${message.longitude}`}
+                          >
+                            خرائط Google
+                          </a>
+                          <a
+                            className="rounded-xl bg-white/15 px-3 py-2"
+                            target="_blank"
+                            rel="noreferrer"
+                            href={`https://maps.apple.com/?q=${message.latitude},${message.longitude}`}
+                          >
+                            خرائط Apple
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                </div>
+                {!mine && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMessageToReport(message.id);
+                      setShowReportModal(true);
+                    }}
+                    className="mb-1 rounded-full p-1.5 text-white/30 transition-colors hover:bg-red-500/15 hover:text-red-300"
+                    aria-label="الإبلاغ عن الرسالة"
+                  >
+                    <Flag className="h-3.5 w-3.5" />
                   </button>
                 )}
-                {message.type === 'location' &&
-                  message.latitude != null &&
-                  message.longitude != null && (
-                    <div className="space-y-2">
-                      <div className="rounded-2xl bg-navy-900/60 p-4 text-center">
-                        <MapPin className="mx-auto h-8 w-8 text-cyan-300" />
-                        <p className="mt-2 text-sm font-bold">موقع الطالب الحالي</p>
-                      </div>
-                      <div className="flex flex-wrap gap-2 text-xs font-bold">
-                        <a
-                          className="rounded-xl bg-white/15 px-3 py-2"
-                          target="_blank"
-                          rel="noreferrer"
-                          href={`https://www.google.com/maps?q=${message.latitude},${message.longitude}`}
-                        >
-                          خرائط Google
-                        </a>
-                        <a
-                          className="rounded-xl bg-white/15 px-3 py-2"
-                          target="_blank"
-                          rel="noreferrer"
-                          href={`https://maps.apple.com/?q=${message.latitude},${message.longitude}`}
-                        >
-                          خرائط Apple
-                        </a>
-                      </div>
-                    </div>
-                  )}
               </div>
               <span className="mt-1 text-[11px] text-white/35">
                 {new Date(message.created_at).toLocaleTimeString('ar-KW', {
@@ -399,6 +423,17 @@ export default function PostChatPage({ params }: PostChatPageProps) {
           </div>
         </footer>
       )}
+      
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => {
+          setShowReportModal(false);
+          setMessageToReport(null);
+        }}
+        onSubmit={handleReport}
+        targetType="message"
+      />
+      
       <AppFooter />
     </main>
   );

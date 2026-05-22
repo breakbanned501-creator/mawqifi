@@ -138,6 +138,36 @@ export default function SettingsPage() {
           </div>
         </section>
 
+        <section className="glass-card space-y-3 p-5">
+          <h3 className="font-bold text-white">روابط قانونية</h3>
+          <div className="space-y-2">
+            <Link
+              href="/privacy"
+              className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-bold text-white/80"
+            >
+              سياسة الخصوصية
+            </Link>
+            <Link
+              href="/terms"
+              className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-bold text-white/80"
+            >
+              الشروط والأحكام
+            </Link>
+            <Link
+              href="/feedback"
+              className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-bold text-white/80"
+            >
+              تواصل معنا
+            </Link>
+          </div>
+        </section>
+
+        <div className="text-center">
+          <p className="text-[10px] font-semibold text-white/30">
+            الإصدار التجريبي v1.0
+          </p>
+        </div>
+
         {!isGuest ? (
           <button
             type="button"

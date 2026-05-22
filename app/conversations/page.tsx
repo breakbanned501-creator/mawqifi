@@ -59,8 +59,12 @@ export default function ConversationsPage() {
         {error && <ErrorBanner message={error} onRetry={() => { setLoading(true); void load(); }} />}
 
         {items.length === 0 ? (
-          <div className="glass-card py-10 text-center text-sm text-white/55">
-            لا توجد محادثات بعد. افتح موقفاً من الرئيسية واضغط «تواصل».
+          <div className="glass-card py-12 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-cyan-500/10">
+              <MessageCircle className="h-8 w-8 text-cyan-300" />
+            </div>
+            <h3 className="mb-2 text-lg font-extrabold text-white">لا توجد محادثات بعد</h3>
+            <p className="text-sm leading-6 text-white/60">افتح موقفاً من الرئيسية واضغط «تواصل» للبدء</p>
           </div>
         ) : (
           <div className="space-y-3">

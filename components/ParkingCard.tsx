@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Clock, MapPin, MessageCircle, Trash2 } from 'lucide-react';
+import { Clock, MapPin, MessageCircle, Trash2, Flag } from 'lucide-react';
 import type { ParkingPost } from '@/lib/types';
 import { deleteParkingPost, isPostActive } from '@/lib/posts';
 import { formatGate, formatZone } from '@/lib/university';
 import CountdownTimer from './CountdownTimer';
+import ReportModal from './ReportModal';
 
 interface ParkingCardProps {
   post: ParkingPost;
@@ -19,6 +20,7 @@ export default function ParkingCard({ post, currentUserId, onChanged, onExpire }
   const active = isPostActive(post);
   const isOwner = post.user_id === currentUserId;
   const [deleting, setDeleting] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const handleDelete = async () => {
     if (deleting) return;
@@ -31,6 +33,12 @@ export default function ParkingCard({ post, currentUserId, onChanged, onExpire }
     } finally {
       setDeleting(false);
     }
+  };
+
+  const handleReport = async (reason: string, details: string) => {
+    // In production, this would send to a backend endpoint
+    console.log('Report submitted:', { postId: post.id, reason, details });
+    // For now, just log it
   };
 
   if (!active) return null;
@@ -55,17 +63,29 @@ export default function ParkingCard({ post, currentUserId, onChanged, onExpire }
             expiresAt={new Date(post.expires_at).getTime()}
             onComplete={() => onExpire?.(post.id)}
           />
-          {isOwner && (
-            <button
-              type="button"
-              onClick={() => void handleDelete()}
-              disabled={deleting}
-              className="rounded-xl p-2 text-white/45 transition-colors hover:bg-red-500/15 hover:text-red-200 disabled:opacity-40"
-              aria-label="حذف الموقف"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          )}
+          <div className="flex gap-1">
+            {!isOwner && (
+              <button
+                type="button"
+                onClick={() => setShowReportModal(true)}
+                className="rounded-xl p-2 text-white/45 transition-colors hover:bg-red-500/15 hover:text-red-200"
+                aria-label="الإبلاغ"
+              >
+                <Flag className="h-4 w-4" />
+              </button>
+            )}
+            {isOwner && (
+              <button
+                type="button"
+                onClick={() => void handleDelete()}
+                disabled={deleting}
+                className="rounded-xl p-2 text-white/45 transition-colors hover:bg-red-500/15 hover:text-red-200 disabled:opacity-40"
+                aria-label="حذف الموقف"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -102,6 +122,13 @@ export default function ParkingCard({ post, currentUserId, onChanged, onExpire }
           </Link>
         )}
       </div>
+      
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        onSubmit={handleReport}
+        targetType="post"
+      />
     </article>
   );
 }

@@ -13,8 +13,12 @@ const cairo = Cairo({
 })
 
 export const metadata: Metadata = {
-  title: 'موقفي - Mawqifi',
-  description: 'تطبيق مجتمعي لمشاركة المواقف المتاحة في جامعة الكويت — الشدادية',
+  title: 'موقفي - Mawqifi | مشاركة مواقف جامعة الكويت',
+  description: 'تطبيق مجتمعي لمشاركة المواقف المتاحة في جامعة الكويت — الشدادية. ساعد زملاءك الطلاب في العثور على مواقف وتنسيق الوصول بسهولة.',
+  keywords: ['موقفي', 'جامعة الكويت', 'مواقف', 'شدادية', 'طلاب', 'مشاركة مواقف', 'Kuwait University', 'parking'],
+  authors: [{ name: 'Eid Althaydi' }],
+  creator: 'Eid Althaydi',
+  publisher: 'Mawqifi',
   applicationName: 'موقفي',
   manifest: '/manifest.json',
   appleWebApp: {
@@ -50,6 +54,44 @@ export const metadata: Metadata = {
       { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
     ],
     apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'ar_KW',
+    url: 'https://mawqifi.com',
+    title: 'موقفي - Mawqifi | مشاركة مواقف جامعة الكويت',
+    description: 'تطبيق مجتمعي لمشاركة المواقف المتاحة في جامعة الكويت — الشدادية',
+    siteName: 'موقفي',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'موقفي - تطبيق مشاركة مواقف جامعة الكويت',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'موقفي - Mawqifi | مشاركة مواقف جامعة الكويت',
+    description: 'تطبيق مجتمعي لمشاركة المواقف المتاحة في جامعة الكويت — الشدادية',
+    images: ['/og-image.png'],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  verification: {
+    // Add your verification codes when available
+    // google: 'your-google-verification-code',
+    // yandex: 'your-yandex-verification-code',
   },
   other: {
     'mobile-web-app-capable': 'yes',

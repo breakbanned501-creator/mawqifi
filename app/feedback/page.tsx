@@ -6,6 +6,7 @@ import BottomNav from '@/components/BottomNav';
 import PageHeader from '@/components/PageHeader';
 import Toast from '@/components/Toast';
 import { sanitizeInput } from '@/lib/security';
+import { getSupabase } from '@/lib/supabase';
 
 export default function FeedbackPage() {
   const [name, setName] = useState('');
@@ -59,15 +60,26 @@ export default function FeedbackPage() {
         message: sanitizeInput(message.trim()),
       };
 
-      // In production, this would send to a backend endpoint
-      // For now, we'll simulate success
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Insert into Supabase feedback table
+      const supabase = getSupabase();
+      const { error: insertError } = await supabase
+        .from('feedback')
+        .insert({
+          name: sanitizedData.name,
+          email: sanitizedData.email || null,
+          message: sanitizedData.message,
+        });
+
+      if (insertError) {
+        throw insertError;
+      }
       
-      setToast('تم إرسال ملاحظاتك بنجاح! شكراً لتواصلك');
+      setToast('تم إرسال ملاحظتك بنجاح 🤍');
       setName('');
       setEmail('');
       setMessage('');
     } catch (err) {
+      console.error('Feedback submission error:', err);
       setError('حدث خطأ أثناء إرسال الملاحظات. الرجاء المحاولة مرة أخرى');
     } finally {
       setSubmitting(false);

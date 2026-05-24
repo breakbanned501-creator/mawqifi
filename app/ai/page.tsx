@@ -65,12 +65,14 @@ export default function AIAssistantPage() {
         )}
 
         <FileUpload files={files} onFilesChange={handleFilesChange} />
+        <p className="text-center text-xs text-white/50">ارفع السيلابس أو صورة الدرجات أو إعلان الدكتور</p>
 
         <AIAnalysisButton 
           onClick={handleAnalyze} 
           disabled={files.length === 0 || analyzing}
           loading={analyzing}
         />
+        <p className="text-center text-xs text-white/50">تحليل ذكي استرشادي لمساعدتك أكاديميًا</p>
 
         {analyzing && (
           <div className="glass-card p-6 text-center">

@@ -1,0 +1,122 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #00d4ff;
+  --secondary: #33ddff;
+  --danger: #f87171;
+  color-scheme: dark;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (display-mode: standalone) {
+  body {
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+  }
+}
+
+body {
+  @apply bg-navy-950 font-sans text-white;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(0, 212, 255, 0.18), transparent 30rem),
+    radial-gradient(circle at 85% 15%, rgba(0, 212, 255, 0.08), transparent 26rem),
+    linear-gradient(180deg, #0a1128 0%, #050816 100%);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'kern' 1;
+  line-height: 1.6;
+}
+
+[dir='rtl'] .flip-rtl {
+  transform: scaleX(-1);
+}
+
+* {
+  @apply box-border;
+}
+
+.container {
+  @apply max-w-md mx-auto px-0 py-0;
+}
+
+.card {
+  @apply mb-4 rounded-3xl border border-white/10 bg-navy-800/80 p-4 text-white shadow-glow backdrop-blur-xl;
+}
+
+.btn {
+  @apply rounded-2xl px-6 py-3 text-sm font-extrabold transition-all duration-200 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60;
+}
+
+.btn-primary {
+  @apply bg-cyan-500 text-navy-950 shadow-lg shadow-cyan-500/20 hover:bg-cyan-400;
+}
+
+.btn-danger {
+  @apply bg-red-500 text-white hover:bg-red-400;
+}
+
+.btn-secondary {
+  @apply bg-white/10 text-white hover:bg-white/15;
+}
+
+.input {
+  @apply w-full rounded-2xl border border-white/10 bg-navy-950/80 px-4 py-3 text-base font-semibold text-white outline-none transition-all placeholder:text-white/40 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20;
+}
+
+.textarea {
+  @apply input min-h-[7.5rem] resize-y leading-7;
+  font-family: inherit;
+}
+
+.input option {
+  color: #0a1128;
+  background: #ffffff;
+}
+
+.badge {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium;
+}
+
+.badge-success {
+  @apply bg-emerald-400/15 text-emerald-200;
+}
+
+.badge-warning {
+  @apply bg-yellow-400/15 text-yellow-100;
+}
+
+.badge-danger {
+  @apply bg-red-400/15 text-red-100;
+}
+
+.glass-card {
+  @apply rounded-3xl border border-white/10 bg-navy-800/80 text-white shadow-glow backdrop-blur-xl;
+}
+
+.muted-text {
+  @apply text-white/70;
+}
+
+.subtle-text {
+  @apply text-white/55;
+}
+
+.safe-bottom {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+.safe-top {
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+}
+
+/* Space for fixed footer + bottom nav (~7.25rem + safe area) */
+.page-with-chrome {
+  padding-bottom: calc(7.25rem + env(safe-area-inset-bottom, 0px));
+}

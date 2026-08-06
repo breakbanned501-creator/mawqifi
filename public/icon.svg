@@ -1,0 +1,19 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a1128"/>
+      <stop offset="100%" stop-color="#050816"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00d4ff"/>
+      <stop offset="100%" stop-color="#00b8e0"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect x="48" y="48" width="416" height="416" rx="96" fill="none" stroke="#00d4ff" stroke-width="8" opacity="0.35"/>
+  <rect x="136" y="168" width="240" height="200" rx="40" fill="url(#glow)"/>
+  <rect x="168" y="200" width="80" height="56" rx="12" fill="#0a1128" opacity="0.25"/>
+  <circle cx="208" cy="312" r="28" fill="#0a1128" opacity="0.35"/>
+  <circle cx="304" cy="312" r="28" fill="#0a1128" opacity="0.35"/>
+  <text x="256" y="132" font-size="72" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-weight="700">موقفي</text>
+</svg>

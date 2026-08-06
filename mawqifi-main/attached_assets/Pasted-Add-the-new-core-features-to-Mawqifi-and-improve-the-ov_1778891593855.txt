@@ -1,0 +1,190 @@
+Add the new core features to Mawqifi and improve the overall app experience.
+
+---
+
+NEW FEATURES TO ADD
+
+1. PRIVATE CHAT SYSTEM
+
+Users must be able to privately communicate regarding parking spots.
+
+Add a “تواصل” button on every parking post.
+
+The private chat should support:
+
+* text messages
+* image sharing
+* parking explanations
+* realtime messaging
+
+Examples:
+
+* “أنا عند Gate 5”
+* “السيارة جنب العمود”
+* “هذا شكل المكان”
+
+Chats should feel:
+
+* fast
+* modern
+* lightweight
+* mobile-friendly
+
+---
+
+2. IMAGE SHARING
+
+Inside private chat:
+
+* allow image upload
+* allow camera photos
+* allow gallery upload
+
+Users should be able to send:
+
+* parking photos
+* car photos
+* entrance photos
+* screenshots
+
+Requirements:
+
+* image preview
+* fullscreen image viewer
+* upload loading state
+* image compression
+* secure storage using Supabase Storage
+
+---
+
+3. AUTO-EXPIRING POSTS
+
+Parking posts must automatically expire after the selected leaving time.
+
+Examples:
+
+* 5 minutes
+* 10 minutes
+* 15 minutes
+* 30 minutes
+
+Expired posts should:
+
+* disappear automatically from feed
+* close related chats automatically
+
+---
+
+4. COUNTDOWN TIMER
+
+Each parking post should display:
+
+* time remaining
+* live countdown
+
+Examples:
+
+* “يغادر بعد 4 دقائق”
+* “يغادر بعد 12 دقيقة”
+
+---
+
+5. UNIVERSITY ZONES & GATES
+
+Add proper university parking structure using:
+
+* Zones
+* Gates
+* College names
+
+Examples:
+
+* Zone A
+* Zone B
+* Gate 5
+* Gate 2
+
+Add all Kuwait University colleges.
+
+---
+
+6. UNIVERSITY MAP IMAGES
+
+Do NOT use live maps.
+
+Instead:
+create a dedicated screen showing uploaded parking zone images and gate maps.
+
+Purpose:
+Help students understand parking areas visually.
+
+---
+
+7. REALTIME SYSTEM
+
+Ensure:
+
+* new posts appear instantly
+* chats update instantly
+* countdown updates correctly
+* feed refreshes automatically
+
+Use Supabase realtime subscriptions.
+
+---
+
+8. ANALYTICS SYSTEM
+
+Add admin analytics dashboard showing:
+
+* active users
+* total parking posts
+* chats count
+* most active zones
+* online users now
+
+Do NOT expose admin analytics publicly.
+
+---
+
+9. UI/UX IMPROVEMENTS
+
+Improve:
+
+* spacing
+* readability
+* Arabic typography
+* dark mode
+* consistent colors
+* button visibility
+* card alignment
+
+The app should feel:
+
+* premium
+* smooth
+* realistic
+* production-ready
+
+---
+
+IMPORTANT RULES
+
+DO NOT ADD:
+
+* fake users
+* fake parking analytics
+* AI prediction systems
+* GPS live tracking
+* parking reservations
+* complicated traffic systems
+
+Keep the app:
+
+* simple
+* community-based
+* realistic
+* fast
+* easy to use
+
+The app should feel like a real daily-use student platform for Kuwait University.

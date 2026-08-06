@@ -1,0 +1,152 @@
+Redesign and improve the entire Mawqifi app UI/UX to feel cleaner, more organized, modern, and production-ready.
+
+Current problems:
+
+* low contrast colors
+* text is hard to read
+* spacing is inconsistent
+* some elements overlap
+* screens feel unfinished
+* layout is not visually organized
+* some buttons and cards are unclear
+
+IMPORTANT:
+The app must feel polished, smooth, minimal, and easy to understand instantly.
+
+---
+
+DESIGN IMPROVEMENTS
+
+1. Improve readability
+
+* use high contrast text
+* avoid faded text colors
+* improve Arabic typography
+* make all labels clearly readable
+* increase spacing between sections
+* improve padding and alignment
+
+2. Fix layout consistency
+
+* all cards should have equal spacing
+* buttons should be aligned properly
+* no overlapping text
+* consistent border radius
+* consistent icon sizes
+* smooth responsive mobile layout
+
+3. Improve overall visual quality
+   Use:
+
+* premium dark mode
+* modern glassmorphism
+* navy + cyan accent colors
+* clean shadows
+* smooth animations
+* minimal modern UI
+
+Avoid:
+
+* washed out colors
+* transparent unreadable elements
+* cluttered layout
+* futuristic fake AI style
+
+---
+
+MAIN APP STRUCTURE
+
+Bottom navigation:
+
+* الرئيسية
+* أضف موقفك
+* مواقفي
+* الرسائل
+
+---
+
+HOME SCREEN
+
+The home screen should display:
+
+* active parking posts
+* departure times
+* nearby colleges
+* car descriptions
+* quick contact button
+
+Each parking card should feel:
+
+* clean
+* modern
+* easy to scan quickly while driving
+
+---
+
+ADD ALL KUWAIT UNIVERSITY COLLEGES
+
+Add complete parking categories and college areas including:
+
+* كلية الهندسة
+* كلية التربية
+* كلية العلوم
+* كلية الحقوق
+* كلية الآداب
+* كلية العلوم الإدارية
+* كلية الطب
+* كلية طب الأسنان
+* كلية الصيدلة
+* كلية الشريعة
+* كلية العلوم الحياتية
+* كلية العلوم الاجتماعية
+* كلية العمارة
+* كلية الصحة العامة
+* كلية التمريض
+
+Also add:
+
+* مواقف شمالية
+* مواقف جنوبية
+* مواقف مشتركة
+* مواقف الزوار
+
+---
+
+PARKING POST EXPERIENCE
+
+When creating a parking post:
+
+* make the process extremely simple
+* clear form fields
+* modern dropdowns
+* fast time selection
+* clear submit button
+
+The user should create a post within seconds.
+
+---
+
+MESSAGES SYSTEM
+
+Improve private chat UI:
+
+* modern chat bubbles
+* image sending support
+* clean timestamps
+* smooth conversation layout
+* simple temporary chat system
+
+---
+
+IMPORTANT
+
+Do NOT generate:
+
+* fake users
+* fake parking analytics
+* fake AI predictions
+* fake traffic systems
+
+Keep the app realistic and community-driven.
+
+The final result should feel like a real polished student app that people would genuinely use daily at Kuwait University.

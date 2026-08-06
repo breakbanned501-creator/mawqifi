@@ -13,6 +13,7 @@ const cairo = Cairo({
 })
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://mawqifi.com'),
   title: 'موقفي - Mawqifi | مشاركة مواقف جامعة الكويت',
   description: 'تطبيق مجتمعي لمشاركة المواقف المتاحة في جامعة الكويت — الشدادية. ساعد زملاءك الطلاب في العثور على مواقف وتنسيق الوصول بسهولة.',
   keywords: ['موقفي', 'جامعة الكويت', 'مواقف', 'شدادية', 'طلاب', 'مشاركة مواقف', 'Kuwait University', 'parking'],

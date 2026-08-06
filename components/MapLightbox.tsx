@@ -169,7 +169,7 @@ export default function MapLightbox({ src, alt, caption, open, onClose }: MapLig
             width={1200}
             height={900}
             className="max-h-[75vh] w-auto max-w-full rounded-2xl object-contain shadow-[0_0_40px_rgba(0,212,255,0.25)]"
-            unoptimized
+            sizes="100vw"
             draggable={false}
           />
         </div>

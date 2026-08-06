@@ -59,21 +59,3 @@ export function ButtonSkeleton({ className = '' }: LoadingSkeletonProps) {
     <div className={`h-12 w-full animate-pulse rounded-2xl bg-white/10 ${className}`} />
   );
 }
-
-export function AIResultSkeleton({ className = '' }: LoadingSkeletonProps) {
-  return (
-    <div className={`glass-card border p-5 ${className}`}>
-      <div className="flex items-start gap-4">
-        <div className="h-12 w-12 shrink-0 animate-pulse rounded-2xl bg-white/10" />
-        <div className="flex-1 space-y-3">
-          <div className="h-6 w-1/3 animate-pulse rounded bg-white/10" />
-          <div className="space-y-2">
-            <div className="h-4 w-full animate-pulse rounded bg-white/10" />
-            <div className="h-4 w-5/6 animate-pulse rounded bg-white/10" />
-            <div className="h-4 w-4/6 animate-pulse rounded bg-white/10" />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}

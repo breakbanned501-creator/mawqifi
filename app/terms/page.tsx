@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unescaped-entities */
 import Link from 'next/link';
 import { FileText, AlertTriangle, Users, Shield, Ban } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';

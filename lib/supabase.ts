@@ -27,10 +27,3 @@ export function getSupabase(): SupabaseClient {
   }
   return client;
 }
-
-/** @deprecated Use getSupabase() — kept for gradual migration */
-export const supabase = isSupabaseConfigured ? getSupabase() : null;
-
-export function getSupabaseStorageUrl(): string {
-  return `${supabaseUrl}/storage/v1/object/public/chat-images`;
-}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Bell, Car, Map, MessageCircle, PlusCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import BottomNav from '@/components/BottomNav';
@@ -64,14 +64,7 @@ export default function Home() {
     void expireStalePosts().catch(() => {});
   }, []);
 
-  useEffect(() => {
-    const tick = setInterval(() => {
-      setPosts((current) => filterActivePosts(current));
-    }, 1000);
-    return () => clearInterval(tick);
-  }, []);
-
-  const activePosts = filterActivePosts(posts);
+  const activePosts = useMemo(() => filterActivePosts(posts), [posts]);
 
   return (
     <main className="page-with-chrome min-h-screen px-4 pt-5">

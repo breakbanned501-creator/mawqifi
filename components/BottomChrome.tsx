@@ -2,14 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Map, MessageCircle, PlusCircle, User, Sparkles } from 'lucide-react';
+import { Home, Map, MessageCircle, PlusCircle, User } from 'lucide-react';
 
 const items = [
   { href: '/', label: 'الرئيسية', icon: Home },
   { href: '/create', label: 'نشر', icon: PlusCircle },
   { href: '/conversations', label: 'محادثات', icon: MessageCircle },
   { href: '/map', label: 'الخريطة', icon: Map },
-  { href: '/ai', label: 'AI', icon: Sparkles },
   { href: '/settings', label: 'حسابي', icon: User },
 ];
 
@@ -25,7 +24,7 @@ export default function BottomChrome() {
         </p>
       </footer>
       <nav className="safe-bottom px-2 pb-2 pt-1.5" aria-label="التنقل الرئيسي">
-        <div className="mx-auto grid max-w-md grid-cols-6 gap-1">
+        <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
           {items.map((item) => {
             const Icon = item.icon;
             const active =

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 import { Clock, MapPin, MessageCircle, Trash2, Flag } from 'lucide-react';
 import type { ParkingPost } from '@/lib/types';
 import { deleteParkingPost, isPostActive } from '@/lib/posts';
@@ -16,13 +16,13 @@ interface ParkingCardProps {
   onExpire?: (postId: string) => void;
 }
 
-export default function ParkingCard({ post, currentUserId, onChanged, onExpire }: ParkingCardProps) {
+function ParkingCard({ post, currentUserId, onChanged, onExpire }: ParkingCardProps) {
   const active = isPostActive(post);
   const isOwner = post.user_id === currentUserId;
   const [deleting, setDeleting] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
-  const handleDelete = async () => {
+  const handleDelete = useCallback(async () => {
     if (deleting) return;
     setDeleting(true);
     try {
@@ -33,13 +33,13 @@ export default function ParkingCard({ post, currentUserId, onChanged, onExpire }
     } finally {
       setDeleting(false);
     }
-  };
+  }, [currentUserId, deleting, onChanged, post.id]);
 
-  const handleReport = async (reason: string, details: string) => {
+  const handleReport = useCallback(async (reason: string, details: string) => {
     // In production, this would send to a backend endpoint
     console.log('Report submitted:', { postId: post.id, reason, details });
     // For now, just log it
-  };
+  }, [post.id]);
 
   if (!active) return null;
 
@@ -132,3 +132,5 @@ export default function ParkingCard({ post, currentUserId, onChanged, onExpire }
     </article>
   );
 }
+
+export default memo(ParkingCard);

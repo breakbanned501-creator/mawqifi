@@ -23,8 +23,8 @@ export default function BottomChrome() {
           © 2026 Mawqifi — Developed by Eid Althaydi
         </p>
       </footer>
-      <nav className="safe-bottom px-2 pb-2 pt-1.5" aria-label="التنقل الرئيسي">
-        <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
+      <nav className="safe-bottom px-1.5 sm:px-3 pb-2 pt-1.5" aria-label="التنقل الرئيسي">
+        <div className="mx-auto grid w-full max-w-md min-[440px]:max-w-lg md:max-w-xl grid-cols-5 gap-0.5 min-[360px]:gap-1">
           {items.map((item) => {
             const Icon = item.icon;
             const active =
@@ -33,14 +33,16 @@ export default function BottomChrome() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex flex-col items-center gap-0.5 rounded-2xl px-1.5 py-2 text-[11px] transition-all ${
+                className={`flex flex-col items-center justify-center gap-1 rounded-2xl px-1 py-1.5 min-[360px]:px-1.5 min-[360px]:py-2 transition-all ${
                   active
                     ? 'bg-cyan-500 text-navy-900 shadow-lg shadow-cyan-500/20'
                     : 'text-white/55 hover:bg-white/10 hover:text-white'
                 }`}
               >
                 <Icon className="h-5 w-5 shrink-0" />
-                <span className="font-bold leading-none">{item.label}</span>
+                <span className="font-bold leading-none text-[10px] min-[360px]:text-[11px] sm:text-xs truncate max-w-full">
+                  {item.label}
+                </span>
               </Link>
             );
           })}

@@ -70,20 +70,20 @@ export default function Home() {
     <main className="page-with-chrome min-h-screen px-4 pt-5">
       <div className="container">
         <header className="mb-5">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-cyan-500 shadow-glow">
-                <Car size={24} className="text-navy-900" />
+          <div className="flex items-center justify-between gap-2.5 sm:gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
+              <div className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-2xl bg-cyan-500 shadow-glow">
+                <Car size={22} className="text-navy-900" />
               </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl font-black leading-tight text-white">موقفي</h1>
-                <p className="text-sm leading-6 text-white/60">مواقف جامعة الكويت — الشدادية</p>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-xl sm:text-2xl font-black leading-tight text-white truncate">موقفي</h1>
+                <p className="text-xs sm:text-sm leading-5 sm:leading-6 text-white/60 truncate">مواقف جامعة الكويت — الشدادية</p>
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex shrink-0 items-center gap-1 sm:gap-2">
               <Link
                 href="/notifications"
-                className="relative rounded-2xl p-3 text-white/60 transition-colors hover:bg-white/10 hover:text-cyan-300"
+                className="relative rounded-2xl p-2.5 sm:p-3 text-white/60 transition-colors hover:bg-white/10 hover:text-cyan-300"
                 aria-label="التنبيهات"
               >
                 <Bell size={20} />
@@ -99,7 +99,7 @@ export default function Home() {
                   setIsLoading(true);
                   void refresh();
                 }}
-                className="rounded-2xl p-3 text-white/60 transition-colors hover:bg-white/10 hover:text-cyan-300"
+                className="rounded-2xl p-2.5 sm:p-3 text-white/60 transition-colors hover:bg-white/10 hover:text-cyan-300"
                 aria-label="تحديث"
               >
                 <RefreshCw size={20} />
@@ -114,22 +114,22 @@ export default function Home() {
           </div>
         )}
 
-        <div className="mb-5 grid grid-cols-2 gap-3">
-          <Link href="/conversations" className="glass-card flex items-center gap-3 p-4 text-white">
+        <div className="mb-5 grid grid-cols-2 gap-2.5 sm:gap-3">
+          <Link href="/conversations" className="glass-card flex items-center gap-2 sm:gap-3 p-3 sm:p-4 text-white min-w-0 transition-all hover:border-cyan-400/30">
             <MessageCircle className="h-5 w-5 shrink-0 text-cyan-300" />
-            <span className="text-sm font-bold">المحادثات</span>
+            <span className="text-xs sm:text-sm font-bold truncate">المحادثات</span>
           </Link>
-          <Link href="/map" className="glass-card flex items-center gap-3 p-4 text-white">
+          <Link href="/map" className="glass-card flex items-center gap-2 sm:gap-3 p-3 sm:p-4 text-white min-w-0 transition-all hover:border-cyan-400/30">
             <Map className="h-5 w-5 shrink-0 text-cyan-300" />
-            <span className="text-sm font-bold">خريطة الجامعة</span>
+            <span className="text-xs sm:text-sm font-bold truncate">خريطة الجامعة</span>
           </Link>
         </div>
 
         <Link
           href="/create"
-          className="btn btn-primary mb-6 flex w-full items-center justify-center gap-2 py-4 text-base"
+          className="btn btn-primary mb-6 flex w-full items-center justify-center gap-2 py-3.5 sm:py-4 text-sm sm:text-base transition-transform active:scale-[0.98]"
         >
-          <PlusCircle className="h-5 w-5" />
+          <PlusCircle className="h-5 w-5 shrink-0" />
           نشر موقف جديد
         </Link>
 

@@ -9,7 +9,7 @@ import { collegesByZone, formatGate, kuZones } from '@/lib/university';
 export default function MapPage() {
   return (
     <main className="page-with-chrome min-h-screen px-4 pt-6 text-white">
-      <div className="mx-auto max-w-md space-y-5">
+      <div className="mx-auto max-w-md md:max-w-xl lg:max-w-2xl space-y-5">
         <PageHeader
           title="خريطة الجامعة"
           subtitle="مناطق وكليات إرشادية — لا حجز ولا تنظيم رسمي"

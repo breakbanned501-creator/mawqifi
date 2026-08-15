@@ -28,6 +28,19 @@ In Vercel → Project → **Settings** → **Environment Variables**, add:
 
 Apply to **Production**, **Preview**, and **Development**, then **Redeploy**.
 
+For browser push notifications, also add these Vercel variables:
+
+| Name | Value |
+|------|-------|
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase `service_role` key; server-side only |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Public key from the VAPID key pair |
+| `VAPID_PRIVATE_KEY` | Private VAPID key; server-side only |
+| `VAPID_SUBJECT` | Contact URI, e.g. `mailto:admin@mawqifi.com` |
+
+Never expose `SUPABASE_SERVICE_ROLE_KEY` or `VAPID_PRIVATE_KEY` in browser code or commits. Generate the VAPID pair locally with `npx web-push generate-vapid-keys`.
+
+If the main schema is already installed, run `supabase/migrations/20260813_create_push_subscriptions.sql` once in the Supabase SQL Editor. New projects can run the complete `supabase/schema.sql` instead. The migration supports multiple devices per user and records one delivery event per parking post to prevent duplicates.
+
 ## 4. Realtime
 
 The schema adds `parking_posts`, `messages`, and `conversations` to the realtime publication. Confirm under **Database** → **Publications** → `supabase_realtime` if messages do not appear live.

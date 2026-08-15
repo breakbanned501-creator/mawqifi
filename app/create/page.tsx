@@ -8,6 +8,7 @@ import ErrorBanner from '@/components/ErrorBanner';
 import Toast from '@/components/Toast';
 import { useAuth } from '@/components/AuthProvider';
 import { createParkingPost } from '@/lib/posts';
+import { getSupabase } from '@/lib/supabase';
 import { departurePresets, formatGate, formatZone, kuColleges } from '@/lib/university';
 
 const NOTES_MAX = 500;
@@ -60,7 +61,7 @@ export default function CreatePage() {
       const expiresAt = new Date(Date.now() + departureMinutes * 60 * 1000).toISOString();
       const trimmedNotes = notes.trim().slice(0, NOTES_MAX);
 
-      await createParkingPost({
+      const createdPost = await createParkingPost({
         userId,
         college,
         zone: selectedCollege.zone,
@@ -71,9 +72,20 @@ export default function CreatePage() {
       });
 
       setToast('تم نشر موقفك بنجاح');
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('موقفي', { body: 'تم نشر موقفك بنجاح' });
+
+      // Broadcast Web Push notification to other subscribed users
+      if (createdPost?.id) {
+        const { data: sessionData } = await getSupabase().auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (accessToken) {
+          void fetch('/api/push/notify-new-post', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+            body: JSON.stringify({ postId: createdPost.id }),
+          }).catch((err) => console.error('Push broadcast error:', err));
+        }
       }
+
       setTimeout(() => router.push('/'), 900);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذر نشر الموقف');
@@ -85,20 +97,20 @@ export default function CreatePage() {
   return (
     <main className="page-with-chrome min-h-screen px-4 pt-6">
       <Toast message={toast} visible={Boolean(toast)} onHide={() => setToast('')} />
-      <div className="mx-auto max-w-md space-y-5">
+      <div className="mx-auto max-w-md md:max-w-xl lg:max-w-2xl space-y-5">
         <header className="flex items-center gap-3">
-          <button type="button" onClick={() => router.back()} className="rounded-2xl bg-white/10 p-3 text-white/70">
+          <button type="button" onClick={() => router.back()} className="rounded-2xl bg-white/10 p-2.5 sm:p-3 text-white/70 hover:bg-white/15">
             <ArrowRight className="h-5 w-5" />
           </button>
-          <div>
-            <h1 className="text-2xl font-black">نشر موقف</h1>
-            <p className="text-sm text-white/50">شارك موقفك خلال ثواني</p>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl sm:text-2xl font-black truncate">نشر موقف</h1>
+            <p className="text-xs sm:text-sm text-white/50 truncate">شارك موقفك خلال ثواني</p>
           </div>
         </header>
 
         {error && <ErrorBanner message={error} />}
 
-        <form onSubmit={handleSubmit} className="glass-card animate-fade-up space-y-5 p-5">
+        <form onSubmit={handleSubmit} className="glass-card animate-fade-up space-y-5 p-4 sm:p-5">
           <div>
             <label className="mb-2 block text-sm font-bold text-white/70">الكلية</label>
             <select
@@ -148,7 +160,7 @@ export default function CreatePage() {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               maxLength={NOTES_MAX}
-              rows={5}
+              rows={4}
               dir="rtl"
               lang="ar"
               placeholder="مثال: الموقف قريب من الباب، السيارة خلف الباص الأحمر"
@@ -160,7 +172,7 @@ export default function CreatePage() {
 
           <div>
             <label className="mb-2 block text-sm font-bold text-white/70">وقت المغادرة</label>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
               {departurePresets.map((preset) => (
                 <button
                   key={preset}
@@ -169,7 +181,7 @@ export default function CreatePage() {
                     setMinutes(preset);
                     setCustomMinutes('');
                   }}
-                  className={`rounded-2xl py-3 text-sm font-extrabold transition-all ${
+                  className={`rounded-2xl py-2.5 sm:py-3 text-xs sm:text-sm font-extrabold transition-all ${
                     minutes === preset && customMinutes.trim() === ''
                       ? 'bg-cyan-500 text-navy-900 shadow-lg shadow-cyan-500/20'
                       : 'bg-white/10 text-white/60 hover:bg-white/15'

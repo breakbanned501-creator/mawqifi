@@ -44,21 +44,21 @@ function ParkingCard({ post, currentUserId, onChanged, onExpire }: ParkingCardPr
   if (!active) return null;
 
   return (
-    <article className="glass-card animate-fade-up p-4 transition-all duration-300 active:scale-[0.99]">
-      <div className="mb-3 flex items-start justify-between gap-3">
+    <article className="glass-card animate-fade-up p-3.5 sm:p-4 transition-all duration-300 active:scale-[0.99] min-w-0 max-w-full">
+      <div className="mb-3 flex items-start justify-between gap-2.5 sm:gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="text-lg font-extrabold leading-snug text-white">{post.college}</h3>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-white/70">
-            <span className="rounded-full bg-cyan-400/10 px-2.5 py-1 font-bold text-cyan-200">
+          <h3 className="text-base sm:text-lg font-extrabold leading-snug text-white break-words">{post.college}</h3>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-white/70">
+            <span className="rounded-full bg-cyan-400/10 px-2 py-0.5 sm:px-2.5 sm:py-1 font-bold text-cyan-200 text-[11px] sm:text-xs">
               {formatZone(post.zone)}
             </span>
-            <span className="flex items-center gap-1">
-              <MapPin className="h-4 w-4 shrink-0 text-cyan-300" />
+            <span className="flex items-center gap-1 text-xs sm:text-sm">
+              <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 text-cyan-300" />
               {formatGate(post.gate)}
             </span>
           </div>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-2">
+        <div className="flex shrink-0 flex-col items-end gap-1.5 sm:gap-2">
           <CountdownTimer
             expiresAt={new Date(post.expires_at).getTime()}
             onComplete={() => onExpire?.(post.id)}
@@ -68,7 +68,7 @@ function ParkingCard({ post, currentUserId, onChanged, onExpire }: ParkingCardPr
               <button
                 type="button"
                 onClick={() => setShowReportModal(true)}
-                className="rounded-xl p-2 text-white/45 transition-colors hover:bg-red-500/15 hover:text-red-200"
+                className="rounded-xl p-1.5 sm:p-2 text-white/45 transition-colors hover:bg-red-500/15 hover:text-red-200"
                 aria-label="الإبلاغ"
               >
                 <Flag className="h-4 w-4" />
@@ -79,7 +79,7 @@ function ParkingCard({ post, currentUserId, onChanged, onExpire }: ParkingCardPr
                 type="button"
                 onClick={() => void handleDelete()}
                 disabled={deleting}
-                className="rounded-xl p-2 text-white/45 transition-colors hover:bg-red-500/15 hover:text-red-200 disabled:opacity-40"
+                className="rounded-xl p-1.5 sm:p-2 text-white/45 transition-colors hover:bg-red-500/15 hover:text-red-200 disabled:opacity-40"
                 aria-label="حذف الموقف"
               >
                 <Trash2 className="h-4 w-4" />
@@ -90,34 +90,34 @@ function ParkingCard({ post, currentUserId, onChanged, onExpire }: ParkingCardPr
       </div>
 
       {post.car_desc && (
-        <div className="mb-3 rounded-2xl bg-white/5 px-3 py-2.5 text-sm leading-7 text-white/80">
-          <p className="mb-1 text-xs font-bold text-cyan-200/70">ملاحظات</p>
-          <p className="whitespace-pre-wrap">{post.car_desc}</p>
+        <div className="mb-3 rounded-2xl bg-white/5 px-3 py-2.5 text-xs sm:text-sm leading-6 sm:leading-7 text-white/80 min-w-0">
+          <p className="mb-1 text-[11px] sm:text-xs font-bold text-cyan-200/70">ملاحظات</p>
+          <p className="whitespace-pre-wrap break-words">{post.car_desc}</p>
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-3 border-t border-white/10 pt-3">
-        <div className="text-xs text-white/50">
-          <p className="font-bold text-white/75">{post.username}</p>
-          <p className="mt-1 flex items-center gap-1">
-            <Clock className="h-3.5 w-3.5" />
+      <div className="flex items-center justify-between gap-2.5 sm:gap-3 border-t border-white/10 pt-3">
+        <div className="min-w-0 flex-1 text-xs text-white/50">
+          <p className="truncate font-bold text-white/75">{post.username}</p>
+          <p className="mt-0.5 flex items-center gap-1 text-[11px] sm:text-xs truncate">
+            <Clock className="h-3.5 w-3.5 shrink-0" />
             يغادر خلال {post.departure_minutes} د
           </p>
         </div>
         {isOwner ? (
           <Link
             href="/conversations"
-            className="flex shrink-0 items-center gap-2 rounded-2xl bg-white/10 px-4 py-2 text-sm font-extrabold text-white/70"
+            className="flex shrink-0 items-center gap-1.5 sm:gap-2 rounded-2xl bg-white/10 px-3 sm:px-4 py-2 text-xs sm:text-sm font-extrabold text-white/70 transition-colors hover:bg-white/15"
           >
-            <MessageCircle className="h-4 w-4" />
+            <MessageCircle className="h-4 w-4 shrink-0" />
             محادثاتي
           </Link>
         ) : (
           <Link
             href={`/post/${post.id}`}
-            className="flex shrink-0 items-center gap-2 rounded-2xl bg-cyan-500 px-4 py-2 text-sm font-extrabold text-navy-900 shadow-lg shadow-cyan-500/20"
+            className="flex shrink-0 items-center gap-1.5 sm:gap-2 rounded-2xl bg-cyan-500 px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-extrabold text-navy-900 shadow-lg shadow-cyan-500/20 transition-transform active:scale-95"
           >
-            <MessageCircle className="h-4 w-4" />
+            <MessageCircle className="h-4 w-4 shrink-0" />
             تواصل
           </Link>
         )}

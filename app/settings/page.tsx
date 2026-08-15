@@ -9,6 +9,7 @@ import PageHeader from '@/components/PageHeader';
 import { useAuth } from '@/components/AuthProvider';
 import { signOut, updateUsername } from '@/lib/auth';
 import { fetchParkingPosts } from '@/lib/posts';
+import { checkPushSupport, subscribeToPushNotifications, unsubscribeFromPushNotifications } from '@/lib/push';
 
 export default function SettingsPage() {
   const { profile, isGuest, refreshProfile, userId } = useAuth();
@@ -17,12 +18,58 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [username, setUsername] = useState(profile?.username ?? '');
+  const [notifyStatusMsg, setNotifyStatusMsg] = useState<string | null>(null);
+  const [notifyLoading, setNotifyLoading] = useState(false);
+  const [pushInfo, setPushInfo] = useState(() => checkPushSupport());
 
   useEffect(() => {
-    if ('Notification' in window) {
-      setNotifyEnabled(Notification.permission === 'granted');
+    const info = checkPushSupport();
+    setPushInfo(info);
+    if (info.permission === 'granted') {
+      setNotifyEnabled(true);
+    } else {
+      setNotifyEnabled(false);
     }
   }, []);
+
+  const handleToggleNotifications = async () => {
+    if (!userId) return;
+    setNotifyLoading(true);
+    setNotifyStatusMsg(null);
+
+    const currentSupport = checkPushSupport();
+    setPushInfo(currentSupport);
+
+    if (currentSupport.requiresHomeScreen) {
+      setNotifyStatusMsg(currentSupport.errorMessage || 'يجب إضافة موقفي إلى الشاشة الرئيسية أولاً.');
+      setNotifyLoading(false);
+      return;
+    }
+
+    if (!currentSupport.supported) {
+      setNotifyStatusMsg(currentSupport.errorMessage || 'الإشعارات غير مدعومة على هذا الجهاز أو المتصفح.');
+      setNotifyLoading(false);
+      return;
+    }
+
+    if (notifyEnabled) {
+      await unsubscribeFromPushNotifications();
+      setNotifyEnabled(false);
+      setNotifyStatusMsg('تم إلغاء تفعيل الإشعارات.');
+    } else {
+      const res = await subscribeToPushNotifications();
+      if (res.success) {
+        setNotifyEnabled(true);
+        setNotifyStatusMsg('الإشعارات مفعلة ✓');
+      } else {
+        setNotifyStatusMsg(res.message);
+        if (Notification.permission === 'denied') {
+          setNotifyEnabled(false);
+        }
+      }
+    }
+    setNotifyLoading(false);
+  };
 
   useEffect(() => {
     setUsername(profile?.username ?? '');
@@ -34,12 +81,6 @@ export default function SettingsPage() {
       setActivePosts(posts.filter((p) => p.user_id === userId && p.status === 'active').length);
     });
   }, [userId]);
-
-  const requestNotifications = async () => {
-    if (!('Notification' in window)) return;
-    const permission = await Notification.requestPermission();
-    setNotifyEnabled(permission === 'granted');
-  };
 
   const saveUsername = async () => {
     if (!userId || !username.trim()) return;
@@ -66,7 +107,7 @@ export default function SettingsPage() {
 
   return (
     <main className="page-with-chrome min-h-screen px-4 pt-6">
-      <div className="mx-auto max-w-md space-y-5">
+      <div className="mx-auto max-w-md md:max-w-xl lg:max-w-2xl space-y-5">
         <PageHeader title="حسابي" subtitle="إدارة الحساب والتنبيهات" backHref="/" />
 
         {error && <ErrorBanner message={error} />}
@@ -103,24 +144,46 @@ export default function SettingsPage() {
 
         <section className="glass-card space-y-4 p-5">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
               <Bell className="h-5 w-5 text-cyan-300" />
-              <div>
-                <h3 className="font-bold text-white">تنبيهات المتصفح</h3>
-                <p className="text-sm text-white/55">تنبيه عند رسالة جديدة</p>
+              <div className="min-w-0">
+                <h3 className="font-bold text-white">إشعارات الفورية (Push)</h3>
+                <p className="text-sm text-white/55">تنبيه فوري عند نشر موقف جديد</p>
               </div>
             </div>
             <button
               type="button"
-              onClick={requestNotifications}
-              className={`rounded-2xl px-4 py-2 text-xs font-bold ${notifyEnabled ? 'bg-emerald-400/15 text-emerald-200' : 'bg-cyan-500 text-navy-900'}`}
+              onClick={() => void handleToggleNotifications()}
+              disabled={notifyLoading}
+              className={`rounded-2xl px-4 py-2 text-xs font-bold transition-all disabled:opacity-50 ${
+                notifyEnabled ? 'bg-emerald-400/15 text-emerald-200 border border-emerald-400/30' : 'bg-cyan-500 text-navy-900 shadow-lg shadow-cyan-500/20'
+              }`}
             >
-              {notifyEnabled ? 'مفعّلة' : 'تفعيل'}
+              {notifyLoading ? '...' : notifyEnabled ? 'مفعّلة ✓' : 'تفعيل'}
             </button>
           </div>
+
+          {notifyStatusMsg && (
+            <div className={`rounded-2xl p-3 text-xs leading-6 ${notifyEnabled ? 'bg-emerald-500/10 text-emerald-200 border border-emerald-500/20' : 'bg-cyan-500/10 text-cyan-200 border border-cyan-500/20'}`}>
+              <p className="whitespace-pre-line font-bold">{notifyStatusMsg}</p>
+            </div>
+          )}
+
+          {pushInfo.requiresHomeScreen && !notifyStatusMsg && (
+            <div className="rounded-2xl border border-cyan-400/25 bg-cyan-500/10 p-3.5 text-xs leading-6 text-cyan-100">
+              <p className="font-extrabold mb-1">لتفعيل إشعارات موقفي على الآيفون:</p>
+              <ol className="list-decimal list-inside space-y-0.5 text-white/80">
+                <li>اضغط مشاركة (Share) في أسفل المتصفح</li>
+                <li>اختر إضافة إلى الشاشة الرئيسية (Add to Home Screen)</li>
+                <li>افتح تطبيق موقفي من الشاشة الرئيسية</li>
+                <li>اضغط تفعيل الإشعارات</li>
+              </ol>
+            </div>
+          )}
+
           <Link
             href="/notifications"
-            className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-bold text-white/80"
+            className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-bold text-white/80 transition-colors hover:bg-white/10"
           >
             عرض مركز التنبيهات
           </Link>

@@ -53,7 +53,7 @@ export default function ConversationsPage() {
 
   return (
     <main className="page-with-chrome min-h-screen px-4 pt-6">
-      <div className="mx-auto max-w-md space-y-5">
+      <div className="mx-auto max-w-md md:max-w-xl lg:max-w-2xl space-y-5">
         <PageHeader title="المحادثات" subtitle="تواصل خاص بخصوص المواقف المتاحة" backHref="/" />
 
         {error && <ErrorBanner message={error} onRetry={() => { setLoading(true); void load(); }} />}

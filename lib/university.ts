@@ -49,12 +49,12 @@ export const kuZones: CampusZone[] = [
 ];
 
 export const kuColleges: College[] = [
-  { nameAr: 'كلية التربية', nameEn: 'Education', zone: 'A', gates: ['Gate 5'], parking: ['مواقف الطلاب A1', 'مواقف الزوار A'] },
-  { nameAr: 'كلية الآداب', nameEn: 'Arts', zone: 'A', gates: ['Gate 2', 'Gate 3'], parking: ['مواقف الطلاب A2', 'مواقف الزوار A'] },
+  { nameAr: 'كلية التربية', nameEn: 'Education', zone: 'A', gates: ['Gate 5'], parking: ['مواقف كلية الآداب والتربية'] },
+  { nameAr: 'كلية الآداب', nameEn: 'Arts', zone: 'A', gates: ['Gate 2', 'Gate 3'], parking: ['مواقف كلية الآداب والتربية'] },
   { nameAr: 'كلية العلوم', nameEn: 'Science', zone: 'A', gates: ['Gate 4', 'Gate 5'], parking: ['مواقف الطلاب A3'] },
   { nameAr: 'كلية العلوم الإدارية', nameEn: 'Administrative Sciences', zone: 'A', gates: ['Gate 5'], parking: ['مواقف الطلاب A4'] },
   { nameAr: 'كلية العلوم الحياتية', nameEn: 'Life Sciences', zone: 'A', gates: ['Gate 4'], parking: ['مواقف الطلاب A5'] },
-  { nameAr: 'كلية الهندسة والبترول', nameEn: 'Engineering & Petroleum', zone: 'B', gates: ['Gate 6', 'Gate 7'], parking: ['مواقف الطلاب B1', 'مواقف الزوار B'] },
+  { nameAr: 'كلية الهندسة والبترول', nameEn: 'Engineering & Petroleum', zone: 'B', gates: ['Gate 6', 'Gate 7'], parking: ['مواقف كلية الهندسة والبترول'] },
   { nameAr: 'كلية الحقوق', nameEn: 'Law', zone: 'B', gates: ['Gate 7'], parking: ['مواقف الطلاب B2'] },
   { nameAr: 'كلية الشريعة', nameEn: 'Sharia', zone: 'B', gates: ['Gate 6'], parking: ['مواقف الطلاب B3'] },
   { nameAr: 'كلية العلوم الاجتماعية', nameEn: 'Social Sciences', zone: 'B', gates: ['Gate 6', 'Gate 7'], parking: ['مواقف الطلاب B4'] },

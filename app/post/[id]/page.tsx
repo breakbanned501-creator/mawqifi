@@ -255,7 +255,7 @@ export default function PostChatPage({ params }: PostChatPageProps) {
       )}
 
       <header className="sticky top-0 z-40 border-b border-white/10 bg-navy-950/90 px-4 py-3 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-md items-center gap-3">
+        <div className="mx-auto flex max-w-md md:max-w-xl lg:max-w-2xl items-center gap-3">
           <Link href="/conversations" className="rounded-2xl bg-white/10 p-2.5 text-white/70">
             <ArrowRight className="h-5 w-5" />
           </Link>
@@ -275,12 +275,12 @@ export default function PostChatPage({ params }: PostChatPageProps) {
       </header>
 
       {error && (
-        <div className="mx-auto w-full max-w-md px-4 pt-3">
+        <div className="mx-auto w-full max-w-md md:max-w-xl lg:max-w-2xl px-4 pt-3">
           <ErrorBanner message={error} onRetry={() => setError(null)} />
         </div>
       )}
 
-      <section className="mx-auto flex w-full max-w-md flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
+      <section className="mx-auto flex w-full max-w-md md:max-w-xl lg:max-w-2xl flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
         {messages.length === 0 && !error && (
           <p className="py-8 text-center text-sm text-white/45">ابدأ المحادثة بخصوص هذا الموقف</p>
         )}
@@ -290,13 +290,13 @@ export default function PostChatPage({ params }: PostChatPageProps) {
             <div key={message.id} className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
               <div className="flex items-end gap-2">
                 <div
-                  className={`max-w-[82%] rounded-3xl px-4 py-3 ${
+                  className={`max-w-[85%] rounded-3xl px-4 py-3 ${
                     mine
                       ? 'rounded-be-md bg-cyan-500 text-navy-900'
                       : 'rounded-bs-md bg-white/10 text-white'
                   }`}
                 >
-                  {message.type === 'text' && <p className="text-sm leading-7">{message.text}</p>}
+                  {message.type === 'text' && <p className="text-sm leading-7 break-words">{message.text}</p>}
                   {message.type === 'image' && message.image_url && (
                     <button type="button" onClick={() => setSelectedImage(message.image_url)}>
                       <Image
@@ -304,7 +304,7 @@ export default function PostChatPage({ params }: PostChatPageProps) {
                         alt="صورة"
                         width={240}
                         height={180}
-                        className="rounded-2xl object-cover"
+                        className="rounded-2xl object-cover max-w-full"
                         unoptimized
                       />
                     </button>
@@ -369,10 +369,10 @@ export default function PostChatPage({ params }: PostChatPageProps) {
           تم انتهاء الموقف وإغلاق المحادثة
         </div>
       ) : (
-        <footer className="safe-bottom border-t border-white/10 bg-navy-900/95 px-4 py-3 backdrop-blur-xl">
-          <div className="mx-auto flex max-w-md items-center gap-2">
-            <label className="shrink-0 rounded-full bg-white/10 p-3 text-white/60">
-              <Camera className="h-5 w-5" />
+        <footer className="safe-bottom border-t border-white/10 bg-navy-900/95 px-3 sm:px-4 py-2.5 sm:py-3 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-md md:max-w-xl lg:max-w-2xl items-center gap-1.5 sm:gap-2">
+            <label className="shrink-0 rounded-full bg-white/10 p-2.5 sm:p-3 text-white/60 cursor-pointer hover:bg-white/15">
+              <Camera className="h-4 w-4 sm:h-5 sm:w-5" />
               <input
                 type="file"
                 accept="image/*"
@@ -382,8 +382,8 @@ export default function PostChatPage({ params }: PostChatPageProps) {
                 disabled={uploading}
               />
             </label>
-            <label className="shrink-0 rounded-full bg-white/10 p-3 text-white/60">
-              <ImageIcon className="h-5 w-5" />
+            <label className="shrink-0 rounded-full bg-white/10 p-2.5 sm:p-3 text-white/60 cursor-pointer hover:bg-white/15">
+              <ImageIcon className="h-4 w-4 sm:h-5 sm:w-5" />
               <input
                 type="file"
                 accept="image/*"
@@ -396,10 +396,10 @@ export default function PostChatPage({ params }: PostChatPageProps) {
               type="button"
               onClick={sendLocation}
               disabled={uploading}
-              className="shrink-0 rounded-full bg-white/10 p-3 text-white/60 disabled:opacity-40"
+              className="shrink-0 rounded-full bg-white/10 p-2.5 sm:p-3 text-white/60 hover:bg-white/15 disabled:opacity-40"
               aria-label="إرسال الموقع"
             >
-              <MapPin className="h-5 w-5" />
+              <MapPin className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
             <input
               value={text}
@@ -409,16 +409,16 @@ export default function PostChatPage({ params }: PostChatPageProps) {
               onKeyDown={handleKeyDown}
               placeholder={uploading ? 'جاري رفع الصورة...' : 'اكتب رسالة...'}
               disabled={uploading}
-              className="min-w-0 flex-1 rounded-full border border-white/10 bg-navy-950 px-4 py-3 text-sm text-white outline-none placeholder:text-white/40 focus:border-cyan-500 disabled:opacity-50"
+              className="min-w-0 flex-1 rounded-full border border-white/10 bg-navy-950 px-3.5 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm text-white outline-none placeholder:text-white/40 focus:border-cyan-500 disabled:opacity-50"
             />
             <button
               type="button"
               onClick={() => void sendText()}
               disabled={!text.trim() || uploading}
-              className="shrink-0 rounded-full bg-cyan-500 p-3 text-navy-900 disabled:opacity-40"
+              className="shrink-0 rounded-full bg-cyan-500 p-2.5 sm:p-3 text-navy-900 disabled:opacity-40 hover:bg-cyan-400"
               aria-label="إرسال"
             >
-              <Send className="h-5 w-5" />
+              <Send className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
           </div>
         </footer>

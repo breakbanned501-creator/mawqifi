@@ -24,7 +24,7 @@ export function getSupabaseServiceRole() {
 export async function getRequestUser(request: Request): Promise<User | null> {
   requirePublicConfig();
   const authorization = request.headers.get('authorization');
-  const token = authorization?.startsWith('Bearer ') ? authorization.slice(7) : null;
+  const token = authorization?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim() ?? null;
   if (!token) return null;
 
   const supabase = createClient(supabaseUrl, supabaseAnonKey, {

@@ -8,7 +8,7 @@ import ErrorBanner from '@/components/ErrorBanner';
 import LoadingScreen from '@/components/LoadingScreen';
 import PageHeader from '@/components/PageHeader';
 import { useAuth } from '@/components/AuthProvider';
-import { checkPushSupport, subscribeToPushNotifications } from '@/lib/push';
+import { getPushDeviceState, subscribeToPushNotifications, type PushDeviceState } from '@/lib/push';
 import { fetchNotifications, unreadCount, type AppNotification } from '@/lib/notifications';
 import { markConversationRead } from '@/lib/conversations';
 
@@ -17,45 +17,46 @@ export default function NotificationsPage() {
   const [items, setItems] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [pushEnabled, setPushEnabled] = useState(false);
-  const [pushStatusMsg, setPushStatusMsg] = useState<string | null>(null);
+  const [pushState, setPushState] = useState<PushDeviceState>({ kind: 'disabled', message: '' });
   const [pushLoading, setPushLoading] = useState(false);
-  const [pushInfo, setPushInfo] = useState(() => checkPushSupport());
+  const pushEnabled = pushState.kind === 'enabled';
 
   useEffect(() => {
-    const info = checkPushSupport();
-    setPushInfo(info);
-    setPushEnabled(info.permission === 'granted');
-  }, []);
+    if (!userId) return;
+
+    let cancelled = false;
+    setPushLoading(true);
+    void getPushDeviceState().then((next) => {
+      if (!cancelled) {
+        setPushState(next);
+        setPushLoading(false);
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setPushState({ kind: 'error', message: 'تعذر التحقق من حالة إشعارات هذا الجهاز.' });
+        setPushLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   const handleEnablePush = async () => {
     if (!userId) return;
     setPushLoading(true);
-    setPushStatusMsg(null);
-
-    const currentSupport = checkPushSupport();
-    setPushInfo(currentSupport);
-
-    if (currentSupport.requiresHomeScreen) {
-      setPushStatusMsg(currentSupport.errorMessage || 'يجب إضافة موقفي إلى الشاشة الرئيسية أولاً.');
+    try {
+      const result = await subscribeToPushNotifications();
+      if (result.success) {
+        setPushState({ kind: 'enabled', message: result.message });
+      } else {
+        const next = await getPushDeviceState();
+        setPushState({ ...next, message: result.message });
+      }
+    } finally {
       setPushLoading(false);
-      return;
     }
-
-    if (!currentSupport.supported) {
-      setPushStatusMsg(currentSupport.errorMessage || 'الإشعارات غير مدعومة على هذا الجهاز أو المتصفح.');
-      setPushLoading(false);
-      return;
-    }
-
-    const res = await subscribeToPushNotifications();
-    if (res.success) {
-      setPushEnabled(true);
-      setPushStatusMsg('الإشعارات مفعلة ✓');
-    } else {
-      setPushStatusMsg(res.message);
-    }
-    setPushLoading(false);
   };
 
   const load = useCallback(async () => {
@@ -115,17 +116,17 @@ export default function NotificationsPage() {
                 disabled={pushLoading}
                 className="btn btn-primary shrink-0 px-4 py-2 text-xs"
               >
-                {pushLoading ? '...' : 'تفعيل'}
+                {pushLoading ? '...' : pushState.kind === 'not-registered' ? 'إعادة المحاولة' : 'تفعيل'}
               </button>
             </div>
-            {pushStatusMsg && (
+            {pushState.message && (
               <p className="mt-3 whitespace-pre-line rounded-xl bg-cyan-500/10 p-2.5 text-xs font-bold text-cyan-200">
-                {pushStatusMsg}
+                {pushState.message}
               </p>
             )}
-            {pushInfo.requiresHomeScreen && !pushStatusMsg && (
+            {pushState.kind === 'requires-home-screen' && (
               <div className="mt-3 rounded-xl border border-cyan-400/25 bg-cyan-500/10 p-3 text-xs leading-5 text-cyan-100">
-                <p className="font-extrabold mb-1">لتفعيل إشعارات موقفي على الآيفون:</p>
+                <p className="font-extrabold mb-1">لتفعيل إشعارات موقفي على الآيفون أو الآيباد:</p>
                 <ol className="list-decimal list-inside space-y-0.5 text-white/80">
                   <li>اضغط مشاركة في أسفل المتصفح</li>
                   <li>اختر إضافة إلى الشاشة الرئيسية</li>

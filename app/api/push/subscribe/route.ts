@@ -2,85 +2,194 @@ import { NextResponse } from 'next/server';
 import { getRequestUser, getSupabaseServiceRole } from '@/lib/supabase-server';
 
 type SubscriptionPayload = {
+  action?: unknown;
   endpoint?: unknown;
   p256dh?: unknown;
   auth?: unknown;
 };
 
-function isValidSubscription(payload: SubscriptionPayload): payload is Required<SubscriptionPayload> {
-  if (typeof payload.endpoint !== 'string' || typeof payload.p256dh !== 'string' || typeof payload.auth !== 'string') {
-    return false;
-  }
-  if (payload.endpoint.length > 4096 || payload.p256dh.length > 1024 || payload.auth.length > 1024) return false;
+type ValidSubscriptionPayload = {
+  action?: unknown;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+};
+
+type StoredSubscription = {
+  id: string;
+  user_id: string;
+};
+
+function databaseErrorCode(error: unknown): string | undefined {
+  if (typeof error !== 'object' || error === null || !('code' in error)) return undefined;
+  return typeof error.code === 'string' ? error.code : undefined;
+}
+
+function isValidEndpoint(endpoint: unknown): endpoint is string {
+  if (typeof endpoint !== 'string') return false;
+  const normalized = endpoint.trim();
+  if (!normalized || normalized.length > 4096) return false;
+
   try {
-    return new URL(payload.endpoint).protocol === 'https:';
+    return new URL(normalized).protocol === 'https:';
   } catch {
     return false;
   }
 }
 
+function isValidSubscription(payload: SubscriptionPayload): payload is ValidSubscriptionPayload {
+  if (!isValidEndpoint(payload.endpoint) || typeof payload.p256dh !== 'string' || typeof payload.auth !== 'string') {
+    return false;
+  }
+
+  return (
+    payload.p256dh.trim().length > 0 &&
+    payload.auth.trim().length > 0 &&
+    payload.p256dh.length <= 1024 &&
+    payload.auth.length <= 1024
+  );
+}
+
+async function findSubscriptionByEndpoint(
+  endpoint: string,
+): Promise<{ data: StoredSubscription | null; error: unknown }> {
+  const { data, error } = await getSupabaseServiceRole()
+    .from('push_subscriptions')
+    .select('id, user_id')
+    .eq('endpoint', endpoint)
+    .maybeSingle();
+
+  return { data: data as StoredSubscription | null, error };
+}
+
 export async function POST(request: Request) {
+  let phase = 'authenticate';
+
   try {
     const user = await getRequestUser(request);
-    if (!user) return NextResponse.json({ error: 'يجب تسجيل الدخول لتفعيل الإشعارات.' }, { status: 401 });
+    if (!user) {
+      console.warn('[push] subscription request rejected', { phase, reason: 'unauthorized' });
+      return NextResponse.json({ error: 'يجب تسجيل الدخول لتفعيل الإشعارات.' }, { status: 401 });
+    }
 
+    phase = 'parse';
     const payload = (await request.json()) as SubscriptionPayload;
+    const endpoint = typeof payload.endpoint === 'string' ? payload.endpoint.trim() : '';
+
+    if (payload.action === 'status') {
+      if (!isValidEndpoint(payload.endpoint)) {
+        return NextResponse.json({ error: 'بيانات اشتراك الإشعارات غير صالحة.' }, { status: 400 });
+      }
+
+      phase = 'status';
+      const { data, error } = await getSupabaseServiceRole()
+        .from('push_subscriptions')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('endpoint', endpoint)
+        .eq('active', true)
+        .maybeSingle();
+      if (error) throw error;
+
+      return NextResponse.json({ active: Boolean(data) });
+    }
+
     if (!isValidSubscription(payload)) {
       return NextResponse.json({ error: 'بيانات اشتراك الإشعارات غير صالحة.' }, { status: 400 });
     }
 
-    const supabase = getSupabaseServiceRole();
-    const { data: existing, error: findError } = await supabase
-      .from('push_subscriptions')
-      .select('id, user_id')
-      .eq('endpoint', payload.endpoint)
-      .maybeSingle();
-    if (findError) throw findError;
-
-    if (existing && existing.user_id !== user.id) {
-      return NextResponse.json({ error: 'هذا الجهاز مرتبط بحساب آخر.' }, { status: 409 });
-    }
-
     const subscription = {
       user_id: user.id,
-      endpoint: payload.endpoint,
-      p256dh: payload.p256dh,
-      auth: payload.auth,
+      endpoint,
+      p256dh: payload.p256dh.trim(),
+      auth: payload.auth.trim(),
       active: true,
       updated_at: new Date().toISOString(),
     };
-    const { error } = existing
-      ? await supabase.from('push_subscriptions').update(subscription).eq('id', existing.id)
-      : await supabase.from('push_subscriptions').insert(subscription);
-    if (error) throw error;
 
-    return NextResponse.json({ success: true });
+    phase = 'find';
+    let { data: existing, error: findError } = await findSubscriptionByEndpoint(endpoint);
+    if (findError) throw findError;
+
+    if (existing && existing.user_id !== user.id) {
+      console.warn('[push] subscription request rejected', { phase, reason: 'endpoint_owned_by_another_user' });
+      return NextResponse.json({ error: 'هذا الجهاز مرتبط بحساب آخر.' }, { status: 409 });
+    }
+
+    phase = existing ? 'update' : 'insert';
+    let writeError = existing
+      ? (
+          await getSupabaseServiceRole()
+            .from('push_subscriptions')
+            .update(subscription)
+            .eq('id', existing.id)
+        ).error
+      : (await getSupabaseServiceRole().from('push_subscriptions').insert(subscription)).error;
+
+    if (writeError?.code === '23505' && !existing) {
+      phase = 'retry-after-conflict';
+      const retry = await findSubscriptionByEndpoint(endpoint);
+      if (retry.error) throw retry.error;
+      existing = retry.data;
+
+      if (!existing) throw writeError;
+      if (existing.user_id !== user.id) {
+        console.warn('[push] subscription request rejected', { phase, reason: 'endpoint_owned_by_another_user' });
+        return NextResponse.json({ error: 'هذا الجهاز مرتبط بحساب آخر.' }, { status: 409 });
+      }
+
+      writeError = (
+        await getSupabaseServiceRole()
+          .from('push_subscriptions')
+          .update(subscription)
+          .eq('id', existing.id)
+      ).error;
+    }
+
+    if (writeError) throw writeError;
+
+    console.info('[push] subscription saved', { action: existing ? 'updated' : 'created' });
+    return NextResponse.json({ success: true, active: true });
   } catch (error) {
-    console.error('Error saving push subscription:', error);
+    console.error('[push] subscription request failed', {
+      phase,
+      code: databaseErrorCode(error),
+    });
     return NextResponse.json({ error: 'تعذر حفظ اشتراك الإشعارات.' }, { status: 500 });
   }
 }
 
 export async function DELETE(request: Request) {
+  let phase = 'authenticate';
+
   try {
     const user = await getRequestUser(request);
-    if (!user) return NextResponse.json({ error: 'يجب تسجيل الدخول لإدارة الإشعارات.' }, { status: 401 });
+    if (!user) {
+      console.warn('[push] subscription disable rejected', { phase, reason: 'unauthorized' });
+      return NextResponse.json({ error: 'يجب تسجيل الدخول لإدارة الإشعارات.' }, { status: 401 });
+    }
 
+    phase = 'parse';
     const { endpoint } = (await request.json()) as { endpoint?: unknown };
-    if (typeof endpoint !== 'string' || endpoint.length > 4096) {
+    if (!isValidEndpoint(endpoint)) {
       return NextResponse.json({ error: 'بيانات اشتراك الإشعارات غير صالحة.' }, { status: 400 });
     }
 
+    phase = 'disable';
     const { error } = await getSupabaseServiceRole()
       .from('push_subscriptions')
       .update({ active: false, updated_at: new Date().toISOString() })
       .eq('user_id', user.id)
-      .eq('endpoint', endpoint);
+      .eq('endpoint', endpoint.trim());
     if (error) throw error;
 
+    console.info('[push] subscription disabled');
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error disabling push subscription:', error);
+    console.error('[push] subscription disable failed', {
+      phase,
+      code: databaseErrorCode(error),
+    });
     return NextResponse.json({ error: 'تعذر إيقاف اشتراك الإشعارات.' }, { status: 500 });
   }
 }

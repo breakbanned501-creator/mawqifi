@@ -9,66 +9,70 @@ import PageHeader from '@/components/PageHeader';
 import { useAuth } from '@/components/AuthProvider';
 import { signOut, updateUsername } from '@/lib/auth';
 import { fetchParkingPosts } from '@/lib/posts';
-import { checkPushSupport, subscribeToPushNotifications, unsubscribeFromPushNotifications } from '@/lib/push';
+import {
+  getPushDeviceState,
+  subscribeToPushNotifications,
+  unsubscribeFromPushNotifications,
+  type PushDeviceState,
+} from '@/lib/push';
 
 export default function SettingsPage() {
   const { profile, isGuest, refreshProfile, userId } = useAuth();
-  const [notifyEnabled, setNotifyEnabled] = useState(false);
+  const [pushState, setPushState] = useState<PushDeviceState>({ kind: 'disabled', message: '' });
   const [activePosts, setActivePosts] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [username, setUsername] = useState(profile?.username ?? '');
-  const [notifyStatusMsg, setNotifyStatusMsg] = useState<string | null>(null);
   const [notifyLoading, setNotifyLoading] = useState(false);
-  const [pushInfo, setPushInfo] = useState(() => checkPushSupport());
+  const notifyEnabled = pushState.kind === 'enabled';
 
   useEffect(() => {
-    const info = checkPushSupport();
-    setPushInfo(info);
-    if (info.permission === 'granted') {
-      setNotifyEnabled(true);
-    } else {
-      setNotifyEnabled(false);
-    }
-  }, []);
+    if (!userId) return;
+
+    let cancelled = false;
+    setNotifyLoading(true);
+    void getPushDeviceState().then((next) => {
+      if (!cancelled) {
+        setPushState(next);
+        setNotifyLoading(false);
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setPushState({ kind: 'error', message: 'تعذر التحقق من حالة إشعارات هذا الجهاز.' });
+        setNotifyLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   const handleToggleNotifications = async () => {
     if (!userId) return;
     setNotifyLoading(true);
-    setNotifyStatusMsg(null);
 
-    const currentSupport = checkPushSupport();
-    setPushInfo(currentSupport);
-
-    if (currentSupport.requiresHomeScreen) {
-      setNotifyStatusMsg(currentSupport.errorMessage || 'يجب إضافة موقفي إلى الشاشة الرئيسية أولاً.');
-      setNotifyLoading(false);
-      return;
-    }
-
-    if (!currentSupport.supported) {
-      setNotifyStatusMsg(currentSupport.errorMessage || 'الإشعارات غير مدعومة على هذا الجهاز أو المتصفح.');
-      setNotifyLoading(false);
-      return;
-    }
-
-    if (notifyEnabled) {
-      await unsubscribeFromPushNotifications();
-      setNotifyEnabled(false);
-      setNotifyStatusMsg('تم إلغاء تفعيل الإشعارات.');
-    } else {
-      const res = await subscribeToPushNotifications();
-      if (res.success) {
-        setNotifyEnabled(true);
-        setNotifyStatusMsg('الإشعارات مفعلة ✓');
+    try {
+      if (notifyEnabled) {
+        const result = await unsubscribeFromPushNotifications();
+        if (result.deviceUnsubscribed) {
+          setPushState({ kind: 'disabled', message: result.message });
+        } else {
+          const next = await getPushDeviceState();
+          setPushState({ ...next, message: result.message });
+        }
       } else {
-        setNotifyStatusMsg(res.message);
-        if (Notification.permission === 'denied') {
-          setNotifyEnabled(false);
+        const result = await subscribeToPushNotifications();
+        if (result.success) {
+          setPushState({ kind: 'enabled', message: result.message });
+        } else {
+          const next = await getPushDeviceState();
+          setPushState({ ...next, message: result.message });
         }
       }
+    } finally {
+      setNotifyLoading(false);
     }
-    setNotifyLoading(false);
   };
 
   useEffect(() => {
@@ -159,19 +163,25 @@ export default function SettingsPage() {
                 notifyEnabled ? 'bg-emerald-400/15 text-emerald-200 border border-emerald-400/30' : 'bg-cyan-500 text-navy-900 shadow-lg shadow-cyan-500/20'
               }`}
             >
-              {notifyLoading ? '...' : notifyEnabled ? 'مفعّلة ✓' : 'تفعيل'}
+              {notifyLoading
+                ? '...'
+                : notifyEnabled
+                  ? 'مفعّلة ✓'
+                  : pushState.kind === 'not-registered'
+                    ? 'إعادة المحاولة'
+                    : 'تفعيل'}
             </button>
           </div>
 
-          {notifyStatusMsg && (
+          {pushState.message && (
             <div className={`rounded-2xl p-3 text-xs leading-6 ${notifyEnabled ? 'bg-emerald-500/10 text-emerald-200 border border-emerald-500/20' : 'bg-cyan-500/10 text-cyan-200 border border-cyan-500/20'}`}>
-              <p className="whitespace-pre-line font-bold">{notifyStatusMsg}</p>
+              <p className="whitespace-pre-line font-bold">{pushState.message}</p>
             </div>
           )}
 
-          {pushInfo.requiresHomeScreen && !notifyStatusMsg && (
+          {pushState.kind === 'requires-home-screen' && (
             <div className="rounded-2xl border border-cyan-400/25 bg-cyan-500/10 p-3.5 text-xs leading-6 text-cyan-100">
-              <p className="font-extrabold mb-1">لتفعيل إشعارات موقفي على الآيفون:</p>
+              <p className="font-extrabold mb-1">لتفعيل إشعارات موقفي على الآيفون أو الآيباد:</p>
               <ol className="list-decimal list-inside space-y-0.5 text-white/80">
                 <li>اضغط مشاركة (Share) في أسفل المتصفح</li>
                 <li>اختر إضافة إلى الشاشة الرئيسية (Add to Home Screen)</li>

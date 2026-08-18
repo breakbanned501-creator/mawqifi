@@ -13,7 +13,10 @@ export function isStandaloneMode(): boolean {
 
 export function isIOSDevice(): boolean {
   if (typeof window === 'undefined') return false;
-  return /iPhone|iPad|iPod/i.test(window.navigator.userAgent);
+  return (
+    /iPhone|iPad|iPod/i.test(window.navigator.userAgent) ||
+    (window.navigator.platform === 'MacIntel' && window.navigator.maxTouchPoints > 1)
+  );
 }
 
 export function isAndroidDevice(): boolean {

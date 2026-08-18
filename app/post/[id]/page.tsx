@@ -41,6 +41,7 @@ export default function PostChatPage({ params }: PostChatPageProps) {
   const [showReportModal, setShowReportModal] = useState(false);
   const [messageToReport, setMessageToReport] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
 
   const expired = post ? !isPostActive(post) : false;
   const conversationId = conversation?.id;
@@ -128,9 +129,17 @@ export default function PostChatPage({ params }: PostChatPageProps) {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  useEffect(() => {
+    const composer = composerRef.current;
+    if (!composer) return;
+
+    composer.style.height = 'auto';
+    composer.style.height = `${Math.min(composer.scrollHeight, 128)}px`;
+  }, [text]);
+
   const sendText = async () => {
     if (!text.trim() || expired || !conversationId || !userId) return;
-    const value = text.trim();
+    const value = text;
     setText('');
     setError(null);
     try {
@@ -146,8 +155,11 @@ export default function PostChatPage({ params }: PostChatPageProps) {
     }
   };
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter') void sendText();
+  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+      event.preventDefault();
+      void sendText();
+    }
   };
 
   const handleImage = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -286,25 +298,41 @@ export default function PostChatPage({ params }: PostChatPageProps) {
         )}
         {messages.map((message) => {
           const mine = message.sender_id === userId;
+          const hasText = message.type !== 'location' && Boolean(message.text?.trim());
+          const hasImage = Boolean(message.image_url);
           return (
-            <div key={message.id} className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
-              <div className="flex items-end gap-2">
-                <div
-                  className={`max-w-[85%] rounded-3xl px-4 py-3 ${
-                    mine
-                      ? 'rounded-be-md bg-cyan-500 text-navy-900'
-                      : 'rounded-bs-md bg-white/10 text-white'
-                  }`}
-                >
-                  {message.type === 'text' && <p className="text-sm leading-7 break-words">{message.text}</p>}
-                  {message.type === 'image' && message.image_url && (
-                    <button type="button" onClick={() => setSelectedImage(message.image_url)}>
+            <div
+              key={message.id}
+              className={`flex w-full min-w-0 items-end gap-2 ${mine ? 'justify-end' : 'justify-start'}`}
+            >
+              <article
+                className={`h-auto w-fit min-w-0 max-w-[84%] rounded-3xl px-4 py-3 sm:max-w-[78%] md:max-w-[68%] lg:max-w-[60%] ${
+                  mine
+                    ? 'rounded-be-md bg-cyan-500 text-navy-900'
+                    : 'rounded-bs-md bg-white/10 text-white'
+                }`}
+              >
+                <div className="min-w-0 space-y-2">
+                  {hasText && (
+                    <p
+                      dir="auto"
+                      className="whitespace-pre-wrap text-start text-sm leading-7 break-normal [overflow-wrap:anywhere]"
+                    >
+                      {message.text}
+                    </p>
+                  )}
+                  {hasImage && message.image_url && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedImage(message.image_url)}
+                      className="block max-w-full min-w-0 overflow-hidden rounded-2xl"
+                    >
                       <Image
                         src={message.image_url}
                         alt="صورة"
                         width={240}
                         height={180}
-                        className="rounded-2xl object-cover max-w-full"
+                        className="block h-auto max-w-full rounded-2xl object-cover"
                         unoptimized
                       />
                     </button>
@@ -338,26 +366,29 @@ export default function PostChatPage({ params }: PostChatPageProps) {
                       </div>
                     )}
                 </div>
-                {!mine && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMessageToReport(message.id);
-                      setShowReportModal(true);
-                    }}
-                    className="mb-1 rounded-full p-1.5 text-white/30 transition-colors hover:bg-red-500/15 hover:text-red-300"
-                    aria-label="الإبلاغ عن الرسالة"
-                  >
-                    <Flag className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-              <span className="mt-1 text-[11px] text-white/35">
-                {new Date(message.created_at).toLocaleTimeString('ar-KW', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </span>
+                <time
+                  dateTime={message.created_at}
+                  className={`mt-2 block text-[11px] ${mine ? 'text-navy-900/60' : 'text-white/45'}`}
+                >
+                  {new Date(message.created_at).toLocaleTimeString('ar-KW', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </time>
+              </article>
+              {!mine && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMessageToReport(message.id);
+                    setShowReportModal(true);
+                  }}
+                  className="mb-1 shrink-0 rounded-full p-1.5 text-white/30 transition-colors hover:bg-red-500/15 hover:text-red-300"
+                  aria-label="الإبلاغ عن الرسالة"
+                >
+                  <Flag className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
           );
         })}
@@ -401,15 +432,18 @@ export default function PostChatPage({ params }: PostChatPageProps) {
             >
               <MapPin className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
-            <input
+            <textarea
+              ref={composerRef}
+              rows={1}
               value={text}
               onFocus={() => setTyping(true)}
               onBlur={() => setTyping(false)}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={uploading ? 'جاري رفع الصورة...' : 'اكتب رسالة...'}
+              aria-label="اكتب رسالة"
               disabled={uploading}
-              className="min-w-0 flex-1 rounded-full border border-white/10 bg-navy-950 px-3.5 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm text-white outline-none placeholder:text-white/40 focus:border-cyan-500 disabled:opacity-50"
+              className="min-h-10 max-h-32 min-w-0 flex-1 resize-none overflow-y-auto rounded-3xl border border-white/10 bg-navy-950 px-3.5 py-2.5 text-xs leading-6 text-white outline-none placeholder:text-white/40 focus:border-cyan-500 disabled:opacity-50 sm:min-h-11 sm:px-4 sm:py-3 sm:text-sm"
             />
             <button
               type="button"

@@ -162,20 +162,36 @@ function unsupportedPushState(status: PushSupportStatus): PushDeviceState {
   );
 }
 
+function logPushDiagnostic(
+  phase: string,
+  details: Record<string, boolean | number | string | null | undefined>,
+): void {
+  // Keep these temporary production diagnostics intentionally metadata-only.
+  // Do not add subscription keys, endpoints, tokens, or user identifiers here.
+  console.info('[push] diagnostic', { phase, ...details });
+}
+
 function logPushFailure(phase: string, error: unknown): void {
   console.error('[push] operation failed', {
     phase,
-    message: error instanceof Error ? error.message : 'unknown',
+    errorName: error instanceof Error ? error.name : 'unknown',
   });
 }
 
 async function getReadyServiceWorkerRegistration(): Promise<ServiceWorkerRegistration> {
   let registration = await navigator.serviceWorker.getRegistration();
+  logPushDiagnostic('service-worker.lookup', { hasRegistration: Boolean(registration) });
   if (!registration) {
     registration = await navigator.serviceWorker.register('/sw.js');
+    logPushDiagnostic('service-worker.registered', { hasRegistration: true });
   }
 
-  return navigator.serviceWorker.ready;
+  const readyRegistration = await navigator.serviceWorker.ready;
+  logPushDiagnostic('service-worker.ready', {
+    hasActiveWorker: Boolean(readyRegistration.active),
+    scope: readyRegistration.scope,
+  });
+  return readyRegistration;
 }
 
 function getSubscriptionPayload(subscription: PushSubscription): SubscriptionPayload {
@@ -193,6 +209,12 @@ function getSubscriptionPayload(subscription: PushSubscription): SubscriptionPay
 async function getAccessToken(refresh = false): Promise<string> {
   const supabase = getSupabase();
   const result = refresh ? await supabase.auth.refreshSession() : await supabase.auth.getSession();
+  logPushDiagnostic('session.read', {
+    refresh,
+    hasSession: Boolean(result.data.session),
+    hasAccessToken: Boolean(result.data.session?.access_token),
+    hasSessionUser: Boolean(result.data.session?.user),
+  });
   if (result.error || !result.data.session?.access_token) {
     throw new Error(SESSION_ERROR_MESSAGE);
   }
@@ -215,10 +237,20 @@ async function authenticatedPushRequest(
       body: JSON.stringify(payload),
     });
 
-  let response = await send(await getAccessToken());
+  const accessToken = await getAccessToken();
+  logPushDiagnostic('subscribe-request.dispatch', {
+    method,
+    credentials: 'same-origin',
+    hasSession: true,
+  });
+  let response = await send(accessToken);
+  logPushDiagnostic('subscribe-request.response', { method, status: response.status, retried: false });
   if (response.status === 401) {
     console.warn('[push] subscription request unauthorized; refreshing the session once', { method });
-    response = await send(await getAccessToken(true));
+    logPushDiagnostic('subscribe-request.retry', { method, reason: 'unauthorized' });
+    const refreshedAccessToken = await getAccessToken(true);
+    response = await send(refreshedAccessToken);
+    logPushDiagnostic('subscribe-request.response', { method, status: response.status, retried: true });
   }
 
   return response;
@@ -259,6 +291,7 @@ async function getOrCreateSubscription(
   registration: ServiceWorkerRegistration,
 ): Promise<SubscriptionPayload> {
   let subscription = await registration.pushManager.getSubscription();
+  logPushDiagnostic('subscription.lookup', { exists: Boolean(subscription) });
 
   if (subscription) {
     try {
@@ -281,6 +314,7 @@ async function getOrCreateSubscription(
     userVisibleOnly: true,
     applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as unknown as BufferSource,
   });
+  logPushDiagnostic('subscription.created', { exists: true });
 
   return getSubscriptionPayload(subscription);
 }
@@ -325,6 +359,12 @@ export async function getPushDeviceState(): Promise<PushDeviceState> {
 
 export async function subscribeToPushNotifications(): Promise<PushActionResult> {
   const status = checkPushSupport();
+  logPushDiagnostic('subscribe.start', {
+    supported: status.supported,
+    permission: status.permission,
+    isIOS: status.isIOS,
+    isStandalone: status.isStandalone,
+  });
 
   if (!status.supported) {
     return { success: false, message: unsupportedPushState(status).message };
@@ -335,6 +375,7 @@ export async function subscribeToPushNotifications(): Promise<PushActionResult> 
     if (permission === 'default') {
       permission = await Notification.requestPermission();
     }
+    logPushDiagnostic('permission.result', { permission });
 
     if (permission === 'denied') {
       return {

@@ -21,15 +21,55 @@ export function getSupabaseServiceRole() {
   });
 }
 
-export async function getRequestUser(request: Request): Promise<User | null> {
+export type RequestAuthenticationState =
+  | 'authenticated'
+  | 'missing_authorization'
+  | 'malformed_authorization'
+  | 'rejected_bearer';
+
+export type RequestAuthentication = {
+  user: User | null;
+  state: RequestAuthenticationState;
+  errorCode?: string;
+};
+
+function authenticationErrorCode(error: unknown): string | undefined {
+  if (!error || typeof error !== 'object' || !('code' in error)) return undefined;
+  return typeof error.code === 'string' ? error.code : undefined;
+}
+
+/**
+ * Verifies the browser Supabase bearer token without ever accepting a client
+ * user id. The state is deliberately safe to log for subscription diagnostics:
+ * it never contains a token, cookie value, or user identifier.
+ */
+export async function getRequestAuthentication(request: Request): Promise<RequestAuthentication> {
   requirePublicConfig();
   const authorization = request.headers.get('authorization');
-  const token = authorization?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim() ?? null;
-  if (!token) return null;
+  if (!authorization) {
+    return { user: null, state: 'missing_authorization' };
+  }
+
+  const token = authorization.match(/^Bearer\s+(.+)$/i)?.[1]?.trim() ?? null;
+  if (!token) {
+    return { user: null, state: 'malformed_authorization' };
+  }
 
   const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
   const { data, error } = await supabase.auth.getUser(token);
-  return error ? null : data.user;
+  if (error || !data.user) {
+    return {
+      user: null,
+      state: 'rejected_bearer',
+      errorCode: authenticationErrorCode(error),
+    };
+  }
+
+  return { user: data.user, state: 'authenticated' };
+}
+
+export async function getRequestUser(request: Request): Promise<User | null> {
+  return (await getRequestAuthentication(request)).user;
 }

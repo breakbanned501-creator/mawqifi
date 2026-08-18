@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getRequestUser, getSupabaseServiceRole } from '@/lib/supabase-server';
+import { getRequestAuthentication, getSupabaseServiceRole } from '@/lib/supabase-server';
 
 type SubscriptionPayload = {
   action?: unknown;
@@ -66,11 +66,23 @@ export async function POST(request: Request) {
   let phase = 'authenticate';
 
   try {
-    const user = await getRequestUser(request);
+    const authentication = await getRequestAuthentication(request);
+    const user = authentication.user;
+    const hasCookie = request.headers.has('cookie');
     if (!user) {
-      console.warn('[push] subscription request rejected', { phase, reason: 'unauthorized' });
+      console.warn('[push] subscription request rejected', {
+        phase,
+        authentication: authentication.state,
+        authErrorCode: authentication.errorCode,
+        hasCookie,
+      });
       return NextResponse.json({ error: 'يجب تسجيل الدخول لتفعيل الإشعارات.' }, { status: 401 });
     }
+
+    console.info('[push] subscription request authenticated', {
+      authentication: authentication.state,
+      hasCookie,
+    });
 
     phase = 'parse';
     const payload = (await request.json()) as SubscriptionPayload;
@@ -163,11 +175,23 @@ export async function DELETE(request: Request) {
   let phase = 'authenticate';
 
   try {
-    const user = await getRequestUser(request);
+    const authentication = await getRequestAuthentication(request);
+    const user = authentication.user;
+    const hasCookie = request.headers.has('cookie');
     if (!user) {
-      console.warn('[push] subscription disable rejected', { phase, reason: 'unauthorized' });
+      console.warn('[push] subscription disable rejected', {
+        phase,
+        authentication: authentication.state,
+        authErrorCode: authentication.errorCode,
+        hasCookie,
+      });
       return NextResponse.json({ error: 'يجب تسجيل الدخول لإدارة الإشعارات.' }, { status: 401 });
     }
+
+    console.info('[push] subscription disable authenticated', {
+      authentication: authentication.state,
+      hasCookie,
+    });
 
     phase = 'parse';
     const { endpoint } = (await request.json()) as { endpoint?: unknown };

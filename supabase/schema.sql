@@ -325,6 +325,9 @@ create table if not exists public.push_subscriptions (
 
 create index if not exists push_subscriptions_user_idx on public.push_subscriptions (user_id);
 create index if not exists push_subscriptions_active_idx on public.push_subscriptions (active);
+create index if not exists push_subscriptions_active_user_idx
+  on public.push_subscriptions (user_id)
+  where active = true;
 
 alter table public.push_subscriptions enable row level security;
 
@@ -354,12 +357,37 @@ create trigger push_subscriptions_updated_at
   before update on public.push_subscriptions
   for each row execute function public.set_updated_at();
 
--- Delivery events make notifications idempotent across server instances.
--- This table has no client policies: only the server-side service role may write it.
+-- Delivery events make parking and chat notifications idempotent across server
+-- instances. This table has no client policies: only the server-side service
+-- role may write it.
 create table if not exists public.push_notification_events (
-  post_id uuid primary key references public.parking_posts (id) on delete cascade,
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid references public.parking_posts (id) on delete cascade,
+  message_id uuid references public.messages (id) on delete cascade,
   creator_id uuid not null references public.users (id) on delete cascade,
+  recipient_id uuid references public.users (id) on delete cascade,
+  constraint push_notification_events_exactly_one_source check (
+    (
+      post_id is not null
+      and message_id is null
+      and recipient_id is null
+    )
+    or
+    (
+      post_id is null
+      and message_id is not null
+      and recipient_id is not null
+    )
+  ),
   created_at timestamptz not null default now()
 );
+
+create unique index if not exists push_notification_events_post_id_unique
+  on public.push_notification_events (post_id)
+  where post_id is not null;
+
+create unique index if not exists push_notification_events_message_id_unique
+  on public.push_notification_events (message_id)
+  where message_id is not null;
 
 alter table public.push_notification_events enable row level security;

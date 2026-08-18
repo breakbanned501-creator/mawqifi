@@ -1,23 +1,44 @@
 /* Custom Service Worker handlers for Mawqifi Web Push Notifications */
 
+function sameOriginPath(value) {
+  try {
+    const url = new URL(typeof value === 'string' ? value : '/', self.location.origin);
+    return url.origin === self.location.origin ? `${url.pathname}${url.search}${url.hash}` : '/';
+  } catch {
+    return '/';
+  }
+}
+
 self.addEventListener('push', (event) => {
   if (!event.data) return;
 
   try {
     const data = event.data.json();
     const title = data.title || 'موقفي 🚗';
+    const notificationData = {
+      url: sameOriginPath(data.url),
+    };
+
+    if (typeof data.postId === 'string') notificationData.postId = data.postId;
+    if (typeof data.type === 'string') notificationData.type = data.type;
+    if (typeof data.chatId === 'string') notificationData.chatId = data.chatId;
+    if (typeof data.messageId === 'string') notificationData.messageId = data.messageId;
+
+    const tag =
+      notificationData.type === 'chat_message' && notificationData.messageId
+        ? `chat-${notificationData.messageId}`
+        : notificationData.postId
+          ? `post-${notificationData.postId}`
+          : 'mawqifi-notification';
 
     const options = {
       body: data.body || 'تم نشر موقف جديد متاح في الجامعة',
       icon: '/icon-192.png',
       badge: '/icon-192.png',
-      data: {
-        url: data.url || '/',
-        postId: data.postId,
-      },
+      data: notificationData,
       rtl: true,
       lang: 'ar',
-      tag: data.postId ? `post-${data.postId}` : 'mawqifi-notification',
+      tag,
       renotify: true,
       vibrate: [100, 50, 100],
     };
@@ -30,16 +51,33 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = event.notification.data?.url || '/';
+  const targetUrl = sameOriginPath(event.notification.data?.url);
 
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clientList) => {
       for (const client of clientList) {
-        if (client.url.includes(self.location.origin) && 'focus' in client) {
-          if ('navigate' in client) {
-            client.navigate(targetUrl);
-          }
+        let clientOrigin = '';
+        try {
+          clientOrigin = new URL(client.url).origin;
+        } catch {
+          continue;
+        }
+
+        if (clientOrigin !== self.location.origin || !('focus' in client)) continue;
+
+        const currentPath = sameOriginPath(client.url);
+        if (currentPath === targetUrl) {
           return client.focus();
+        }
+
+        if ('navigate' in client) {
+          try {
+            const navigatedClient = await client.navigate(targetUrl);
+            return (navigatedClient || client).focus();
+          } catch {
+            // Do not focus a different conversation. Fall through to open the
+            // exact notification destination in a new Mawqifi window.
+          }
         }
       }
       if (self.clients.openWindow) {

@@ -13,6 +13,7 @@ import ReportModal from '@/components/ReportModal';
 import { useAuth } from '@/components/AuthProvider';
 import { fetchMessages, sendMessage, uploadChatImage } from '@/lib/chat';
 import {
+  fetchConversationByIdForUser,
   fetchConversationByPostForUser,
   getOrCreateConversation,
   markConversationRead,
@@ -24,10 +25,23 @@ import type { ChatMessage, Conversation, ParkingPost } from '@/lib/types';
 
 interface PostChatPageProps {
   params: { id: string };
+  searchParams?: { chat?: string | string[] };
 }
 
-export default function PostChatPage({ params }: PostChatPageProps) {
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function getRequestedConversationId(searchParams: PostChatPageProps['searchParams']): string | null {
+  const value = searchParams?.chat;
+  if (typeof value !== 'string') return null;
+
+  const conversationId = value.trim();
+  return UUID_PATTERN.test(conversationId) ? conversationId : null;
+}
+
+export default function PostChatPage({ params, searchParams }: PostChatPageProps) {
   const { userId } = useAuth();
+  const requestedConversationId = getRequestedConversationId(searchParams);
   const [post, setPost] = useState<ParkingPost | null>(null);
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -61,7 +75,16 @@ export default function PostChatPage({ params }: PostChatPageProps) {
         setPost(loadedPost);
 
         let conv: Conversation;
-        if (loadedPost.user_id === userId) {
+        if (requestedConversationId) {
+          const requestedConversation = await fetchConversationByIdForUser(
+            requestedConversationId,
+            userId,
+          );
+          if (!requestedConversation || requestedConversation.post_id !== params.id) {
+            throw new Error('تعذر فتح المحادثة المطلوبة');
+          }
+          conv = requestedConversation;
+        } else if (loadedPost.user_id === userId) {
           const existing = await fetchConversationByPostForUser(params.id, userId);
           if (!existing) {
             setError('هذا موقفك. انتظر رسائل الطلاب من صفحة المحادثات.');
@@ -93,7 +116,7 @@ export default function PostChatPage({ params }: PostChatPageProps) {
     return () => {
       cancelled = true;
     };
-  }, [params.id, userId]);
+  }, [params.id, requestedConversationId, userId]);
 
   useEffect(() => {
     if (!conversationId) return;

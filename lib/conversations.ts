@@ -240,3 +240,51 @@ export async function fetchConversationByPostForUser(
   if (!data) return null;
   return mapConversation(data as ConversationRow, userId);
 }
+
+/**
+ * Loads one specific conversation only when the current user is one of its
+ * participants. This is used by notification links so an owner with several
+ * conversations on the same parking post opens the intended chat.
+ */
+export async function fetchConversationByIdForUser(
+  conversationId: string,
+  userId: string,
+): Promise<Conversation | null> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('conversations')
+    .select(
+      `
+      id,
+      post_id,
+      owner_id,
+      requester_id,
+      closed,
+      owner_last_read_at,
+      requester_last_read_at,
+      last_message_text,
+      last_message_at,
+      updated_at,
+      parking_posts (
+        id,
+        user_id,
+        college,
+        zone,
+        gate,
+        car_desc,
+        departure_minutes,
+        expires_at,
+        status,
+        created_at,
+        users (username)
+      )
+    `,
+    )
+    .eq('id', conversationId)
+    .or(`owner_id.eq.${userId},requester_id.eq.${userId}`)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+  return mapConversation(data as ConversationRow, userId);
+}

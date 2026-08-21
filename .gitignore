@@ -34,3 +34,6 @@ next-env.d.ts
 
 # pwa build output
 public/worker-*.js
+
+.vercel
+.env*

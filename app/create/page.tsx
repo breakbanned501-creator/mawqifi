@@ -2,20 +2,28 @@
 
 import { type FormEvent, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Send } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Send } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
 import ErrorBanner from '@/components/ErrorBanner';
+import { useLocale } from '@/components/LocaleProvider';
 import Toast from '@/components/Toast';
 import { useAuth } from '@/components/AuthProvider';
 import { createParkingPost } from '@/lib/posts';
 import { getSupabase } from '@/lib/supabase';
-import { departurePresets, formatGate, formatZone, kuColleges } from '@/lib/university';
+import {
+  departurePresets,
+  formatGate,
+  formatZone,
+  getCollegeName,
+  kuColleges,
+} from '@/lib/university';
 
 const NOTES_MAX = 500;
 
 export default function CreatePage() {
   const router = useRouter();
   const { userId } = useAuth();
+  const { dir, formatNumber, locale, t } = useLocale();
   const [college, setCollege] = useState(kuColleges[0].nameAr);
   const [gate, setGate] = useState(kuColleges[0].gates[0]);
   const [notes, setNotes] = useState('');
@@ -47,9 +55,9 @@ export default function CreatePage() {
     event.preventDefault();
     if (loading || !canPublish || !userId) {
       if (!college || !gate) {
-        setError('اختر الكلية والبوابة قبل النشر');
+        setError(t('create.invalidLocation'));
       } else if (!isValidDuration) {
-        setError('حدّد وقت مغادرة صالحاً بين ١ و ١٨٠ دقيقة');
+        setError(t('create.invalidMinutes'));
       }
       return;
     }
@@ -71,7 +79,7 @@ export default function CreatePage() {
         expiresAt,
       });
 
-      setToast('تم نشر موقفك بنجاح');
+      setToast(t('create.success'));
 
       // Broadcast Web Push notification to other subscribed users
       if (createdPost?.id) {
@@ -80,6 +88,7 @@ export default function CreatePage() {
         if (accessToken) {
           void fetch('/api/push/notify-new-post', {
             method: 'POST',
+            credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
             body: JSON.stringify({ postId: createdPost.id }),
           }).catch((err) => console.error('Push broadcast error:', err));
@@ -87,24 +96,31 @@ export default function CreatePage() {
       }
 
       setTimeout(() => router.push('/'), 900);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذر نشر الموقف');
+    } catch {
+      setError(t('common.error'));
     } finally {
       setLoading(false);
     }
   };
 
+  const BackIcon = dir === 'rtl' ? ArrowRight : ArrowLeft;
+
   return (
-    <main className="page-with-chrome min-h-screen px-4 pt-6">
+    <main className="page-with-chrome min-h-screen px-4 pt-6" dir={dir}>
       <Toast message={toast} visible={Boolean(toast)} onHide={() => setToast('')} />
       <div className="mx-auto max-w-md md:max-w-xl lg:max-w-2xl space-y-5">
         <header className="flex items-center gap-3">
-          <button type="button" onClick={() => router.back()} className="rounded-2xl bg-white/10 p-2.5 sm:p-3 text-white/70 hover:bg-white/15">
-            <ArrowRight className="h-5 w-5" />
+          <button
+            type="button"
+            onClick={() => router.back()}
+            aria-label={t('common.back')}
+            className="rounded-2xl bg-white/10 p-2.5 sm:p-3 text-white/70 hover:bg-white/15"
+          >
+            <BackIcon className="h-5 w-5" />
           </button>
           <div className="min-w-0 flex-1">
-            <h1 className="text-xl sm:text-2xl font-black truncate">نشر موقف</h1>
-            <p className="text-xs sm:text-sm text-white/50 truncate">شارك موقفك خلال ثواني</p>
+            <h1 className="text-xl sm:text-2xl font-black truncate">{t('create.title')}</h1>
+            <p className="text-xs sm:text-sm text-white/50 truncate">{t('create.subtitle')}</p>
           </div>
         </header>
 
@@ -112,10 +128,11 @@ export default function CreatePage() {
 
         <form onSubmit={handleSubmit} className="glass-card animate-fade-up space-y-5 p-4 sm:p-5">
           <div>
-            <label className="mb-2 block text-sm font-bold text-white/70">الكلية</label>
+            <label className="mb-2 block text-sm font-bold text-white/70">{t('create.college')}</label>
             <select
               className="input"
               value={college}
+              dir={dir}
               required
               onChange={(e) => {
                 setCollege(e.target.value);
@@ -126,7 +143,7 @@ export default function CreatePage() {
             >
               {kuColleges.map((item) => (
                 <option key={item.nameAr} value={item.nameAr}>
-                  {item.nameAr}
+                  {getCollegeName(item, locale)}
                 </option>
               ))}
             </select>
@@ -134,15 +151,26 @@ export default function CreatePage() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-2 block text-sm font-bold text-white/70">المنطقة</label>
-              <input className="input" value={formatZone(selectedCollege.zone)} readOnly />
+              <label className="mb-2 block text-sm font-bold text-white/70">{t('create.zone')}</label>
+              <input
+                className="input"
+                value={formatZone(selectedCollege.zone, locale)}
+                dir={dir}
+                readOnly
+              />
             </div>
             <div>
-              <label className="mb-2 block text-sm font-bold text-white/70">أقرب بوابة</label>
-              <select className="input" value={gate} required onChange={(e) => setGate(e.target.value)}>
+              <label className="mb-2 block text-sm font-bold text-white/70">{t('create.gate')}</label>
+              <select
+                className="input"
+                value={gate}
+                dir={dir}
+                required
+                onChange={(e) => setGate(e.target.value)}
+              >
                 {selectedCollege.gates.map((item) => (
                   <option key={item} value={item}>
-                    {formatGate(item)}
+                    {formatGate(item, locale)}
                   </option>
                 ))}
               </select>
@@ -151,8 +179,8 @@ export default function CreatePage() {
 
           <div>
             <label htmlFor="notes" className="mb-2 block text-sm font-bold text-white/70">
-              ملاحظات إضافية
-              <span className="ms-1 font-normal text-white/40">(اختياري)</span>
+              {t('create.notes')}
+              <span className="ms-1 font-normal text-white/40">({t('common.optional')})</span>
             </label>
             <textarea
               id="notes"
@@ -161,17 +189,17 @@ export default function CreatePage() {
               onChange={(e) => setNotes(e.target.value)}
               maxLength={NOTES_MAX}
               rows={4}
-              dir="rtl"
-              lang="ar"
-              placeholder="مثال: الموقف قريب من الباب، السيارة خلف الباص الأحمر"
+              dir="auto"
+              lang={locale}
+              placeholder={t('create.notesPlaceholder')}
             />
             <p className="mt-2 text-xs text-white/40">
-              {notes.length}/{NOTES_MAX} — ساعد الطلاب بتحديد مكانك بدقة
+              {formatNumber(notes.length)}/{formatNumber(NOTES_MAX)}
             </p>
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-bold text-white/70">وقت المغادرة</label>
+            <label className="mb-2 block text-sm font-bold text-white/70">{t('create.departureTime')}</label>
             <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
               {departurePresets.map((preset) => (
                 <button
@@ -187,7 +215,7 @@ export default function CreatePage() {
                       : 'bg-white/10 text-white/60 hover:bg-white/15'
                   }`}
                 >
-                  {preset} د
+                  {t('create.departurePreset', { minutes: formatNumber(preset) })}
                 </button>
               ))}
             </div>
@@ -197,19 +225,20 @@ export default function CreatePage() {
               min={1}
               max={180}
               inputMode="numeric"
+              dir="ltr"
               value={customMinutes}
               onChange={(e) => {
                 const raw = e.target.value;
                 if (raw === '' || Number(raw) >= 0) setCustomMinutes(raw);
               }}
-              placeholder="دقائق مخصصة (١–١٨٠)"
+              placeholder={t('create.customMinutes')}
             />
             {customMinutes.trim() !== '' && !isValidDuration && (
-              <p className="mt-2 text-xs font-bold text-red-200">أدخل مدة بين ١ و ١٨٠ دقيقة</p>
+              <p className="mt-2 text-xs font-bold text-red-200">{t('create.invalidMinutes')}</p>
             )}
             {isValidDuration && (
               <p className="mt-2 text-xs font-bold text-cyan-200/80">
-                ينتهي الموقف تلقائياً بعد {departureMinutes} دقيقة
+                {t('create.autoExpiry', { minutes: formatNumber(departureMinutes) })}
               </p>
             )}
           </div>
@@ -220,7 +249,7 @@ export default function CreatePage() {
             className="btn btn-primary flex w-full items-center justify-center gap-2 py-4 text-lg transition-all disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Send className="h-5 w-5" />
-            {loading ? 'جاري النشر...' : 'نشر الموقف'}
+            {loading ? t('create.posting') : t('create.post')}
           </button>
         </form>
       </div>

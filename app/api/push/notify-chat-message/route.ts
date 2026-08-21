@@ -34,12 +34,12 @@ function compactPreview(text: string): string {
   return `${compacted.slice(0, MAX_NOTIFICATION_PREVIEW_LENGTH - 1).trimEnd()}…`;
 }
 
-function getNotificationBody(message: StoredMessage, senderName: string): string {
+function getNotificationBody(message: StoredMessage, senderName: string, locale: 'ar' | 'en'): string {
   const preview = message.text ? compactPreview(message.text) : '';
   if (preview) return `${senderName}: ${preview}`;
-  if (message.type === 'image') return 'أرسل لك صورة 📷';
-  if (message.type === 'location') return 'أرسل لك موقعًا 📍';
-  return `${senderName}: أرسل لك رسالة جديدة`;
+  if (message.type === 'image') return locale === 'ar' ? 'أرسل لك صورة 📷' : 'Sent you a photo 📷';
+  if (message.type === 'location') return locale === 'ar' ? 'أرسل لك موقعًا 📍' : 'Sent you a location 📍';
+  return locale === 'ar' ? `${senderName}: أرسل لك رسالة جديدة` : `${senderName}: sent you a new message`;
 }
 
 export async function POST(request: Request) {
@@ -108,14 +108,20 @@ export async function POST(request: Request) {
 
     const delivery = await deliverPushNotifications({
       recipientUserId: recipientId,
-      payload: {
-        title: 'رسالة جديدة 💬',
-        body: getNotificationBody(message, sender?.username?.trim() || 'طالب'),
-        type: 'chat_message',
-        chatId: conversation.id,
-        messageId: message.id,
-        postId: conversation.post_id,
-        url: `/post/${encodeURIComponent(conversation.post_id)}?chat=${encodeURIComponent(conversation.id)}`,
+      notificationType: 'chat_message',
+      payloadForLocale: (locale) => {
+        const senderName = sender?.username?.trim() || (locale === 'ar' ? 'طالب' : 'Student');
+        return {
+          title: locale === 'ar' ? 'رسالة جديدة 💬' : 'New message 💬',
+          body: getNotificationBody(message, senderName, locale),
+          type: 'chat_message',
+          chatId: conversation.id,
+          messageId: message.id,
+          postId: conversation.post_id,
+          url: `/post/${encodeURIComponent(conversation.post_id)}?chat=${encodeURIComponent(conversation.id)}`,
+          lang: locale,
+          dir: locale === 'ar' ? 'rtl' : 'ltr',
+        };
       },
     });
 

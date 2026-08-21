@@ -23,7 +23,7 @@ const PUSH_STAGE_TIMEOUTS = {
   'server-save': 15_000,
 } as const;
 
-type PushStage = keyof typeof PUSH_STAGE_TIMEOUTS;
+export type PushStage = keyof typeof PUSH_STAGE_TIMEOUTS;
 
 const PUSH_STAGE_MESSAGES: Record<PushStage, string> = {
   permission: 'تعذر إكمال طلب إذن الإشعارات. أغلق الرسالة النظامية ثم حاول مرة أخرى.',
@@ -61,12 +61,14 @@ export type PushDeviceStateKind =
 export type PushDeviceState = {
   kind: PushDeviceStateKind;
   message: string;
+  stage?: PushStage;
 };
 
 export type PushActionResult = {
   success: boolean;
   message: string;
   state?: PushDeviceStateKind;
+  stage?: PushStage;
 };
 
 export type PushUnsubscribeResult = PushActionResult & {
@@ -107,8 +109,8 @@ class PushStageError extends Error {
   }
 }
 
-function pushState(kind: PushDeviceStateKind, message: string): PushDeviceState {
-  return { kind, message };
+function pushState(kind: PushDeviceStateKind, message: string, stage?: PushStage): PushDeviceState {
+  return { kind, message, stage };
 }
 
 export function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -525,6 +527,7 @@ export async function getPushDeviceState(): Promise<PushDeviceState> {
         : error instanceof Error
           ? error.message
           : SAVE_ERROR_MESSAGE,
+      error instanceof PushStageError ? error.stage : undefined,
     );
   }
 }
@@ -584,6 +587,7 @@ export async function subscribeToPushNotifications(): Promise<PushActionResult> 
           : error instanceof Error
             ? error.message
             : SAVE_ERROR_MESSAGE,
+      stage: error instanceof PushStageError ? error.stage : undefined,
     };
   }
 }
@@ -591,7 +595,13 @@ export async function subscribeToPushNotifications(): Promise<PushActionResult> 
 export async function unsubscribeFromPushNotifications(): Promise<PushUnsubscribeResult> {
   const status = checkPushSupport();
   if (!status.supported) {
-    return { success: false, deviceUnsubscribed: false, message: unsupportedPushState(status).message };
+    const state = unsupportedPushState(status);
+    return {
+      success: false,
+      deviceUnsubscribed: false,
+      message: state.message,
+      state: state.kind,
+    };
   }
 
   try {
@@ -604,6 +614,7 @@ export async function unsubscribeFromPushNotifications(): Promise<PushUnsubscrib
         success: true,
         deviceUnsubscribed: true,
         message: 'الإشعارات غير مفعلة على هذا الجهاز.',
+        state: 'disabled',
       };
     }
 
@@ -616,6 +627,7 @@ export async function unsubscribeFromPushNotifications(): Promise<PushUnsubscrib
         success: true,
         deviceUnsubscribed: true,
         message: 'الإشعارات غير مفعلة على هذا الجهاز.',
+        state: 'disabled',
       };
     }
 
@@ -626,6 +638,8 @@ export async function unsubscribeFromPushNotifications(): Promise<PushUnsubscrib
         success: false,
         deviceUnsubscribed: false,
         message: 'تعذر إلغاء اشتراك هذا الجهاز. أعد المحاولة.',
+        state: 'error',
+        stage: 'subscription-remove',
       };
     }
 
@@ -637,6 +651,8 @@ export async function unsubscribeFromPushNotifications(): Promise<PushUnsubscrib
         success: false,
         deviceUnsubscribed: true,
         message: 'تم إلغاء الاشتراك على هذا الجهاز، لكن تعذر مزامنة التغيير مع الخادم.',
+        state: 'error',
+        stage: 'server-save',
       };
     }
 
@@ -644,6 +660,7 @@ export async function unsubscribeFromPushNotifications(): Promise<PushUnsubscrib
       success: true,
       deviceUnsubscribed: true,
       message: 'تم إلغاء تفعيل إشعارات هذا الجهاز.',
+      state: 'disabled',
     };
   } catch (error) {
     logPushFailure('unsubscribe', error);
@@ -651,6 +668,8 @@ export async function unsubscribeFromPushNotifications(): Promise<PushUnsubscrib
       success: false,
       deviceUnsubscribed: false,
       message: error instanceof Error ? error.message : 'تعذر إلغاء الإشعارات. أعد المحاولة.',
+      state: 'error',
+      stage: error instanceof PushStageError ? error.stage : undefined,
     };
   }
 }

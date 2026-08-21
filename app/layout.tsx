@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
 import { Cairo } from 'next/font/google'
 import AuthProvider from '@/components/AuthProvider'
+import LocaleProvider from '@/components/LocaleProvider'
+import NotificationProvider from '@/components/NotificationProvider'
 import PwaInstallPrompt from '@/components/PwaInstallPrompt'
 import PwaSplash from '@/components/PwaSplash'
 import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar'
@@ -9,7 +11,7 @@ import TutorialProvider, { TutorialContent } from '@/components/TutorialProvider
 import './globals.css'
 
 const cairo = Cairo({ 
-  subsets: ['arabic'],
+  subsets: ['arabic', 'latin'],
   weight: ['400', '600', '700'],
   variable: '--font-cairo',
 })
@@ -136,12 +138,16 @@ export default function RootLayout({
         <PwaSplash />
         <ServiceWorkerRegistrar />
         <AuthProvider>
-          <TutorialProvider>
-            <TutorialContent>
-              {children}
-              <PwaInstallPrompt />
-            </TutorialContent>
-          </TutorialProvider>
+          <LocaleProvider>
+            <NotificationProvider>
+              <TutorialProvider>
+                <TutorialContent>
+                  {children}
+                  <PwaInstallPrompt />
+                </TutorialContent>
+              </TutorialProvider>
+            </NotificationProvider>
+          </LocaleProvider>
         </AuthProvider>
       </body>
     </html>

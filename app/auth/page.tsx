@@ -9,10 +9,12 @@ import AppFooter from '@/components/AppFooter';
 import Toast from '@/components/Toast';
 import ErrorBanner from '@/components/ErrorBanner';
 import { useAuth } from '@/components/AuthProvider';
+import { useLocale } from '@/components/LocaleProvider';
 
 export default function AuthPage() {
   const router = useRouter();
   const { refreshProfile, isGuest } = useAuth();
+  const { t } = useLocale();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -43,30 +45,30 @@ export default function AuthPage() {
         const result = await supabase.auth.signUp({
           email,
           password,
-          options: { data: { username: username || 'طالب' } },
+          options: { data: { username: username || t('auth.guest') } },
         });
         if (result.error) throw result.error;
         if (result.data.user) {
           await ensureUserProfile(result.data.user.id, false);
           await supabase
             .from('users')
-            .update({ username: username || 'طالب', is_guest: false })
+            .update({ username: username || t('auth.guest'), is_guest: false })
             .eq('id', result.data.user.id);
         }
-        setMessage('تم إنشاء الحساب. تحقق من بريدك إن طُلب ذلك.');
+        setMessage(t('auth.accountCreated'));
       } else {
         const result = await supabase.auth.signInWithPassword({ email, password });
         if (result.error) throw result.error;
         if (result.data.user) {
           await ensureUserProfile(result.data.user.id, false);
         }
-        setMessage('تم تسجيل الدخول');
+        setMessage(t('auth.signedIn'));
       }
 
       await refreshProfile();
       setTimeout(() => router.push('/'), 800);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذر تسجيل الدخول');
+    } catch {
+      setError(t('auth.signInError'));
     } finally {
       setLoading(false);
     }
@@ -84,9 +86,9 @@ export default function AuthPage() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-cyan-500 text-navy-900 shadow-glow">
             <Car className="h-8 w-8" />
           </div>
-          <h1 className="text-3xl font-black text-white">موقفي</h1>
+          <h1 className="text-3xl font-black text-white">{t('app.name')}</h1>
           <p className="mt-2 text-sm leading-7 text-white/60">
-            {isGuest ? 'أنت تستخدم حساب ضيف — يمكنك ربط بريد لاحقاً' : 'سجّل دخولك أو أنشئ حساباً'}
+            {isGuest ? t('auth.guestNotice') : t('auth.signInOrCreate')}
           </p>
         </div>
 
@@ -99,14 +101,14 @@ export default function AuthPage() {
               onClick={() => setMode('signin')}
               className={`rounded-xl py-2 text-sm font-bold ${mode === 'signin' ? 'bg-cyan-500 text-navy-900' : 'text-white/50'}`}
             >
-              دخول
+              {t('auth.signIn')}
             </button>
             <button
               type="button"
               onClick={() => setMode('signup')}
               className={`rounded-xl py-2 text-sm font-bold ${mode === 'signup' ? 'bg-cyan-500 text-navy-900' : 'text-white/50'}`}
             >
-              حساب جديد
+              {t('auth.signUp')}
             </button>
           </div>
 
@@ -115,7 +117,8 @@ export default function AuthPage() {
               className="input"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="اسم المستخدم"
+              placeholder={t('auth.username')}
+              aria-label={t('auth.username')}
               required
             />
           )}
@@ -124,7 +127,8 @@ export default function AuthPage() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="البريد الإلكتروني"
+            placeholder={t('auth.email')}
+            aria-label={t('auth.email')}
             required
           />
           <input
@@ -132,7 +136,8 @@ export default function AuthPage() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="كلمة المرور"
+            placeholder={t('auth.password')}
+            aria-label={t('auth.password')}
             required
             minLength={6}
           />
@@ -142,7 +147,7 @@ export default function AuthPage() {
             className="btn btn-primary flex w-full items-center justify-center gap-2 disabled:opacity-50"
           >
             {mode === 'signup' ? <UserPlus className="h-5 w-5" /> : <LogIn className="h-5 w-5" />}
-            {loading ? 'جاري المعالجة...' : mode === 'signup' ? 'إنشاء حساب' : 'تسجيل الدخول'}
+            {loading ? t('auth.processing') : mode === 'signup' ? t('auth.createAccount') : t('auth.signIn')}
           </button>
         </form>
 
@@ -152,12 +157,12 @@ export default function AuthPage() {
             onClick={continueAsGuest}
             className="w-full rounded-3xl border border-white/10 bg-white/5 py-4 text-sm font-bold text-white/70"
           >
-            متابعة كضيف
+            {t('auth.continueGuest')}
           </button>
         )}
 
         <p className="text-center text-xs leading-6 text-white/45">
-          الضيوف يمكنهم النشر والمحادثة فوراً. الحساب بالبريد يحفظ بياناتك على كل الأجهزة.
+          {t('auth.guestBenefits')}
         </p>
       </div>
       <AppFooter />

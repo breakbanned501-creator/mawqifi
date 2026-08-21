@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { X, ZoomIn, ZoomOut } from 'lucide-react';
+import { useLocale } from '@/components/LocaleProvider';
 
 type MapLightboxProps = {
   src: string;
@@ -23,6 +24,7 @@ function getTouchDistance(touches: React.TouchList) {
 }
 
 export default function MapLightbox({ src, alt, caption, open, onClose }: MapLightboxProps) {
+  const { t } = useLocale();
   const [scale, setScale] = useState(1);
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
   const pinchStartDist = useRef(0);
@@ -120,7 +122,7 @@ export default function MapLightbox({ src, alt, caption, open, onClose }: MapLig
               zoomOut();
             }}
             className="rounded-full bg-white/10 p-2.5 text-white/80"
-            aria-label="تصغير"
+            aria-label={t('map.zoomOut')}
           >
             <ZoomOut className="h-5 w-5" />
           </button>
@@ -131,7 +133,7 @@ export default function MapLightbox({ src, alt, caption, open, onClose }: MapLig
               zoomIn();
             }}
             className="rounded-full bg-white/10 p-2.5 text-white/80"
-            aria-label="تكبير"
+            aria-label={t('map.zoomIn')}
           >
             <ZoomIn className="h-5 w-5" />
           </button>
@@ -142,7 +144,7 @@ export default function MapLightbox({ src, alt, caption, open, onClose }: MapLig
               onClose();
             }}
             className="rounded-full bg-cyan-500/20 p-2.5 text-cyan-100 ring-1 ring-cyan-400/40"
-            aria-label="إغلاق"
+            aria-label={t('common.close')}
           >
             <X className="h-5 w-5" />
           </button>
@@ -175,7 +177,7 @@ export default function MapLightbox({ src, alt, caption, open, onClose }: MapLig
         </div>
       </div>
 
-      <p className="pb-4 text-center text-xs text-white/45">قرصة للتكبير · اسحب للتحريك</p>
+      <p className="pb-4 text-center text-xs text-white/45">{t('map.gestureHint')}</p>
     </div>
   );
 }

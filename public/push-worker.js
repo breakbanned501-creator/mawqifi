@@ -14,7 +14,9 @@ self.addEventListener('push', (event) => {
 
   try {
     const data = event.data.json();
-    const title = data.title || 'موقفي 🚗';
+    const language = data.lang === 'en' ? 'en' : 'ar';
+    const direction = data.dir === 'ltr' ? 'ltr' : 'rtl';
+    const title = data.title || (language === 'en' ? 'Mawqifi 🚗' : 'موقفي 🚗');
     const notificationData = {
       url: sameOriginPath(data.url),
     };
@@ -32,12 +34,14 @@ self.addEventListener('push', (event) => {
           : 'mawqifi-notification';
 
     const options = {
-      body: data.body || 'تم نشر موقف جديد متاح في الجامعة',
+      body: data.body || (language === 'en'
+        ? 'A new parking spot is available on campus'
+        : 'تم نشر موقف جديد متاح في الجامعة'),
       icon: '/icon-192.png',
       badge: '/icon-192.png',
       data: notificationData,
-      rtl: true,
-      lang: 'ar',
+      dir: direction,
+      lang: language,
       tag,
       renotify: true,
       vibrate: [100, 50, 100],

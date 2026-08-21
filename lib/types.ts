@@ -42,17 +42,3 @@ export type ChatMessage = {
   longitude: number | null;
   created_at: string;
 };
-
-export type AIAnalysisResult = {
-  summary?: string;
-  alerts?: string[];
-  violationCheck?: string;
-  appealSuggestion?: string;
-  importantDates?: string[];
-  advice?: string;
-  warnings?: Array<{
-    severity: 'yellow' | 'red';
-    title: string;
-    message: string;
-  }>;
-};

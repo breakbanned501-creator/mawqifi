@@ -1,4 +1,7 @@
-import { AlertTriangle, AlertCircle, Info } from 'lucide-react';
+'use client';
+
+import { AlertTriangle, AlertCircle } from 'lucide-react';
+import { useLocale } from '@/components/LocaleProvider';
 
 interface WarningCardProps {
   type: 'yellow' | 'red';
@@ -17,15 +20,17 @@ const warningIcons = {
 };
 
 export default function WarningCard({ type, title, message }: WarningCardProps) {
+  const { dir } = useLocale();
+
   return (
-    <div className={`glass-card border-2 p-5 shadow-lg ${warningStyles[type]} animate-fade-up`}>
+    <div className={`glass-card animate-fade-up border-2 p-5 shadow-lg ${warningStyles[type]}`} dir={dir}>
       <div className="flex items-start gap-4">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-navy-950/50">
           {warningIcons[type]}
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="mb-2 text-base font-extrabold text-white">{title}</h3>
-          <p className="text-sm leading-7 text-white/70">{message}</p>
+          <h3 className="mb-2 text-start text-base font-extrabold text-white">{title}</h3>
+          <p className="text-start text-sm leading-7 text-white/70">{message}</p>
         </div>
       </div>
     </div>

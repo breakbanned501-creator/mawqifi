@@ -5,6 +5,17 @@ import {
   PushConfigurationError,
 } from '@/lib/push-server';
 import { getRequestUser, getSupabaseServiceRole } from '@/lib/supabase-server';
+import { formatGate, formatZone, getCollegeName } from '@/lib/university';
+
+type StoredParkingPost = {
+  id: string;
+  user_id: string;
+  college: string;
+  zone: 'A' | 'B';
+  gate: string;
+  departure_minutes: number;
+  status: string;
+};
 
 export async function POST(request: Request) {
   try {
@@ -39,15 +50,33 @@ export async function POST(request: Request) {
     }
     if (eventError) throw eventError;
 
-    const zoneLabel = post.zone === 'A' ? 'المنطقة A' : 'المنطقة B';
+    const storedPost = post as StoredParkingPost;
     const delivery = await deliverPushNotifications({
       excludeUserId: user.id,
-      payload: {
-        title: 'موقف جديد متاح 🚗',
-        body: `تم نشر موقف جديد في ${post.college} — ${zoneLabel}${post.gate ? ` — ${post.gate}` : ''} (يغادر خلال ${post.departure_minutes} د)`,
-        url: `/post/${post.id}`,
-        postId: post.id,
-        type: 'parking_post',
+      notificationType: 'parking_post',
+      payloadForLocale: (locale) => {
+        const location = [
+          getCollegeName(storedPost.college, locale),
+          formatZone(storedPost.zone, locale),
+          storedPost.gate ? formatGate(storedPost.gate, locale) : '',
+        ]
+          .filter(Boolean)
+          .join(' — ');
+        const departure = locale === 'ar'
+          ? `يغادر خلال ${storedPost.departure_minutes} د`
+          : `leaving in ${storedPost.departure_minutes} min`;
+
+        return {
+          title: locale === 'ar' ? 'موقف جديد متاح 🚗' : 'New parking spot available 🚗',
+          body: locale === 'ar'
+            ? `تم نشر موقف جديد في ${location} (${departure})`
+            : `A new parking spot was posted at ${location} (${departure})`,
+          url: `/post/${storedPost.id}`,
+          postId: storedPost.id,
+          type: 'parking_post',
+          lang: locale,
+          dir: locale === 'ar' ? 'rtl' : 'ltr',
+        };
       },
     });
     return NextResponse.json({ success: true, sentCount: delivery.sentCount });

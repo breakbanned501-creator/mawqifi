@@ -1,27 +1,46 @@
 import 'server-only';
 
 import webPush from 'web-push';
+import type { Locale } from '@/lib/i18n';
 import { getSupabaseServiceRole } from '@/lib/supabase-server';
 
 type StoredSubscription = {
   id: string;
+  user_id: string;
   endpoint: string;
   p256dh: string;
   auth: string;
 };
 
+type StoredNotificationPreferences = {
+  user_id: string;
+  locale: Locale;
+  parking_push_enabled: boolean;
+  chat_push_enabled: boolean;
+};
+
+export type PushNotificationType = 'parking_post' | 'chat_message';
+
 export type PushNotificationPayload = {
   title: string;
   body: string;
   url: string;
+  lang: Locale;
+  dir: 'rtl' | 'ltr';
   postId?: string;
-  type?: 'parking_post' | 'chat_message';
+  type: PushNotificationType;
   chatId?: string;
   messageId?: string;
 };
 
 export type PushDeliveryOptions = {
-  payload: PushNotificationPayload;
+  /**
+   * Device notifications are built on the server from the recipient's private
+   * language preference. User-generated text stays unchanged; only Mawqifi's
+   * surrounding copy is localized.
+   */
+  payloadForLocale: (locale: Locale) => PushNotificationPayload;
+  notificationType: PushNotificationType;
   recipientUserId?: string;
   excludeUserId?: string;
 };
@@ -67,7 +86,8 @@ function getPushStatusCode(error: unknown): number | null {
  * are deactivated so future sends do not repeatedly fail.
  */
 export async function deliverPushNotifications({
-  payload,
+  payloadForLocale,
+  notificationType,
   recipientUserId,
   excludeUserId,
 }: PushDeliveryOptions): Promise<PushDeliveryResult> {
@@ -76,7 +96,7 @@ export async function deliverPushNotifications({
   const supabase = getSupabaseServiceRole();
   let subscriptionsQuery = supabase
     .from('push_subscriptions')
-    .select('id, endpoint, p256dh, auth')
+    .select('id, user_id, endpoint, p256dh, auth')
     .eq('active', true);
 
   if (recipientUserId) {
@@ -90,22 +110,57 @@ export async function deliverPushNotifications({
   if (subscriptionsError) throw subscriptionsError;
 
   const activeSubscriptions = (subscriptions ?? []) as StoredSubscription[];
-  const serializedPayload = JSON.stringify(payload);
+  const userIds = [...new Set(activeSubscriptions.map((subscription) => subscription.user_id))];
+  const preferencesByUser = new Map<string, StoredNotificationPreferences>();
+
+  if (userIds.length) {
+    const { data: preferences, error: preferencesError } = await supabase
+      .from('user_notification_preferences')
+      .select('user_id, locale, parking_push_enabled, chat_push_enabled')
+      .in('user_id', userIds);
+    if (preferencesError) throw preferencesError;
+
+    for (const preference of (preferences ?? []) as StoredNotificationPreferences[]) {
+      preferencesByUser.set(preference.user_id, preference);
+    }
+  }
+
+  const isAllowedForType = (preference: StoredNotificationPreferences | undefined) => {
+    if (!preference) return true;
+    return notificationType === 'parking_post'
+      ? preference.parking_push_enabled
+      : preference.chat_push_enabled;
+  };
+
+  const eligibleSubscriptions = activeSubscriptions.filter((subscription) =>
+    isAllowedForType(preferencesByUser.get(subscription.user_id)),
+  );
+  const serializedPayloads = new Map<Locale, string>();
+  const payloadForSubscription = (subscription: StoredSubscription) => {
+    const locale = preferencesByUser.get(subscription.user_id)?.locale === 'en' ? 'en' : 'ar';
+    const existingPayload = serializedPayloads.get(locale);
+    if (existingPayload) return existingPayload;
+
+    const payload = JSON.stringify(payloadForLocale(locale));
+    serializedPayloads.set(locale, payload);
+    return payload;
+  };
+
   const deliveries = await Promise.all(
-    activeSubscriptions.map(async (subscription) => {
+    eligibleSubscriptions.map(async (subscription) => {
       try {
         await webPush.sendNotification(
           {
             endpoint: subscription.endpoint,
             keys: { p256dh: subscription.p256dh, auth: subscription.auth },
           },
-          serializedPayload,
+          payloadForSubscription(subscription),
         );
         return { sent: true, staleSubscriptionId: null as string | null };
       } catch (error) {
         const statusCode = getPushStatusCode(error);
         console.warn('Web push delivery failed.', {
-          notificationType: payload.type ?? 'parking_post',
+          notificationType,
           statusCode,
         });
         return {
@@ -126,7 +181,7 @@ export async function deliverPushNotifications({
       .in('id', staleSubscriptionIds);
     if (deactivateError) {
       console.error('Unable to deactivate stale push subscriptions.', {
-        notificationType: payload.type ?? 'parking_post',
+        notificationType,
         staleCount: staleSubscriptionIds.length,
       });
     }
@@ -134,8 +189,9 @@ export async function deliverPushNotifications({
 
   const sentCount = deliveries.filter(({ sent }) => sent).length;
   console.info('Web push delivery completed.', {
-    notificationType: payload.type ?? 'parking_post',
+    notificationType,
     subscriptionCount: activeSubscriptions.length,
+    eligibleSubscriptionCount: eligibleSubscriptions.length,
     sentCount,
     staleCount: staleSubscriptionIds.length,
   });

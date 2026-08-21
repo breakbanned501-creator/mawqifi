@@ -1,183 +1,176 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import Link from 'next/link';
-import { Bell } from 'lucide-react';
+import { Bell, Car, MessageCircle, Trash2 } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
 import ErrorBanner from '@/components/ErrorBanner';
 import LoadingScreen from '@/components/LoadingScreen';
 import PageHeader from '@/components/PageHeader';
-import { useAuth } from '@/components/AuthProvider';
-import { getPushDeviceState, subscribeToPushNotifications, type PushDeviceState } from '@/lib/push';
-import { fetchNotifications, unreadCount, type AppNotification } from '@/lib/notifications';
-import { markConversationRead } from '@/lib/conversations';
+import PushNotificationControl from '@/components/PushNotificationControl';
+import { useLocale } from '@/components/LocaleProvider';
+import { useNotifications } from '@/components/NotificationProvider';
+import { formatGate, formatZone, getCollegeName } from '@/lib/university';
+import type { AppNotification } from '@/lib/notifications';
+
+function dataString(data: Record<string, unknown>, key: string): string {
+  const value = data[key];
+  return typeof value === 'string' ? value : '';
+}
+
+function notificationHref(item: AppNotification): string {
+  if (item.href) return item.href;
+  if (item.post_id && item.conversation_id) {
+    return `/post/${item.post_id}?chat=${item.conversation_id}`;
+  }
+  return item.post_id ? `/post/${item.post_id}` : '/';
+}
 
 export default function NotificationsPage() {
-  const { userId } = useAuth();
-  const [items, setItems] = useState<AppNotification[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [pushState, setPushState] = useState<PushDeviceState>({ kind: 'disabled', message: '' });
-  const [pushLoading, setPushLoading] = useState(false);
-  const pushEnabled = pushState.kind === 'enabled';
+  const { locale, formatDate, t } = useLocale();
+  const {
+    items,
+    unreadCount,
+    isLoading,
+    error,
+    refresh,
+    markRead,
+    markAllRead,
+    clearRead,
+  } = useNotifications();
 
-  useEffect(() => {
-    if (!userId) return;
+  const presentedItems = useMemo(() => items.map((item) => {
+    const data = item.data;
+    if (item.kind === 'parking_post') {
+      const zone = dataString(data, 'zone');
+      const gate = dataString(data, 'gate');
+      const location = [
+        getCollegeName(dataString(data, 'college'), locale),
+        zone === 'A' || zone === 'B' ? formatZone(zone, locale) : '',
+        gate ? formatGate(gate, locale) : '',
+      ].filter(Boolean).join(' — ');
 
-    let cancelled = false;
-    setPushLoading(true);
-    void (async () => {
-      try {
-        const next = await getPushDeviceState();
-        if (!cancelled) setPushState(next);
-      } catch {
-        if (!cancelled) {
-          setPushState({ kind: 'error', message: 'تعذر التحقق من حالة إشعارات هذا الجهاز.' });
-        }
-      } finally {
-        if (!cancelled) setPushLoading(false);
-      }
-    })();
+      return {
+        ...item,
+        title: t('notifications.newParking'),
+        body: t('notifications.parkingBody', { location }),
+        href: notificationHref(item),
+        Icon: Car,
+      };
+    }
 
-    return () => {
-      cancelled = true;
+    if (item.kind === 'chat_message') {
+      const sender = dataString(data, 'sender_name') || t('auth.guest');
+      const preview = dataString(data, 'preview');
+      const messageType = dataString(data, 'message_type');
+      const body = preview
+        ? `${sender}: ${preview}`
+        : messageType === 'image'
+          ? t('notifications.imageMessage')
+          : messageType === 'location'
+            ? t('notifications.locationMessage')
+            : t('notifications.messageFallback', { sender });
+
+      return {
+        ...item,
+        title: t('notifications.newMessage'),
+        body,
+        href: notificationHref(item),
+        Icon: MessageCircle,
+      };
+    }
+
+    return {
+      ...item,
+      title: dataString(data, 'title') || t('notifications.system'),
+      body: dataString(data, 'body') || t('notifications.emptyBody'),
+      href: notificationHref(item),
+      Icon: Bell,
     };
-  }, [userId]);
+  }), [items, locale, t]);
 
-  const handleEnablePush = async () => {
-    if (!userId) return;
-    setPushLoading(true);
-    try {
-      const result = await subscribeToPushNotifications();
-      if (result.success) {
-        setPushState({ kind: 'enabled', message: result.message });
-      } else {
-        setPushState({ kind: result.state ?? 'error', message: result.message });
-      }
-    } catch {
-      setPushState({ kind: 'error', message: 'تعذر إكمال عملية الإشعارات. حاول مرة أخرى.' });
-    } finally {
-      setPushLoading(false);
-    }
-  };
-
-  const load = useCallback(async () => {
-    if (!userId) return;
-    setError(null);
-    try {
-      setItems(await fetchNotifications(userId));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذر تحميل التنبيهات');
-    } finally {
-      setLoading(false);
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const handleOpen = async (item: AppNotification) => {
-    if (!userId) return;
-    try {
-      await markConversationRead(item.id, userId);
-      setItems((current) => current.filter((n) => n.id !== item.id));
-    } catch {
-      /* still navigate */
-    }
-  };
-
-  const unread = unreadCount(items);
-
-  if (loading) return <LoadingScreen message="جاري تحميل التنبيهات..." />;
+  if (isLoading && items.length === 0) return <LoadingScreen message={t('common.loading')} />;
 
   return (
     <main className="page-with-chrome min-h-screen px-4 pt-6">
-      <div className="mx-auto max-w-md md:max-w-xl lg:max-w-2xl space-y-5">
+      <div className="mx-auto max-w-md space-y-5 md:max-w-xl lg:max-w-2xl">
         <PageHeader
-          title="التنبيهات"
-          subtitle={unread > 0 ? `${unread} تنبيهات غير مقروءة` : 'لا توجد تنبيهات جديدة'}
+          title={t('notifications.title')}
+          subtitle={unreadCount > 0 ? t('notifications.unreadCount', { count: unreadCount }) : t('notifications.allCaughtUp')}
           backHref="/"
+          action={items.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => void markAllRead()}
+              disabled={unreadCount === 0}
+              className="rounded-xl px-3 py-2 text-xs font-bold text-cyan-200 transition-colors hover:bg-cyan-500/10 disabled:opacity-40"
+            >
+              {t('common.markAllRead')}
+            </button>
+          ) : undefined}
         />
 
-        {!pushEnabled && (
-          <div className="glass-card border-cyan-400/30 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cyan-500/15 text-cyan-300">
-                  <Bell className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-extrabold text-white">تفعيل الإشعارات الفورية</h3>
-                  <p className="text-xs text-white/60">ليصلك تنبيه فور نشر موقف جديد</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => void handleEnablePush()}
-                disabled={pushLoading}
-                className="btn btn-primary shrink-0 px-4 py-2 text-xs"
-              >
-                {pushLoading ? '...' : pushState.kind === 'not-registered' ? 'إعادة المحاولة' : 'تفعيل'}
-              </button>
-            </div>
-            {pushState.message && (
-              <p className="mt-3 whitespace-pre-line rounded-xl bg-cyan-500/10 p-2.5 text-xs font-bold text-cyan-200">
-                {pushState.message}
-              </p>
-            )}
-            {pushState.kind === 'requires-home-screen' && (
-              <div className="mt-3 rounded-xl border border-cyan-400/25 bg-cyan-500/10 p-3 text-xs leading-5 text-cyan-100">
-                <p className="font-extrabold mb-1">لتفعيل إشعارات موقفي على الآيفون أو الآيباد:</p>
-                <ol className="list-decimal list-inside space-y-0.5 text-white/80">
-                  <li>اضغط مشاركة في أسفل المتصفح</li>
-                  <li>اختر إضافة إلى الشاشة الرئيسية</li>
-                  <li>افتح موقفي من الشاشة الرئيسية</li>
-                  <li>اضغط تفعيل الإشعارات</li>
-                </ol>
-              </div>
-            )}
-          </div>
-        )}
+        <PushNotificationControl />
 
-        {error && <ErrorBanner message={error} onRetry={() => { setLoading(true); void load(); }} />}
+        {error && <ErrorBanner message={t('notifications.loadError')} onRetry={() => void refresh()} />}
 
-        {items.length === 0 ? (
+        {presentedItems.length === 0 ? (
           <div className="glass-card py-12 text-center">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-cyan-500/10">
               <Bell className="h-8 w-8 text-cyan-300" />
             </div>
-            <h3 className="mb-2 text-lg font-extrabold text-white">لا توجد تنبيهات جديدة</h3>
-            <p className="text-sm leading-6 text-white/60">سنخبرك عندما تكون هناك تحديثات مهمة</p>
+            <h3 className="mb-2 text-lg font-extrabold text-white">{t('notifications.emptyTitle')}</h3>
+            <p className="text-sm leading-6 text-white/60">{t('notifications.emptyBody')}</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {items.map((item) => (
-              <Link
-                key={item.id}
-                href={item.href ?? '/conversations'}
-                onClick={() => void handleOpen(item)}
-                className="block glass-card border-cyan-400/25 p-4"
+            {presentedItems.map((item) => {
+              const Icon = item.Icon;
+              const isRead = Boolean(item.read_at);
+              return (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  onClick={() => {
+                    if (!isRead) void markRead(item.id);
+                  }}
+                  className={`block glass-card p-4 transition-colors hover:border-cyan-400/35 ${
+                    isRead ? 'border-white/10 opacity-80' : 'border-cyan-400/25'
+                  }`}
+                >
+                  <article className="flex gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-500/15 text-cyan-300">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <h2 className="font-extrabold text-white">{item.title}</h2>
+                        {!isRead && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-cyan-400" aria-label={t('notifications.unreadCount', { count: 1 })} />}
+                      </div>
+                      <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-white/65" dir="auto">{item.body}</p>
+                      <p className="mt-2 text-xs text-white/40">
+                        {formatDate(item.created_at, {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          day: 'numeric',
+                          month: 'short',
+                        })}
+                      </p>
+                    </div>
+                  </article>
+                </Link>
+              );
+            })}
+            {items.some((item) => item.read_at) && (
+              <button
+                type="button"
+                onClick={() => void clearRead()}
+                className="mx-auto flex items-center gap-2 px-3 py-2 text-xs font-bold text-white/50 transition-colors hover:text-red-200"
               >
-                <article className="flex gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-500/15 text-cyan-300">
-                    <Bell className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h2 className="font-extrabold text-white">{item.title}</h2>
-                    <p className="mt-1 text-sm leading-6 text-white/65">{item.body}</p>
-                    <p className="mt-2 text-xs text-white/40">
-                      {new Date(item.created_at).toLocaleString('ar-KW', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        day: 'numeric',
-                        month: 'short',
-                      })}
-                    </p>
-                  </div>
-                </article>
-              </Link>
-            ))}
+                <Trash2 className="h-3.5 w-3.5" />
+                {t('notifications.clearRead')}
+              </button>
+            )}
           </div>
         )}
       </div>

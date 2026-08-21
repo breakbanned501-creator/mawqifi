@@ -3,7 +3,7 @@
 import { type ChangeEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, Camera, ImageIcon, MapPin, Send, X, Flag } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Camera, ImageIcon, MapPin, Send, X, Flag } from 'lucide-react';
 import AppFooter from '@/components/AppFooter';
 import Toast from '@/components/Toast';
 import CountdownTimer from '@/components/CountdownTimer';
@@ -11,6 +11,7 @@ import ErrorBanner from '@/components/ErrorBanner';
 import LoadingScreen from '@/components/LoadingScreen';
 import ReportModal from '@/components/ReportModal';
 import { useAuth } from '@/components/AuthProvider';
+import { useLocale } from '@/components/LocaleProvider';
 import { fetchMessages, sendMessage, uploadChatImage } from '@/lib/chat';
 import {
   fetchConversationByIdForUser,
@@ -20,13 +21,16 @@ import {
 } from '@/lib/conversations';
 import { fetchParkingPostById, isPostActive } from '@/lib/posts';
 import { getSupabase } from '@/lib/supabase';
-import { formatGate, formatZone } from '@/lib/university';
+import { getCollegeName, formatGate, formatZone } from '@/lib/university';
+import type { TranslationKey } from '@/lib/i18n';
 import type { ChatMessage, Conversation, ParkingPost } from '@/lib/types';
 
 interface PostChatPageProps {
   params: { id: string };
   searchParams?: { chat?: string | string[] };
 }
+
+type ChatError = { key: TranslationKey } | { message: string };
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -41,6 +45,7 @@ function getRequestedConversationId(searchParams: PostChatPageProps['searchParam
 
 export default function PostChatPage({ params, searchParams }: PostChatPageProps) {
   const { userId } = useAuth();
+  const { dir, formatDate, locale, t } = useLocale();
   const requestedConversationId = getRequestedConversationId(searchParams);
   const [post, setPost] = useState<ParkingPost | null>(null);
   const [conversation, setConversation] = useState<Conversation | null>(null);
@@ -49,7 +54,7 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
   const [typing, setTyping] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ChatError | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [toast, setToast] = useState('');
   const [showReportModal, setShowReportModal] = useState(false);
@@ -59,6 +64,8 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
 
   const expired = post ? !isPostActive(post) : false;
   const conversationId = conversation?.id;
+  const errorMessage = error ? ('key' in error ? t(error.key) : error.message) : null;
+  const BackIcon = dir === 'rtl' ? ArrowRight : ArrowLeft;
 
   useEffect(() => {
     if (!userId) return;
@@ -70,8 +77,12 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
       setError(null);
       try {
         const loadedPost = await fetchParkingPostById(params.id);
-        if (!loadedPost) throw new Error('الموقف غير موجود');
         if (cancelled) return;
+        if (!loadedPost) {
+          setError({ key: 'chat.postNotFound' });
+          return;
+        }
+
         setPost(loadedPost);
 
         let conv: Conversation;
@@ -80,20 +91,23 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
             requestedConversationId,
             userId,
           );
+          if (cancelled) return;
           if (!requestedConversation || requestedConversation.post_id !== params.id) {
-            throw new Error('تعذر فتح المحادثة المطلوبة');
+            setError({ key: 'chat.openError' });
+            return;
           }
           conv = requestedConversation;
         } else if (loadedPost.user_id === userId) {
           const existing = await fetchConversationByPostForUser(params.id, userId);
+          if (cancelled) return;
           if (!existing) {
-            setError('هذا موقفك. انتظر رسائل الطلاب من صفحة المحادثات.');
-            setLoading(false);
+            setError({ key: 'chat.ownerOnly' });
             return;
           }
           conv = existing;
         } else {
           const result = await getOrCreateConversation(params.id, userId);
+          if (cancelled) return;
           conv = result.conversation;
         }
 
@@ -104,9 +118,9 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
         if (cancelled) return;
         setMessages(initialMessages);
         await markConversationRead(conv.id, userId);
-      } catch (err) {
+      } catch {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'تعذر فتح المحادثة');
+          setError({ key: 'chat.openError' });
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -172,8 +186,8 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
         type: 'text',
         text: value,
       });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذر إرسال الرسالة');
+    } catch {
+      setError({ key: 'chat.sendError' });
       setText(value);
     }
   };
@@ -199,9 +213,9 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
         type: 'image',
         imageUrl: publicUrl,
       });
-      setToast('تم إرسال الصورة');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذر رفع الصورة');
+      setToast(t('chat.sendImage'));
+    } catch {
+      setError({ key: 'chat.imageUploadError' });
     } finally {
       setUploading(false);
       event.target.value = '';
@@ -212,7 +226,7 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
     if (expired || !conversationId || !userId) return;
 
     if (!navigator.geolocation) {
-      setError('المتصفح لا يدعم تحديد الموقع');
+      setError({ key: 'chat.locationUnsupported' });
       return;
     }
 
@@ -224,22 +238,22 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
             conversationId,
             senderId: userId,
             type: 'location',
-            text: 'موقعي الحالي',
+            text: t('chat.location'),
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
           });
-          setToast('تم إرسال الموقع');
-        } catch (err) {
-          setError(err instanceof Error ? err.message : 'تعذر إرسال الموقع');
+          setToast(t('chat.sendLocationSuccess'));
+        } catch {
+          setError({ key: 'chat.sendError' });
         }
       },
       (geoError) => {
-        const messages: Record<number, string> = {
-          1: 'يجب السماح بالوصول إلى الموقع من إعدادات المتصفح',
-          2: 'تعذر تحديد الموقع حالياً',
-          3: 'انتهت مهلة تحديد الموقع، حاول مرة أخرى',
+        const messages: Record<number, TranslationKey> = {
+          1: 'chat.locationPermission',
+          2: 'chat.locationUnavailable',
+          3: 'chat.locationTimeout',
         };
-        setError(messages[geoError.code] ?? 'تعذر الحصول على الموقع');
+        setError({ key: messages[geoError.code] ?? 'chat.locationUnavailable' });
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
     );
@@ -251,18 +265,18 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
     // For now, just log it
   };
 
-  if (loading) return <LoadingScreen message="جاري فتح المحادثة..." />;
+  if (loading) return <LoadingScreen message={t('common.loading')} />;
 
   if (!post) {
     return (
       <main className="flex min-h-screen items-center justify-center px-4">
-        <ErrorBanner message={error ?? 'الموقف غير موجود'} />
+        <ErrorBanner message={errorMessage ?? t('parking.notFound')} />
       </main>
     );
   }
 
   return (
-    <main className="flex min-h-screen flex-col bg-navy-950">
+    <main className="flex min-h-screen flex-col bg-navy-950" dir={dir}>
       <Toast message={toast} visible={Boolean(toast)} onHide={() => setToast('')} />
       {selectedImage && (
         <div
@@ -274,13 +288,13 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
             type="button"
             className="absolute end-4 top-4 rounded-full bg-white/10 p-3"
             onClick={() => setSelectedImage(null)}
-            aria-label="إغلاق"
+            aria-label={t('common.close')}
           >
             <X className="h-6 w-6" />
           </button>
           <Image
             src={selectedImage}
-            alt="صورة المحادثة"
+            alt={t('chat.imageAlt')}
             width={900}
             height={900}
             className="max-h-[85vh] w-auto rounded-3xl object-contain"
@@ -291,33 +305,37 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
 
       <header className="sticky top-0 z-40 border-b border-white/10 bg-navy-950/90 px-4 py-3 backdrop-blur-xl">
         <div className="mx-auto flex max-w-md md:max-w-xl lg:max-w-2xl items-center gap-3">
-          <Link href="/conversations" className="rounded-2xl bg-white/10 p-2.5 text-white/70">
-            <ArrowRight className="h-5 w-5" />
+          <Link
+            href="/conversations"
+            className="rounded-2xl bg-white/10 p-2.5 text-white/70"
+            aria-label={t('common.back')}
+          >
+            <BackIcon className="h-5 w-5" aria-hidden="true" />
           </Link>
           <div className="min-w-0 flex-1">
-            <h1 className="truncate font-extrabold text-white">محادثة الموقف</h1>
+            <h1 className="truncate font-extrabold text-white">{t('chat.title')}</h1>
             <p className="truncate text-sm text-white/55">
-              {post.college} — {formatZone(post.zone)} — {formatGate(post.gate)}
+              {getCollegeName(post.college, locale)} — {formatZone(post.zone, locale)} — {formatGate(post.gate, locale)}
             </p>
             {!expired && (
               <div className="mt-1">
                 <CountdownTimer expiresAt={new Date(post.expires_at).getTime()} />
               </div>
             )}
-            {typing && <p className="mt-1 animate-pulse-soft text-xs text-cyan-300">يكتب الآن...</p>}
+            {typing && <p className="mt-1 animate-pulse-soft text-xs text-cyan-300">{t('chat.typing')}</p>}
           </div>
         </div>
       </header>
 
       {error && (
         <div className="mx-auto w-full max-w-md md:max-w-xl lg:max-w-2xl px-4 pt-3">
-          <ErrorBanner message={error} onRetry={() => setError(null)} />
+          <ErrorBanner message={errorMessage ?? t('common.error')} onRetry={() => setError(null)} />
         </div>
       )}
 
       <section className="mx-auto flex w-full max-w-md md:max-w-xl lg:max-w-2xl flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
         {messages.length === 0 && !error && (
-          <p className="py-8 text-center text-sm text-white/45">ابدأ المحادثة بخصوص هذا الموقف</p>
+          <p className="py-8 text-center text-sm text-white/45">{t('chat.empty')}</p>
         )}
         {messages.map((message) => {
           const mine = message.sender_id === userId;
@@ -352,7 +370,7 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
                     >
                       <Image
                         src={message.image_url}
-                        alt="صورة"
+                        alt={t('chat.imageAlt')}
                         width={240}
                         height={180}
                         className="block h-auto max-w-full rounded-2xl object-cover"
@@ -366,7 +384,7 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
                       <div className="space-y-2">
                         <div className="rounded-2xl bg-navy-900/60 p-4 text-center">
                           <MapPin className="mx-auto h-8 w-8 text-cyan-300" />
-                          <p className="mt-2 text-sm font-bold">موقع الطالب الحالي</p>
+                          <p className="mt-2 text-sm font-bold">{t('chat.location')}</p>
                         </div>
                         <div className="flex flex-wrap gap-2 text-xs font-bold">
                           <a
@@ -375,7 +393,7 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
                             rel="noreferrer"
                             href={`https://www.google.com/maps?q=${message.latitude},${message.longitude}`}
                           >
-                            خرائط Google
+                            {t('chat.googleMaps')}
                           </a>
                           <a
                             className="rounded-xl bg-white/15 px-3 py-2"
@@ -383,7 +401,7 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
                             rel="noreferrer"
                             href={`https://maps.apple.com/?q=${message.latitude},${message.longitude}`}
                           >
-                            خرائط Apple
+                            {t('chat.appleMaps')}
                           </a>
                         </div>
                       </div>
@@ -393,7 +411,7 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
                   dateTime={message.created_at}
                   className={`mt-2 block text-[11px] ${mine ? 'text-navy-900/60' : 'text-white/45'}`}
                 >
-                  {new Date(message.created_at).toLocaleTimeString('ar-KW', {
+                  {formatDate(message.created_at, {
                     hour: '2-digit',
                     minute: '2-digit',
                   })}
@@ -407,7 +425,7 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
                     setShowReportModal(true);
                   }}
                   className="mb-1 shrink-0 rounded-full p-1.5 text-white/30 transition-colors hover:bg-red-500/15 hover:text-red-300"
-                  aria-label="الإبلاغ عن الرسالة"
+                  aria-label={t('parking.report')}
                 >
                   <Flag className="h-3.5 w-3.5" />
                 </button>
@@ -420,12 +438,12 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
 
       {expired || conversation?.closed ? (
         <div className="animate-fade-up border-t border-red-400/20 bg-red-500/10 px-4 py-5 text-center text-red-100">
-          تم انتهاء الموقف وإغلاق المحادثة
+          {t('chat.closed')}
         </div>
       ) : (
         <footer className="safe-bottom border-t border-white/10 bg-navy-900/95 px-3 sm:px-4 py-2.5 sm:py-3 backdrop-blur-xl">
           <div className="mx-auto flex max-w-md md:max-w-xl lg:max-w-2xl items-center gap-1.5 sm:gap-2">
-            <label className="shrink-0 rounded-full bg-white/10 p-2.5 sm:p-3 text-white/60 cursor-pointer hover:bg-white/15">
+            <label aria-label={t('chat.takePhoto')} className="shrink-0 rounded-full bg-white/10 p-2.5 sm:p-3 text-white/60 cursor-pointer hover:bg-white/15">
               <Camera className="h-4 w-4 sm:h-5 sm:w-5" />
               <input
                 type="file"
@@ -436,7 +454,7 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
                 disabled={uploading}
               />
             </label>
-            <label className="shrink-0 rounded-full bg-white/10 p-2.5 sm:p-3 text-white/60 cursor-pointer hover:bg-white/15">
+            <label aria-label={t('chat.chooseImage')} className="shrink-0 rounded-full bg-white/10 p-2.5 sm:p-3 text-white/60 cursor-pointer hover:bg-white/15">
               <ImageIcon className="h-4 w-4 sm:h-5 sm:w-5" />
               <input
                 type="file"
@@ -451,7 +469,7 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
               onClick={sendLocation}
               disabled={uploading}
               className="shrink-0 rounded-full bg-white/10 p-2.5 sm:p-3 text-white/60 hover:bg-white/15 disabled:opacity-40"
-              aria-label="إرسال الموقع"
+              aria-label={t('chat.sendLocation')}
             >
               <MapPin className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
@@ -463,8 +481,9 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
               onBlur={() => setTyping(false)}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={uploading ? 'جاري رفع الصورة...' : 'اكتب رسالة...'}
-              aria-label="اكتب رسالة"
+              placeholder={uploading ? t('chat.uploading') : t('chat.typeMessage')}
+              aria-label={t('chat.typeMessage')}
+              dir="auto"
               disabled={uploading}
               className="min-h-10 max-h-32 min-w-0 flex-1 resize-none overflow-y-auto rounded-3xl border border-white/10 bg-navy-950 px-3.5 py-2.5 text-xs leading-6 text-white outline-none placeholder:text-white/40 focus:border-cyan-500 disabled:opacity-50 sm:min-h-11 sm:px-4 sm:py-3 sm:text-sm"
             />
@@ -473,7 +492,7 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
               onClick={() => void sendText()}
               disabled={!text.trim() || uploading}
               className="shrink-0 rounded-full bg-cyan-500 p-2.5 sm:p-3 text-navy-900 disabled:opacity-40 hover:bg-cyan-400"
-              aria-label="إرسال"
+              aria-label={t('chat.send')}
             >
               <Send className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>

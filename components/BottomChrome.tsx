@@ -3,27 +3,28 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, Map, MessageCircle, PlusCircle, User } from 'lucide-react';
-
-const items = [
-  { href: '/', label: 'الرئيسية', icon: Home },
-  { href: '/create', label: 'نشر', icon: PlusCircle },
-  { href: '/conversations', label: 'محادثات', icon: MessageCircle },
-  { href: '/map', label: 'الخريطة', icon: Map },
-  { href: '/settings', label: 'حسابي', icon: User },
-];
+import { useLocale } from '@/components/LocaleProvider';
 
 /** Fixed footer + bottom navigation — always visible together */
 export default function BottomChrome() {
   const pathname = usePathname();
+  const { t } = useLocale();
+  const items = [
+    { href: '/', label: t('nav.home'), icon: Home },
+    { href: '/create', label: t('nav.create'), icon: PlusCircle },
+    { href: '/conversations', label: t('nav.conversations'), icon: MessageCircle },
+    { href: '/map', label: t('nav.map'), icon: Map },
+    { href: '/settings', label: t('nav.account'), icon: User },
+  ];
 
   return (
     <div className="bottom-chrome fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-navy-950/95 shadow-[0_-8px_32px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
       <footer className="border-b border-white/5 px-4 py-2.5 text-center">
         <p className="text-[10px] font-semibold leading-5 text-white/40 sm:text-xs">
-          © 2026 Mawqifi — Developed by Eid Althaydi
+          {t('footer.credit')}
         </p>
       </footer>
-      <nav className="safe-bottom px-1.5 sm:px-3 pb-2 pt-1.5" aria-label="التنقل الرئيسي">
+      <nav className="safe-bottom px-1.5 sm:px-3 pb-2 pt-1.5" aria-label={t('nav.main')}>
         <div className="mx-auto grid w-full max-w-md min-[440px]:max-w-lg md:max-w-xl grid-cols-5 gap-0.5 min-[360px]:gap-1">
           {items.map((item) => {
             const Icon = item.icon;

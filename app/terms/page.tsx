@@ -1,14 +1,24 @@
-/* eslint-disable react/no-unescaped-entities */
+'use client';
+
 import Link from 'next/link';
-import { FileText, AlertTriangle, Users, Shield, Ban } from 'lucide-react';
+import { AlertTriangle, Ban, FileText, Shield, Users } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
 import PageHeader from '@/components/PageHeader';
+import { useLocale } from '@/components/LocaleProvider';
 
 export default function TermsPage() {
+  const { t } = useLocale();
+  const prohibitedItems = [
+    ['terms.falseParkingTitle', 'terms.falseParkingBody'],
+    ['terms.harassmentTitle', 'terms.harassmentBody'],
+    ['terms.spamTitle', 'terms.spamBody'],
+    ['terms.illegalTitle', 'terms.illegalBody'],
+  ] as const;
+
   return (
     <main className="page-with-chrome min-h-screen px-4 pt-6">
       <div className="mx-auto max-w-md space-y-6">
-        <PageHeader title="الشروط والأحكام" subtitle="قواعد استخدام موقفي" backHref="/" />
+        <PageHeader title={t('terms.title')} subtitle={t('terms.subtitle')} backHref="/" />
 
         <div className="space-y-4">
           <section className="glass-card p-5">
@@ -16,11 +26,9 @@ export default function TermsPage() {
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/15">
                 <Users className="h-5 w-5 text-cyan-300" />
               </div>
-              <h2 className="text-lg font-extrabold text-white">أداة مجتمعية للطلاب</h2>
+              <h2 className="text-lg font-extrabold text-white">{t('terms.communityTitle')}</h2>
             </div>
-            <p className="text-sm leading-7 text-white/70">
-              موقفي هو تطبيق مجتمعي مخصص لطلاب جامعة الكويت في حرم الشدادية. الهدف هو تسهيل مشاركة المواقف المتاحة بين الطلاب بأسلوب تعاوني.
-            </p>
+            <p className="text-sm leading-7 text-white/70">{t('terms.communityBody')}</p>
           </section>
 
           <section className="glass-card p-5">
@@ -28,11 +36,9 @@ export default function TermsPage() {
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/15">
                 <Shield className="h-5 w-5 text-cyan-300" />
               </div>
-              <h2 className="text-lg font-extrabold text-white">مسؤولية المستخدم</h2>
+              <h2 className="text-lg font-extrabold text-white">{t('terms.responsibilityTitle')}</h2>
             </div>
-            <p className="text-sm leading-7 text-white/70">
-              أنت مسؤول بالكامل عن جميع المعلومات التي تنشرها أو ترسلها عبر التطبيق. يجب التأكد من صحة المعلومات قبل نشرها.
-            </p>
+            <p className="text-sm leading-7 text-white/70">{t('terms.responsibilityBody')}</p>
           </section>
 
           <section className="glass-card p-5">
@@ -40,25 +46,17 @@ export default function TermsPage() {
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/15">
                 <Ban className="h-5 w-5 text-cyan-300" />
               </div>
-              <h2 className="text-lg font-extrabold text-white">المحظورات</h2>
+              <h2 className="text-lg font-extrabold text-white">{t('terms.prohibitedTitle')}</h2>
             </div>
             <ul className="space-y-3 text-sm leading-7 text-white/70">
-              <li className="flex items-start gap-2">
-                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-400" />
-                <span><strong className="text-white">نشر مواقف وهمية:</strong> لا يجوز نشر معلومات كاذبة عن مواقف غير متاحة</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-400" />
-                <span><strong className="text-white">الإساءة والتحرش:</strong> يمنع استخدام لغة مسيئة أو تهديدية في المحادثات</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-400" />
-                <span><strong className="text-white">الرسائل غير المرغوبة:</strong> يمنع إرسال رسائل ترويجية أو غير ذات صلة</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-400" />
-                <span><strong className="text-white">الاستخدام غير القانوني:</strong> يمنع استخدام التطبيق لأي أغراض غير قانونية</span>
-              </li>
+              {prohibitedItems.map(([titleKey, bodyKey]) => (
+                <li key={titleKey} className="flex items-start gap-2">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-400" />
+                  <span>
+                    <strong className="text-white">{t(titleKey)}</strong> {t(bodyKey)}
+                  </span>
+                </li>
+              ))}
             </ul>
           </section>
 
@@ -67,11 +65,9 @@ export default function TermsPage() {
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/15">
                 <AlertTriangle className="h-5 w-5 text-cyan-300" />
               </div>
-              <h2 className="text-lg font-extrabold text-white">الإبلاغ عن الانتهاكات</h2>
+              <h2 className="text-lg font-extrabold text-white">{t('terms.reportTitle')}</h2>
             </div>
-            <p className="text-sm leading-7 text-white/70">
-              إذا واجهت أي سلوك مخالف للشروط، يمكنك استخدام زر "الإبلاغ" المتاح في المنشورات والمحادثات. سنقوم بمراجعة البلاغات واتخاذ الإجراءات اللازمة.
-            </p>
+            <p className="text-sm leading-7 text-white/70">{t('terms.reportBody')}</p>
           </section>
 
           <section className="glass-card p-5">
@@ -79,41 +75,33 @@ export default function TermsPage() {
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/15">
                 <FileText className="h-5 w-5 text-cyan-300" />
               </div>
-              <h2 className="text-lg font-extrabold text-white">التعديلات على الشروط</h2>
+              <h2 className="text-lg font-extrabold text-white">{t('terms.changesTitle')}</h2>
             </div>
-            <p className="text-sm leading-7 text-white/70">
-              نحتفظ بالحق في تعديل هذه الشروط والأحكام في أي وقت. سيتم إشعارك بأي تغييرات جوهرية عبر التطبيق.
-            </p>
+            <p className="text-sm leading-7 text-white/70">{t('terms.changesBody')}</p>
           </section>
 
           <section className="glass-card p-5">
-            <h2 className="mb-3 text-lg font-extrabold text-white">الالتزام بالقوانين</h2>
-            <p className="text-sm leading-7 text-white/70">
-              يجب على جميع المستخدمين الالتزام بالقوانين والأنظمة المعمول بها في دولة الكويت، بما في ذلك قوانين جامعة الكويت.
-            </p>
+            <h2 className="mb-3 text-lg font-extrabold text-white">{t('terms.complianceTitle')}</h2>
+            <p className="text-sm leading-7 text-white/70">{t('terms.complianceBody')}</p>
           </section>
 
           <section className="glass-card p-5">
-            <h2 className="mb-3 text-lg font-extrabold text-white">إيقاف الحساب</h2>
-            <p className="text-sm leading-7 text-white/70">
-              نحتفظ بالحق في إيقاف أو حظر أي حساب يخالف هذه الشروط والأحكام دون سابق إنذار.
-            </p>
+            <h2 className="mb-3 text-lg font-extrabold text-white">{t('terms.suspensionTitle')}</h2>
+            <p className="text-sm leading-7 text-white/70">{t('terms.suspensionBody')}</p>
           </section>
 
           <section className="glass-card p-5">
-            <h2 className="mb-3 text-lg font-extrabold text-white">تواصل معنا</h2>
+            <h2 className="mb-3 text-lg font-extrabold text-white">{t('terms.contactTitle')}</h2>
             <p className="text-sm leading-7 text-white/70">
-              إذا كان لديك أي أسئلة حول هذه الشروط، يمكنك التواصل معنا عبر صفحة{' '}
+              {t('terms.contactPrefix')}
               <Link href="/feedback" className="text-cyan-300 underline">
-                تواصل معنا
+                {t('feedback.title')}
               </Link>
             </p>
           </section>
 
-          <section className="glass-card p-5 border-2 border-cyan-500/30">
-            <p className="text-center text-sm font-bold text-cyan-200">
-              باستخدامك لتطبيق موقفي، أنت توافق على هذه الشروط والأحكام
-            </p>
+          <section className="glass-card border-2 border-cyan-500/30 p-5">
+            <p className="text-center text-sm font-bold text-cyan-200">{t('terms.confirmation')}</p>
           </section>
         </div>
       </div>

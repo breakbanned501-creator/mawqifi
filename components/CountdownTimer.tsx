@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Clock } from 'lucide-react';
+import { useLocale } from '@/components/LocaleProvider';
 
 interface CountdownTimerProps {
   expiresAt: number;
@@ -9,6 +10,7 @@ interface CountdownTimerProps {
 }
 
 export default function CountdownTimer({ expiresAt, onComplete }: CountdownTimerProps) {
+  const { formatNumber } = useLocale();
   const [timeLeft, setTimeLeft] = useState(0);
   const [visible, setVisible] = useState(true);
   const completedRef = useRef(false);
@@ -54,11 +56,13 @@ export default function CountdownTimer({ expiresAt, onComplete }: CountdownTimer
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
+    const formatPart = (value: number, minimumIntegerDigits = 2) =>
+      formatNumber(value, { minimumIntegerDigits, useGrouping: false });
 
     if (hours > 0) {
-      return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      return `${formatPart(hours, 1)}:${formatPart(minutes)}:${formatPart(secs)}`;
     }
-    return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    return `${formatPart(minutes)}:${formatPart(secs)}`;
   };
 
   const getTimeColor = (): string => {

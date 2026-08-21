@@ -2,47 +2,97 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Bell, CircleHelp, LogOut, ShieldCheck, User } from 'lucide-react';
+import { Bell, CircleHelp, Languages, LogOut, ShieldCheck, User } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
 import ErrorBanner from '@/components/ErrorBanner';
 import PageHeader from '@/components/PageHeader';
+import PushNotificationControl from '@/components/PushNotificationControl';
 import { useAuth } from '@/components/AuthProvider';
+import { useLocale } from '@/components/LocaleProvider';
 import { useTutorial } from '@/components/TutorialProvider';
 import { signOut, updateUsername } from '@/lib/auth';
-import { fetchParkingPosts } from '@/lib/posts';
 import {
-  getPushDeviceState,
-  subscribeToPushNotifications,
-  unsubscribeFromPushNotifications,
-  type PushDeviceState,
-} from '@/lib/push';
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  fetchNotificationPreferences,
+  updateNotificationPreferences,
+  type NotificationPreferences,
+  type NotificationPreferencesPatch,
+} from '@/lib/notification-preferences';
+import { fetchParkingPosts } from '@/lib/posts';
+
+type PreferenceKey = Exclude<keyof NotificationPreferencesPatch, 'locale'>;
+
+function PreferenceToggle({
+  label,
+  description,
+  checked,
+  loading,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  loading: boolean;
+  onChange: () => void;
+}) {
+  const { dir } = useLocale();
+
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/8 bg-white/[0.03] p-3.5">
+      <div className="min-w-0 flex-1">
+        <p className="font-bold text-white">{label}</p>
+        <p className="mt-0.5 text-xs leading-5 text-white/55">{description}</p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        disabled={loading}
+        onClick={onChange}
+        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors disabled:opacity-50 ${
+          checked ? 'bg-cyan-500' : 'bg-white/15'
+        }`}
+      >
+        <span
+          className={`h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+            checked ? (dir === 'rtl' ? '-translate-x-[1.25rem]' : 'translate-x-[1.25rem]') : 'translate-x-0'
+          }`}
+        />
+      </button>
+    </div>
+  );
+}
 
 export default function SettingsPage() {
   const { profile, isGuest, refreshProfile, userId } = useAuth();
+  const { locale, setLocale, t } = useLocale();
   const { replayTutorial } = useTutorial();
-  const [pushState, setPushState] = useState<PushDeviceState>({ kind: 'disabled', message: '' });
   const [activePosts, setActivePosts] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [username, setUsername] = useState(profile?.username ?? '');
-  const [notifyLoading, setNotifyLoading] = useState(false);
-  const notifyEnabled = pushState.kind === 'enabled';
+  const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
+  const [preferenceLoading, setPreferenceLoading] = useState<PreferenceKey | null>(null);
+  const [preferencesError, setPreferencesError] = useState(false);
+
+  useEffect(() => {
+    setUsername(profile?.username ?? '');
+  }, [profile?.username]);
 
   useEffect(() => {
     if (!userId) return;
 
     let cancelled = false;
-    setNotifyLoading(true);
     void (async () => {
       try {
-        const next = await getPushDeviceState();
-        if (!cancelled) setPushState(next);
-      } catch {
+        const next = await fetchNotificationPreferences(userId);
         if (!cancelled) {
-          setPushState({ kind: 'error', message: 'تعذر التحقق من حالة إشعارات هذا الجهاز.' });
+          setPreferences(next);
+          setPreferencesError(false);
         }
-      } finally {
-        if (!cancelled) setNotifyLoading(false);
+      } catch {
+        if (!cancelled) setPreferencesError(true);
       }
     })();
 
@@ -51,42 +101,11 @@ export default function SettingsPage() {
     };
   }, [userId]);
 
-  const handleToggleNotifications = async () => {
-    if (!userId) return;
-    setNotifyLoading(true);
-
-    try {
-      if (notifyEnabled) {
-        const result = await unsubscribeFromPushNotifications();
-        if (result.deviceUnsubscribed) {
-          setPushState({ kind: 'disabled', message: result.message });
-        } else {
-          setPushState({ kind: result.state ?? 'error', message: result.message });
-        }
-      } else {
-        const result = await subscribeToPushNotifications();
-        if (result.success) {
-          setPushState({ kind: 'enabled', message: result.message });
-        } else {
-          setPushState({ kind: result.state ?? 'error', message: result.message });
-        }
-      }
-    } catch {
-      setPushState({ kind: 'error', message: 'تعذر إكمال عملية الإشعارات. حاول مرة أخرى.' });
-    } finally {
-      setNotifyLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    setUsername(profile?.username ?? '');
-  }, [profile?.username]);
-
   useEffect(() => {
     if (!userId) return;
     void fetchParkingPosts().then((posts) => {
-      setActivePosts(posts.filter((p) => p.user_id === userId && p.status === 'active').length);
-    });
+      setActivePosts(posts.filter((post) => post.user_id === userId && post.status === 'active').length);
+    }).catch(() => {});
   }, [userId]);
 
   const saveUsername = async () => {
@@ -96,8 +115,8 @@ export default function SettingsPage() {
     try {
       await updateUsername(userId, username.trim());
       await refreshProfile();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذر حفظ الاسم');
+    } catch {
+      setError(t('settings.saveError'));
     } finally {
       setSaving(false);
     }
@@ -107,15 +126,47 @@ export default function SettingsPage() {
     try {
       await signOut();
       window.location.href = '/';
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذر تسجيل الخروج');
+    } catch {
+      setError(t('settings.signOutError'));
     }
+  };
+
+  const updatePreference = async (key: PreferenceKey) => {
+    if (!userId || preferenceLoading) return;
+
+    const current = preferences ?? {
+      user_id: userId,
+      ...DEFAULT_NOTIFICATION_PREFERENCES,
+      created_at: '',
+      updated_at: '',
+    };
+    const nextValue = !current[key];
+    setPreferenceLoading(key);
+    setPreferencesError(false);
+    setPreferences({ ...current, [key]: nextValue });
+
+    try {
+      const next = await updateNotificationPreferences({ [key]: nextValue }, userId);
+      setPreferences(next);
+    } catch {
+      setPreferences(current);
+      setPreferencesError(true);
+    } finally {
+      setPreferenceLoading(null);
+    }
+  };
+
+  const currentPreferences = preferences ?? {
+    user_id: userId ?? '',
+    ...DEFAULT_NOTIFICATION_PREFERENCES,
+    created_at: '',
+    updated_at: '',
   };
 
   return (
     <main className="page-with-chrome min-h-screen px-4 pt-6">
-      <div className="mx-auto max-w-md md:max-w-xl lg:max-w-2xl space-y-5">
-        <PageHeader title="حسابي" subtitle="إدارة الحساب والتنبيهات" backHref="/" />
+      <div className="mx-auto max-w-md space-y-5 md:max-w-xl lg:max-w-2xl">
+        <PageHeader title={t('settings.title')} subtitle={t('settings.subtitle')} backHref="/" />
 
         {error && <ErrorBanner message={error} />}
 
@@ -125,9 +176,9 @@ export default function SettingsPage() {
               <User className="h-8 w-8" />
             </div>
             <div className="min-w-0 flex-1">
-              <h2 className="text-lg font-extrabold text-white">{profile?.username}</h2>
+              <h2 className="truncate text-lg font-extrabold text-white">{profile?.username}</h2>
               <p className="text-sm text-white/55">
-                {isGuest ? 'حساب ضيف' : 'حساب مسجّل'} — منشورات نشطة: {activePosts}
+                {isGuest ? t('settings.guestAccount') : t('settings.registeredAccount')} — {t('settings.activePosts', { count: activePosts })}
               </p>
             </div>
           </div>
@@ -135,8 +186,10 @@ export default function SettingsPage() {
             <input
               className="input min-w-0 flex-1"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="اسم العرض"
+              dir="auto"
+              onChange={(event) => setUsername(event.target.value)}
+              placeholder={t('settings.displayName')}
+              aria-label={t('settings.displayName')}
             />
             <button
               type="button"
@@ -144,72 +197,87 @@ export default function SettingsPage() {
               disabled={saving}
               className="btn btn-secondary shrink-0 px-4"
             >
-              {saving ? '...' : 'حفظ'}
+              {saving ? t('common.saving') : t('common.save')}
             </button>
           </div>
-        </section>
-
-        <section className="glass-card space-y-4 p-5">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-              <Bell className="h-5 w-5 text-cyan-300" />
-              <div className="min-w-0">
-                <h3 className="font-bold text-white">إشعارات الفورية (Push)</h3>
-                <p className="text-sm text-white/55">تنبيه فوري عند نشر موقف جديد</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => void handleToggleNotifications()}
-              disabled={notifyLoading}
-              className={`rounded-2xl px-4 py-2 text-xs font-bold transition-all disabled:opacity-50 ${
-                notifyEnabled ? 'bg-emerald-400/15 text-emerald-200 border border-emerald-400/30' : 'bg-cyan-500 text-navy-900 shadow-lg shadow-cyan-500/20'
-              }`}
-            >
-              {notifyLoading
-                ? '...'
-                : notifyEnabled
-                  ? 'مفعّلة ✓'
-                  : pushState.kind === 'not-registered'
-                    ? 'إعادة المحاولة'
-                    : 'تفعيل'}
-            </button>
-          </div>
-
-          {pushState.message && (
-            <div className={`rounded-2xl p-3 text-xs leading-6 ${notifyEnabled ? 'bg-emerald-500/10 text-emerald-200 border border-emerald-500/20' : 'bg-cyan-500/10 text-cyan-200 border border-cyan-500/20'}`}>
-              <p className="whitespace-pre-line font-bold">{pushState.message}</p>
-            </div>
-          )}
-
-          {pushState.kind === 'requires-home-screen' && (
-            <div className="rounded-2xl border border-cyan-400/25 bg-cyan-500/10 p-3.5 text-xs leading-6 text-cyan-100">
-              <p className="font-extrabold mb-1">لتفعيل إشعارات موقفي على الآيفون أو الآيباد:</p>
-              <ol className="list-decimal list-inside space-y-0.5 text-white/80">
-                <li>اضغط مشاركة (Share) في أسفل المتصفح</li>
-                <li>اختر إضافة إلى الشاشة الرئيسية (Add to Home Screen)</li>
-                <li>افتح تطبيق موقفي من الشاشة الرئيسية</li>
-                <li>اضغط تفعيل الإشعارات</li>
-              </ol>
-            </div>
-          )}
-
-          <Link
-            href="/notifications"
-            className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-bold text-white/80 transition-colors hover:bg-white/10"
-          >
-            عرض مركز التنبيهات
-          </Link>
         </section>
 
         <section className="glass-card p-5">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-              <CircleHelp className="h-5 w-5 shrink-0 text-cyan-300" />
-              <div className="min-w-0">
-                <h3 className="font-bold text-white">شرح استخدام موقفي</h3>
-                <p className="text-sm text-white/55">راجع أهم الميزات بخطوات سريعة</p>
-              </div>
+          <div className="flex items-center gap-3">
+            <Languages className="h-5 w-5 shrink-0 text-cyan-300" />
+            <div className="min-w-0 flex-1">
+              <h3 className="font-bold text-white">{t('settings.language')}</h3>
+              <p className="text-sm text-white/55">{t('settings.languageDescription')}</p>
+            </div>
+          </div>
+          <div className="mt-4 grid grid-cols-2 rounded-2xl bg-white/5 p-1" role="group" aria-label={t('settings.language')}>
+            {(['ar', 'en'] as const).map((option) => {
+              const selected = locale === option;
+              const label = option === 'ar' ? t('settings.languageArabic') : t('settings.languageEnglish');
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setLocale(option)}
+                  aria-pressed={selected}
+                  className={`rounded-xl px-3 py-2.5 text-sm font-bold transition-colors ${
+                    selected ? 'bg-cyan-500 text-navy-900 shadow-sm' : 'text-white/60 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="glass-card space-y-3 p-5">
+          <div className="flex items-center gap-3">
+            <Bell className="h-5 w-5 shrink-0 text-cyan-300" />
+            <div className="min-w-0 flex-1">
+              <h3 className="font-bold text-white">{t('settings.notifications')}</h3>
+              <p className="text-sm text-white/55">{t('settings.preferencesDescription')}</p>
+            </div>
+          </div>
+          <PreferenceToggle
+            label={t('settings.notificationParking')}
+            description={t('settings.notificationParkingDescription')}
+            checked={currentPreferences.parking_push_enabled}
+            loading={preferenceLoading === 'parking_push_enabled'}
+            onChange={() => void updatePreference('parking_push_enabled')}
+          />
+          <PreferenceToggle
+            label={t('settings.notificationMessages')}
+            description={t('settings.notificationMessagesDescription')}
+            checked={currentPreferences.chat_push_enabled}
+            loading={preferenceLoading === 'chat_push_enabled'}
+            onChange={() => void updatePreference('chat_push_enabled')}
+          />
+          <PreferenceToggle
+            label={t('settings.inAppNotifications')}
+            description={t('settings.inAppNotificationsDescription')}
+            checked={currentPreferences.in_app_enabled}
+            loading={preferenceLoading === 'in_app_enabled'}
+            onChange={() => void updatePreference('in_app_enabled')}
+          />
+          {preferencesError && <p className="text-xs font-bold text-red-200">{t('settings.preferencesError')}</p>}
+        </section>
+
+        <PushNotificationControl />
+
+        <Link
+          href="/notifications"
+          className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-bold text-white/80 transition-colors hover:bg-white/10"
+        >
+          {t('settings.notificationCenter')}
+        </Link>
+
+        <section className="glass-card p-5">
+          <div className="flex items-center gap-3">
+            <CircleHelp className="h-5 w-5 shrink-0 text-cyan-300" />
+            <div className="min-w-0 flex-1">
+              <h3 className="font-bold text-white">{t('settings.tutorial')}</h3>
+              <p className="text-sm text-white/55">{t('settings.tutorialDescription')}</p>
             </div>
           </div>
           <button
@@ -217,7 +285,7 @@ export default function SettingsPage() {
             onClick={replayTutorial}
             className="btn btn-secondary mt-4 w-full py-2.5 text-xs"
           >
-            عرض شرح استخدام موقفي
+            {t('settings.replayTutorial')}
           </button>
         </section>
 
@@ -225,42 +293,29 @@ export default function SettingsPage() {
           <div className="flex items-start gap-3">
             <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-cyan-300" />
             <div>
-              <h3 className="font-bold text-white">تنبيه مهم</h3>
-              <p className="mt-1 text-sm leading-7 text-white/65">
-                موقفي تطبيق مجتمعي للطلاب وغير تابع رسمياً لجامعة الكويت. لا يوجد حجز مواقف — فقط تنسيق ودي.
-              </p>
+              <h3 className="font-bold text-white">{t('settings.importantNotice')}</h3>
+              <p className="mt-1 text-sm leading-7 text-white/65">{t('settings.communityNotice')}</p>
             </div>
           </div>
         </section>
 
         <section className="glass-card space-y-3 p-5">
-          <h3 className="font-bold text-white">روابط قانونية</h3>
+          <h3 className="font-bold text-white">{t('settings.legalLinks')}</h3>
           <div className="space-y-2">
-            <Link
-              href="/privacy"
-              className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-bold text-white/80"
-            >
-              سياسة الخصوصية
+            <Link href="/privacy" className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-bold text-white/80">
+              {t('settings.privacy')}
             </Link>
-            <Link
-              href="/terms"
-              className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-bold text-white/80"
-            >
-              الشروط والأحكام
+            <Link href="/terms" className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-bold text-white/80">
+              {t('settings.terms')}
             </Link>
-            <Link
-              href="/feedback"
-              className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-bold text-white/80"
-            >
-              تواصل معنا
+            <Link href="/feedback" className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-bold text-white/80">
+              {t('settings.feedback')}
             </Link>
           </div>
         </section>
 
         <div className="text-center">
-          <p className="text-[10px] font-semibold text-white/30">
-            الإصدار التجريبي v1.0
-          </p>
+          <p className="text-[10px] font-semibold text-white/30">{t('settings.version')}</p>
         </div>
 
         {!isGuest ? (
@@ -270,14 +325,14 @@ export default function SettingsPage() {
             className="flex w-full items-center justify-center gap-2 rounded-3xl border border-red-400/20 bg-red-500/10 p-4 font-bold text-red-200"
           >
             <LogOut className="h-5 w-5" />
-            تسجيل الخروج
+            {t('settings.signOut')}
           </button>
         ) : (
           <Link
             href="/auth"
             className="block rounded-3xl border border-cyan-400/25 bg-cyan-500/10 p-4 text-center font-bold text-cyan-100"
           >
-            ربط حساب بالبريد الإلكتروني
+            {t('settings.linkEmail')}
           </Link>
         )}
       </div>

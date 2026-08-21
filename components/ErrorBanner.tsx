@@ -1,3 +1,7 @@
+'use client';
+
+import { useLocale } from '@/components/LocaleProvider';
+
 export default function ErrorBanner({
   message,
   onRetry,
@@ -5,6 +9,8 @@ export default function ErrorBanner({
   message: string;
   onRetry?: () => void;
 }) {
+  const { t } = useLocale();
+
   return (
     <div className="rounded-2xl border border-red-400/25 bg-red-500/10 px-4 py-3 text-sm text-red-100">
       <p className="font-bold leading-6">{message}</p>
@@ -14,7 +20,7 @@ export default function ErrorBanner({
           onClick={onRetry}
           className="mt-2 text-xs font-bold text-red-200 underline"
         >
-          إعادة المحاولة
+          {t('common.retry')}
         </button>
       )}
     </div>

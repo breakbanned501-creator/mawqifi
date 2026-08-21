@@ -1,6 +1,9 @@
+'use client';
+
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { useLocale } from '@/components/LocaleProvider';
 
 interface PageHeaderProps {
   title: string;
@@ -10,6 +13,9 @@ interface PageHeaderProps {
 }
 
 export default function PageHeader({ title, subtitle, backHref, action }: PageHeaderProps) {
+  const { dir, t } = useLocale();
+  const BackIcon = dir === 'rtl' ? ArrowRight : ArrowLeft;
+
   return (
     <header className="mb-5 flex items-start justify-between gap-2.5 sm:gap-3">
       <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
@@ -17,9 +23,9 @@ export default function PageHeader({ title, subtitle, backHref, action }: PageHe
           <Link
             href={backHref}
             className="shrink-0 rounded-2xl bg-white/10 p-2.5 sm:p-3 text-white/70 transition-colors hover:bg-white/15 hover:text-cyan-200"
-            aria-label="رجوع"
+            aria-label={t('common.back')}
           >
-            <ArrowRight className="h-5 w-5" />
+            <BackIcon className="h-5 w-5" />
           </Link>
         )}
         <div className="min-w-0 flex-1">

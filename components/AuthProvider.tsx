@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from 'react';
 import { ensureSession, fetchProfile } from '@/lib/auth';
+import type { TranslationKey } from '@/lib/i18n';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
 import LoadingScreen from './LoadingScreen';
@@ -40,7 +41,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isGuest, setIsGuest] = useState(true);
   const [isReady, setIsReady] = useState(false);
-  const [initError, setInitError] = useState<string | null>(null);
+  const [initErrorKey, setInitErrorKey] = useState<TranslationKey | null>(null);
 
   const refreshProfile = useCallback(async () => {
     if (!userId) return;
@@ -50,7 +51,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
-      setInitError('Supabase environment variables are missing.');
+      setInitErrorKey('config.missingEnvironment');
       setIsReady(true);
       return;
     }
@@ -66,10 +67,12 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         setUserId(session.userId);
         setIsGuest(session.isGuest);
         setProfile(userProfile);
-        setInitError(null);
-      } catch (error) {
+        setInitErrorKey(null);
+      } catch {
         if (cancelled) return;
-        setInitError(error instanceof Error ? error.message : 'تعذر الاتصال بالخادم');
+        // Authentication runs before LocaleProvider. Keep technical details in
+        // diagnostics and render only a localized, safe message to students.
+        setInitErrorKey('config.connectionError');
       } finally {
         if (!cancelled) setIsReady(true);
       }
@@ -85,14 +88,14 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     [userId, profile, isGuest, isReady, refreshProfile],
   );
 
-  if (!isReady) return <LoadingScreen message="جاري تجهيز الحساب..." />;
+  if (!isReady) return <LoadingScreen messageKey="auth.prepareAccount" />;
 
-  if (initError || !isSupabaseConfigured) {
-    return <ConfigError message={initError ?? undefined} />;
+  if (initErrorKey || !isSupabaseConfigured) {
+    return <ConfigError messageKey={initErrorKey ?? 'config.missingEnvironment'} />;
   }
 
   if (!userId || !profile) {
-    return <LoadingScreen message="جاري تسجيل الدخول..." />;
+    return <LoadingScreen messageKey="auth.signingIn" />;
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

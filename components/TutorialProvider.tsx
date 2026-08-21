@@ -13,13 +13,14 @@ import {
 import { Bell, Car, MessageCircle, PlusCircle, Sparkles, type LucideIcon } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
+import { useLocale } from '@/components/LocaleProvider';
 import { completeTutorial, hasCompletedTutorial } from '@/lib/tutorial';
 
 type TutorialTarget = 'feed' | 'publish' | 'chat' | 'notifications';
 
 type TutorialStep = {
-  title: string;
-  description: string;
+  titleKey: string;
+  descriptionKey: string;
   target?: TutorialTarget;
   icon: LucideIcon;
 };
@@ -38,31 +39,31 @@ type HighlightRect = {
 
 const TUTORIAL_STEPS: TutorialStep[] = [
   {
-    title: 'حياك في موقفي 👋',
-    description: 'موقفي يساعد طلبة جامعة الكويت في مشاركة المواقف المتاحة والعثور عليها بسرعة.',
+    titleKey: 'tutorial.welcomeTitle',
+    descriptionKey: 'tutorial.welcomeBody',
     icon: Sparkles,
   },
   {
-    title: 'دور على موقف 🚗',
-    description: 'شوف المواقف المتاحة حاليًا واختر المنطقة المناسبة لك.',
+    titleKey: 'tutorial.findTitle',
+    descriptionKey: 'tutorial.findBody',
     target: 'feed',
     icon: Car,
   },
   {
-    title: 'بتطلع من موقفك؟',
-    description: 'انشر موقفك خلال ثواني وساعد طالب ثاني.',
+    titleKey: 'tutorial.shareTitle',
+    descriptionKey: 'tutorial.shareBody',
     target: 'publish',
     icon: PlusCircle,
   },
   {
-    title: 'تواصل بسرعة 💬',
-    description: 'تواصل مع صاحب الموقف مباشرة واتفقوا على الموقع.',
+    titleKey: 'tutorial.chatTitle',
+    descriptionKey: 'tutorial.chatBody',
     target: 'chat',
     icon: MessageCircle,
   },
   {
-    title: 'لا يطوفك موقف 🔔',
-    description: 'فعّل الإشعارات عشان تعرف عن المواقف والرسائل الجديدة.',
+    titleKey: 'tutorial.notificationsTitle',
+    descriptionKey: 'tutorial.notificationsBody',
     target: 'notifications',
     icon: Bell,
   },
@@ -88,7 +89,7 @@ export function TutorialContent({ children }: { children: ReactNode }) {
     <div
       className="flex min-h-screen flex-1 flex-col"
       aria-hidden={isTutorialOpen ? true : undefined}
-      inert={isTutorialOpen}
+      inert={isTutorialOpen || undefined}
     >
       {children}
     </div>
@@ -122,6 +123,7 @@ function TutorialTour({
   onNext: () => void;
   onDismiss: () => void;
 }) {
+  const { dir, t } = useLocale();
   const dialogRef = useRef<HTMLElement>(null);
   const primaryActionRef = useRef<HTMLButtonElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -236,18 +238,18 @@ function TutorialTour({
         aria-modal="true"
         aria-labelledby="mawqifi-tutorial-title"
         aria-describedby="mawqifi-tutorial-description"
-        dir="rtl"
+        dir={dir}
       >
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs font-bold text-cyan-200/85" aria-live="polite">
-            الخطوة {stepIndex + 1} من {TUTORIAL_STEPS.length}
+            {t('tutorial.step', { current: stepIndex + 1, total: TUTORIAL_STEPS.length })}
           </p>
           <button
             type="button"
             onClick={onDismiss}
             className="shrink-0 rounded-xl px-2 py-1 text-xs font-bold text-white/60 transition-colors hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
           >
-            تخطي
+            {t('common.skip')}
           </button>
         </div>
 
@@ -257,10 +259,10 @@ function TutorialTour({
           </div>
           <div className="min-w-0 flex-1">
             <h2 id="mawqifi-tutorial-title" className="text-lg font-black leading-7 text-white">
-              {step.title}
+              {t(step.titleKey)}
             </h2>
             <p id="mawqifi-tutorial-description" className="mt-1.5 break-words text-sm leading-7 text-white/70">
-              {step.description}
+              {t(step.descriptionKey)}
             </p>
           </div>
         </div>
@@ -268,7 +270,7 @@ function TutorialTour({
         <div className="mt-5 flex gap-1.5" aria-hidden="true">
           {TUTORIAL_STEPS.map((tourStep, index) => (
             <span
-              key={tourStep.title}
+              key={tourStep.titleKey}
               className={`h-1.5 flex-1 rounded-full transition-colors ${
                 index <= stepIndex ? 'bg-cyan-400' : 'bg-white/15'
               }`}
@@ -283,7 +285,7 @@ function TutorialTour({
               onClick={onBack}
               className="btn btn-secondary shrink-0 px-4 py-2.5 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
             >
-              السابق
+              {t('common.previous')}
             </button>
           )}
           <button
@@ -292,7 +294,7 @@ function TutorialTour({
             onClick={onNext}
             className="btn btn-primary min-w-0 flex-1 py-2.5 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100"
           >
-            {isLastStep ? 'ابدأ استخدام موقفي' : 'التالي'}
+            {isLastStep ? t('tutorial.start') : t('common.next')}
           </button>
         </div>
       </section>

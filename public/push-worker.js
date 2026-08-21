@@ -1,4 +1,4 @@
-/* Custom Service Worker handlers for Mawqifi Web Push Notifications */
+/* Stable custom Service Worker handlers for Mawqifi Web Push Notifications */
 
 function sameOriginPath(value) {
   try {

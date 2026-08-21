@@ -4,6 +4,7 @@ import { Cairo } from 'next/font/google'
 import AuthProvider from '@/components/AuthProvider'
 import PwaInstallPrompt from '@/components/PwaInstallPrompt'
 import PwaSplash from '@/components/PwaSplash'
+import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar'
 import TutorialProvider, { TutorialContent } from '@/components/TutorialProvider'
 import './globals.css'
 
@@ -133,6 +134,7 @@ export default function RootLayout({
       </head>
       <body className={`${cairo.variable} flex min-h-screen flex-col font-sans antialiased text-white`}>
         <PwaSplash />
+        <ServiceWorkerRegistrar />
         <AuthProvider>
           <TutorialProvider>
             <TutorialContent>

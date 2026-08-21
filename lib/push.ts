@@ -1,5 +1,10 @@
 import { isIOSDevice, isStandaloneMode } from './pwa';
 import { ensureSession } from './auth';
+import {
+  ensureMawqifiServiceWorker,
+  getMawqifiServiceWorkerRegistration,
+  MawqifiServiceWorkerError,
+} from './service-worker';
 import { getSupabase } from './supabase';
 import type { Session } from '@supabase/supabase-js';
 
@@ -10,7 +15,7 @@ const SAVE_ERROR_MESSAGE = 'تعذر حفظ هذا الجهاز للإشعارا
 const PUSH_STAGE_TIMEOUTS = {
   permission: 30_000,
   'service-worker-registration': 15_000,
-  'service-worker-ready': 15_000,
+  'service-worker-activation': 15_000,
   'subscription-lookup': 12_000,
   'subscription-create': 30_000,
   'subscription-remove': 12_000,
@@ -24,8 +29,8 @@ const PUSH_STAGE_MESSAGES: Record<PushStage, string> = {
   permission: 'تعذر إكمال طلب إذن الإشعارات. أغلق الرسالة النظامية ثم حاول مرة أخرى.',
   'service-worker-registration':
     'تعذر تسجيل خدمة الإشعارات على هذا الجهاز. أغلق موقفي ثم افتحه من الشاشة الرئيسية وأعد المحاولة.',
-  'service-worker-ready':
-    'توقفت العملية عند تجهيز خدمة الإشعارات على هذا الجهاز. أغلق موقفي ثم افتحه من الشاشة الرئيسية وأعد المحاولة.',
+  'service-worker-activation':
+    'تعذر تفعيل خدمة الإشعارات على هذا الجهاز. أغلق موقفي ثم افتحه من الشاشة الرئيسية وأعد المحاولة.',
   'subscription-lookup': 'تعذر التحقق من اشتراك الإشعارات لهذا الجهاز. حاول مرة أخرى.',
   'subscription-create':
     'توقفت العملية عند تسجيل اشتراك الإشعارات على هذا الجهاز. تأكد من فتح موقفي من الشاشة الرئيسية ثم حاول مرة أخرى.',
@@ -295,28 +300,22 @@ async function fetchWithPushTimeout(input: string, init: RequestInit): Promise<R
 }
 
 async function getReadyServiceWorkerRegistration(): Promise<ServiceWorkerRegistration> {
-  let registration = await withPushStageTimeout(
-    'service-worker-registration',
-    () => navigator.serviceWorker.getRegistration(),
-  );
-  logPushDiagnostic('service-worker.lookup', { hasRegistration: Boolean(registration) });
-  if (!registration) {
-    registration = await withPushStageTimeout(
-      'service-worker-registration',
-      () => navigator.serviceWorker.register('/sw.js'),
+  try {
+    const registration = await ensureMawqifiServiceWorker();
+    logPushDiagnostic('service-worker.active', {
+      hasActiveWorker: Boolean(registration.active),
+      scope: registration.scope,
+      hasController: Boolean(navigator.serviceWorker.controller),
+    });
+    return registration;
+  } catch (error) {
+    logPushFailure('service-worker.lifecycle', error);
+    throw new PushStageError(
+      error instanceof MawqifiServiceWorkerError && error.reason === 'activation'
+        ? 'service-worker-activation'
+        : 'service-worker-registration',
     );
-    logPushDiagnostic('service-worker.registered', { hasRegistration: true });
   }
-
-  const readyRegistration = await withPushStageTimeout(
-    'service-worker-ready',
-    () => navigator.serviceWorker.ready,
-  );
-  logPushDiagnostic('service-worker.ready', {
-    hasActiveWorker: Boolean(readyRegistration.active),
-    scope: readyRegistration.scope,
-  });
-  return readyRegistration;
 }
 
 function getSubscriptionPayload(subscription: PushSubscription): SubscriptionPayload {
@@ -598,7 +597,7 @@ export async function unsubscribeFromPushNotifications(): Promise<PushUnsubscrib
   try {
     const registration = await withPushStageTimeout(
       'service-worker-registration',
-      () => navigator.serviceWorker.getRegistration(),
+      () => getMawqifiServiceWorkerRegistration(),
     );
     if (!registration) {
       return {

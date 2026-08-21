@@ -125,3 +125,11 @@ body {
 .page-with-chrome {
   padding-bottom: calc(7.75rem + env(safe-area-inset-bottom, 0px));
 }
+
+/* Keep the active tutorial target visible above its dimmed backdrop without
+   allowing accidental navigation while the dialog is open. */
+.mawqifi-tutorial-highlight {
+  position: relative !important;
+  z-index: 141 !important;
+  pointer-events: none !important;
+}

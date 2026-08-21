@@ -83,6 +83,7 @@ export default function Home() {
             <div className="flex shrink-0 items-center gap-1 sm:gap-2">
               <Link
                 href="/notifications"
+                data-tutorial-target="notifications"
                 className="relative rounded-2xl p-2.5 sm:p-3 text-white/60 transition-colors hover:bg-white/10 hover:text-cyan-300"
                 aria-label="التنبيهات"
               >
@@ -115,7 +116,11 @@ export default function Home() {
         )}
 
         <div className="mb-5 grid grid-cols-2 gap-2.5 sm:gap-3">
-          <Link href="/conversations" className="glass-card flex items-center gap-2 sm:gap-3 p-3 sm:p-4 text-white min-w-0 transition-all hover:border-cyan-400/30">
+          <Link
+            href="/conversations"
+            data-tutorial-target="chat"
+            className="glass-card flex items-center gap-2 sm:gap-3 p-3 sm:p-4 text-white min-w-0 transition-all hover:border-cyan-400/30"
+          >
             <MessageCircle className="h-5 w-5 shrink-0 text-cyan-300" />
             <span className="text-xs sm:text-sm font-bold truncate">المحادثات</span>
           </Link>
@@ -127,13 +132,14 @@ export default function Home() {
 
         <Link
           href="/create"
+          data-tutorial-target="publish"
           className="btn btn-primary mb-6 flex w-full items-center justify-center gap-2 py-3.5 sm:py-4 text-sm sm:text-base transition-transform active:scale-[0.98]"
         >
           <PlusCircle className="h-5 w-5 shrink-0" />
           نشر موقف جديد
         </Link>
 
-        <div>
+        <div data-tutorial-target="feed">
           {isLoading ? (
             <div className="py-12 text-center">
               <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-cyan-500 border-t-transparent" />

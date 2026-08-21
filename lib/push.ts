@@ -1,7 +1,8 @@
 import { isIOSDevice, isStandaloneMode } from './pwa';
+import { ensureSession } from './auth';
 import { getSupabase } from './supabase';
 
-const UNSAVED_DEVICE_MESSAGE = 'الإشعارات مسموحة، لكن لم يتم تسجيل هذا الجهاز بعد';
+const UNSAVED_DEVICE_MESSAGE = 'تم السماح بالإشعارات، لكن تعذر تسجيل هذا الجهاز. حاول مرة أخرى.';
 const SESSION_ERROR_MESSAGE = 'تعذر التحقق من جلسة الحساب. سجّل الدخول ثم أعد المحاولة.';
 const SAVE_ERROR_MESSAGE = 'تعذر حفظ هذا الجهاز للإشعارات. أعد المحاولة.';
 
@@ -208,12 +209,22 @@ function getSubscriptionPayload(subscription: PushSubscription): SubscriptionPay
 
 async function getAccessToken(refresh = false): Promise<string> {
   const supabase = getSupabase();
-  const result = refresh ? await supabase.auth.refreshSession() : await supabase.auth.getSession();
+  let result = refresh ? await supabase.auth.refreshSession() : await supabase.auth.getSession();
+
+  // AuthProvider normally establishes this before the settings UI is rendered.
+  // Keep the request path self-sufficient as well: a cleared client session
+  // becomes one anonymous Supabase session, not a local-only guest identity.
+  if (!refresh && !result.data.session?.access_token) {
+    await ensureSession();
+    result = await supabase.auth.getSession();
+  }
+
   logPushDiagnostic('session.read', {
     refresh,
     hasSession: Boolean(result.data.session),
     hasAccessToken: Boolean(result.data.session?.access_token),
     hasSessionUser: Boolean(result.data.session?.user),
+    isAnonymousSession: result.data.session?.user.is_anonymous === true,
   });
   if (result.error || !result.data.session?.access_token) {
     throw new Error(SESSION_ERROR_MESSAGE);
@@ -370,8 +381,8 @@ export async function subscribeToPushNotifications(): Promise<PushActionResult> 
     return { success: false, message: unsupportedPushState(status).message };
   }
 
+  let permission = status.permission;
   try {
-    let permission = status.permission;
     if (permission === 'default') {
       permission = await Notification.requestPermission();
     }
@@ -402,7 +413,11 @@ export async function subscribeToPushNotifications(): Promise<PushActionResult> 
     logPushFailure('subscribe', error);
     return {
       success: false,
-      message: error instanceof Error ? error.message : SAVE_ERROR_MESSAGE,
+      message: permission === 'granted'
+        ? UNSAVED_DEVICE_MESSAGE
+        : error instanceof Error
+          ? error.message
+          : SAVE_ERROR_MESSAGE,
     };
   }
 }

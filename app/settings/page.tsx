@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Bell, LogOut, ShieldCheck, User } from 'lucide-react';
+import { Bell, CircleHelp, LogOut, ShieldCheck, User } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
 import ErrorBanner from '@/components/ErrorBanner';
 import PageHeader from '@/components/PageHeader';
 import { useAuth } from '@/components/AuthProvider';
+import { useTutorial } from '@/components/TutorialProvider';
 import { signOut, updateUsername } from '@/lib/auth';
 import { fetchParkingPosts } from '@/lib/posts';
 import {
@@ -18,6 +19,7 @@ import {
 
 export default function SettingsPage() {
   const { profile, isGuest, refreshProfile, userId } = useAuth();
+  const { replayTutorial } = useTutorial();
   const [pushState, setPushState] = useState<PushDeviceState>({ kind: 'disabled', message: '' });
   const [activePosts, setActivePosts] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -197,6 +199,25 @@ export default function SettingsPage() {
           >
             عرض مركز التنبيهات
           </Link>
+        </section>
+
+        <section className="glass-card p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <CircleHelp className="h-5 w-5 shrink-0 text-cyan-300" />
+              <div className="min-w-0">
+                <h3 className="font-bold text-white">شرح استخدام موقفي</h3>
+                <p className="text-sm text-white/55">راجع أهم الميزات بخطوات سريعة</p>
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={replayTutorial}
+            className="btn btn-secondary mt-4 w-full py-2.5 text-xs"
+          >
+            عرض شرح استخدام موقفي
+          </button>
         </section>
 
         <section className="glass-card space-y-3 p-5">

@@ -26,17 +26,18 @@ export default function NotificationsPage() {
 
     let cancelled = false;
     setPushLoading(true);
-    void getPushDeviceState().then((next) => {
-      if (!cancelled) {
-        setPushState(next);
-        setPushLoading(false);
+    void (async () => {
+      try {
+        const next = await getPushDeviceState();
+        if (!cancelled) setPushState(next);
+      } catch {
+        if (!cancelled) {
+          setPushState({ kind: 'error', message: 'تعذر التحقق من حالة إشعارات هذا الجهاز.' });
+        }
+      } finally {
+        if (!cancelled) setPushLoading(false);
       }
-    }).catch(() => {
-      if (!cancelled) {
-        setPushState({ kind: 'error', message: 'تعذر التحقق من حالة إشعارات هذا الجهاز.' });
-        setPushLoading(false);
-      }
-    });
+    })();
 
     return () => {
       cancelled = true;
@@ -51,9 +52,10 @@ export default function NotificationsPage() {
       if (result.success) {
         setPushState({ kind: 'enabled', message: result.message });
       } else {
-        const next = await getPushDeviceState();
-        setPushState({ ...next, message: result.message });
+        setPushState({ kind: result.state ?? 'error', message: result.message });
       }
+    } catch {
+      setPushState({ kind: 'error', message: 'تعذر إكمال عملية الإشعارات. حاول مرة أخرى.' });
     } finally {
       setPushLoading(false);
     }

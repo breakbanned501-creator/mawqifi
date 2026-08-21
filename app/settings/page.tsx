@@ -33,17 +33,18 @@ export default function SettingsPage() {
 
     let cancelled = false;
     setNotifyLoading(true);
-    void getPushDeviceState().then((next) => {
-      if (!cancelled) {
-        setPushState(next);
-        setNotifyLoading(false);
+    void (async () => {
+      try {
+        const next = await getPushDeviceState();
+        if (!cancelled) setPushState(next);
+      } catch {
+        if (!cancelled) {
+          setPushState({ kind: 'error', message: 'تعذر التحقق من حالة إشعارات هذا الجهاز.' });
+        }
+      } finally {
+        if (!cancelled) setNotifyLoading(false);
       }
-    }).catch(() => {
-      if (!cancelled) {
-        setPushState({ kind: 'error', message: 'تعذر التحقق من حالة إشعارات هذا الجهاز.' });
-        setNotifyLoading(false);
-      }
-    });
+    })();
 
     return () => {
       cancelled = true;
@@ -60,18 +61,18 @@ export default function SettingsPage() {
         if (result.deviceUnsubscribed) {
           setPushState({ kind: 'disabled', message: result.message });
         } else {
-          const next = await getPushDeviceState();
-          setPushState({ ...next, message: result.message });
+          setPushState({ kind: result.state ?? 'error', message: result.message });
         }
       } else {
         const result = await subscribeToPushNotifications();
         if (result.success) {
           setPushState({ kind: 'enabled', message: result.message });
         } else {
-          const next = await getPushDeviceState();
-          setPushState({ ...next, message: result.message });
+          setPushState({ kind: result.state ?? 'error', message: result.message });
         }
       }
+    } catch {
+      setPushState({ kind: 'error', message: 'تعذر إكمال عملية الإشعارات. حاول مرة أخرى.' });
     } finally {
       setNotifyLoading(false);
     }

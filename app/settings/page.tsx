@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Bell, CircleHelp, Languages, LogOut, ShieldCheck, User } from 'lucide-react';
+import { Bell, CircleHelp, Languages, LogOut, MessageCircle, ShieldCheck, User } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
 import ErrorBanner from '@/components/ErrorBanner';
 import PageHeader from '@/components/PageHeader';
@@ -11,6 +11,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { useLocale } from '@/components/LocaleProvider';
 import { useTutorial } from '@/components/TutorialProvider';
 import { signOut, updateUsername } from '@/lib/auth';
+import { MAWQIFI_WHATSAPP_CHANNEL_URL } from '@/lib/links';
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   fetchNotificationPreferences,
@@ -311,6 +312,16 @@ export default function SettingsPage() {
             <Link href="/feedback" className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-bold text-white/80">
               {t('settings.feedback')}
             </Link>
+            <a
+              href={MAWQIFI_WHATSAPP_CHANNEL_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={t('whatsapp.channelAria')}
+              className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-bold text-white/80 transition-colors hover:bg-white/10"
+            >
+              <MessageCircle className="h-4 w-4 shrink-0 text-cyan-300" aria-hidden="true" />
+              <span>{t('whatsapp.channelTitle')}</span>
+            </a>
           </div>
         </section>
 

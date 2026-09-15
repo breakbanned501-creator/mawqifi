@@ -8,6 +8,7 @@ import ErrorBanner from '@/components/ErrorBanner';
 import { useLocale } from '@/components/LocaleProvider';
 import { useNotifications } from '@/components/NotificationProvider';
 import ParkingCard from '@/components/ParkingCard';
+import WhatsAppChannelCta from '@/components/WhatsAppChannelCta';
 import { useAuth } from '@/components/AuthProvider';
 import { expireStalePosts, fetchParkingPosts, filterActivePosts } from '@/lib/posts';
 import { getSupabase } from '@/lib/supabase';
@@ -136,6 +137,8 @@ export default function Home() {
           <PlusCircle className="h-5 w-5 shrink-0" />
           {t('home.createPost')}
         </Link>
+
+        <WhatsAppChannelCta />
 
         <div data-tutorial-target="feed">
           {isLoading ? (

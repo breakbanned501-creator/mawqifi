@@ -1,3 +1,5 @@
+import type { BadgeKey } from './badges';
+
 export type Profile = {
   id: string;
   username: string;
@@ -16,6 +18,7 @@ export type ParkingPost = {
   expires_at: string;
   status: 'active' | 'closed' | 'expired';
   username: string;
+  badges: BadgeKey[];
   created_at: string;
 };
 

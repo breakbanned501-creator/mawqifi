@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import Link from 'next/link';
-import { Bell, Car, MessageCircle, Trash2 } from 'lucide-react';
+import { Award, Bell, Car, MessageCircle, Trash2 } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
 import ErrorBanner from '@/components/ErrorBanner';
 import LoadingScreen from '@/components/LoadingScreen';
@@ -77,6 +77,16 @@ export default function NotificationsPage() {
         body,
         href: notificationHref(item),
         Icon: MessageCircle,
+      };
+    }
+
+    if (dataString(data, 'event_key') === 'top_parking_contributor_award') {
+      return {
+        ...item,
+        title: t('notifications.topParkingContributorTitle'),
+        body: t('notifications.topParkingContributorBody'),
+        href: notificationHref(item),
+        Icon: Award,
       };
     }
 

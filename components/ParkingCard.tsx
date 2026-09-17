@@ -9,6 +9,7 @@ import { getCollegeName, formatGate, formatZone } from '@/lib/university';
 import { useLocale } from '@/components/LocaleProvider';
 import CountdownTimer from './CountdownTimer';
 import ReportModal from './ReportModal';
+import UserBadge from './UserBadge';
 
 interface ParkingCardProps {
   post: ParkingPost;
@@ -105,7 +106,10 @@ function ParkingCard({ post, currentUserId, onChanged, onExpire }: ParkingCardPr
 
       <div className="flex items-center justify-between gap-2.5 sm:gap-3 border-t border-white/10 pt-3">
         <div className="min-w-0 flex-1 text-xs text-white/50">
-          <p dir="auto" className="truncate font-bold text-white/75">{post.username}</p>
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <p dir="auto" className="min-w-0 max-w-full truncate font-bold text-white/75">{post.username}</p>
+            <UserBadge badges={post.badges} />
+          </div>
           <p className="mt-0.5 flex items-center gap-1 text-[11px] sm:text-xs truncate">
             <Clock className="h-3.5 w-3.5 shrink-0" />
             {t('parking.leavesIn', { minutes: formatNumber(post.departure_minutes) })}

@@ -1,4 +1,5 @@
 import { getSupabase } from './supabase';
+import { parseBadgeKeys } from './badges';
 import type { Conversation, ParkingPost } from './types';
 import { fetchParkingPostById, isPostActive } from './posts';
 
@@ -16,6 +17,11 @@ type ConversationRow = {
   parking_posts: ParkingPostRow | ParkingPostRow[] | null;
 };
 
+type UserRow = {
+  username: string;
+  user_badges?: { badge_key: string }[] | null;
+};
+
 type ParkingPostRow = {
   id: string;
   user_id: string;
@@ -27,7 +33,7 @@ type ParkingPostRow = {
   expires_at: string;
   status: 'active' | 'expired' | 'closed';
   created_at: string;
-  users: { username: string } | { username: string }[] | null;
+  users: UserRow | UserRow[] | null;
 };
 
 function mapPost(row: ParkingPostRow): ParkingPost {
@@ -43,6 +49,7 @@ function mapPost(row: ParkingPostRow): ParkingPost {
     expires_at: row.expires_at,
     status: row.status,
     username: user?.username ?? 'طالب',
+    badges: parseBadgeKeys(user?.user_badges),
     created_at: row.created_at,
   };
 }
@@ -96,7 +103,7 @@ export async function fetchConversations(userId: string): Promise<Conversation[]
         expires_at,
         status,
         created_at,
-        users (username)
+        users (username, user_badges (badge_key))
       )
     `,
     )
@@ -164,7 +171,7 @@ export async function getOrCreateConversation(
         expires_at,
         status,
         created_at,
-        users (username)
+        users (username, user_badges (badge_key))
       )
     `,
     )
@@ -228,7 +235,7 @@ export async function fetchConversationByPostForUser(
         expires_at,
         status,
         created_at,
-        users (username)
+        users (username, user_badges (badge_key))
       )
     `,
     )
@@ -276,7 +283,7 @@ export async function fetchConversationByIdForUser(
         expires_at,
         status,
         created_at,
-        users (username)
+        users (username, user_badges (badge_key))
       )
     `,
     )

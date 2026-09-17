@@ -1,5 +1,11 @@
 import { getSupabase } from './supabase';
+import { parseBadgeKeys } from './badges';
 import type { ParkingPost } from './types';
+
+type UserRow = {
+  username: string;
+  user_badges?: { badge_key: string }[] | null;
+};
 
 type ParkingPostRow = {
   id: string;
@@ -12,7 +18,7 @@ type ParkingPostRow = {
   expires_at: string;
   status: 'active' | 'expired' | 'closed';
   created_at: string;
-  users: { username: string } | { username: string }[] | null;
+  users: UserRow | UserRow[] | null;
 };
 
 function mapRow(row: ParkingPostRow): ParkingPost {
@@ -28,6 +34,7 @@ function mapRow(row: ParkingPostRow): ParkingPost {
     expires_at: row.expires_at,
     status: row.status,
     username: user?.username ?? 'طالب',
+    badges: parseBadgeKeys(user?.user_badges),
     created_at: row.created_at,
   };
 }
@@ -59,7 +66,7 @@ export async function fetchParkingPosts(): Promise<ParkingPost[]> {
       expires_at,
       status,
       created_at,
-      users (username)
+      users (username, user_badges (badge_key))
     `,
     )
     .eq('status', 'active')
@@ -107,7 +114,7 @@ export async function createParkingPost(input: CreateParkingPostInput): Promise<
       expires_at,
       status,
       created_at,
-      users (username)
+      users (username, user_badges (badge_key))
     `,
     )
     .single();
@@ -132,7 +139,7 @@ export async function fetchParkingPostById(postId: string): Promise<ParkingPost 
       expires_at,
       status,
       created_at,
-      users (username)
+      users (username, user_badges (badge_key))
     `,
     )
     .eq('id', postId)

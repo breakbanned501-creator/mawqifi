@@ -17,6 +17,16 @@ create table if not exists public.users (
 );
 
 -- ---------------------------------------------------------------------------
+-- Trusted user recognition badges
+-- ---------------------------------------------------------------------------
+create table if not exists public.user_badges (
+  user_id uuid not null references public.users (id) on delete cascade,
+  badge_key text not null check (badge_key in ('top_parking_contributor')),
+  awarded_at timestamptz not null default now(),
+  primary key (user_id, badge_key)
+);
+
+-- ---------------------------------------------------------------------------
 -- Parking posts
 -- ---------------------------------------------------------------------------
 create table if not exists public.parking_posts (
@@ -188,6 +198,7 @@ $$;
 -- Row Level Security
 -- ---------------------------------------------------------------------------
 alter table public.users enable row level security;
+alter table public.user_badges enable row level security;
 alter table public.parking_posts enable row level security;
 alter table public.conversations enable row level security;
 alter table public.messages enable row level security;
@@ -208,6 +219,16 @@ drop policy if exists users_insert_own on public.users;
 create policy users_insert_own on public.users
   for insert to authenticated
   with check (auth.uid() = id);
+
+-- Badges are public recognition, but only trusted admin-side database work can
+-- award or remove them. Authenticated clients receive read-only access.
+revoke all on table public.user_badges from public, anon, authenticated;
+grant select on table public.user_badges to authenticated;
+
+drop policy if exists user_badges_select_authenticated on public.user_badges;
+create policy user_badges_select_authenticated on public.user_badges
+  for select to authenticated
+  using (true);
 
 -- Parking posts: anyone signed in can read; owner can insert/delete/update own
 drop policy if exists parking_posts_select on public.parking_posts;
@@ -532,6 +553,10 @@ create unique index if not exists app_notifications_user_post_unique
 create unique index if not exists app_notifications_user_message_unique
   on public.app_notifications (user_id, message_id)
   where kind = 'chat_message' and message_id is not null;
+
+create unique index if not exists app_notifications_user_system_event_unique
+  on public.app_notifications (user_id, (data ->> 'event_key'))
+  where kind = 'system' and data ? 'event_key';
 
 alter table public.app_notifications enable row level security;
 

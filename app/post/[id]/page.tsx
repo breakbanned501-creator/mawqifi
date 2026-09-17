@@ -10,6 +10,7 @@ import CountdownTimer from '@/components/CountdownTimer';
 import ErrorBanner from '@/components/ErrorBanner';
 import LoadingScreen from '@/components/LoadingScreen';
 import ReportModal from '@/components/ReportModal';
+import UserBadge from '@/components/UserBadge';
 import { useAuth } from '@/components/AuthProvider';
 import { useLocale } from '@/components/LocaleProvider';
 import { fetchMessages, sendMessage, uploadChatImage } from '@/lib/chat';
@@ -317,6 +318,10 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
             <p className="truncate text-sm text-white/55">
               {getCollegeName(post.college, locale)} — {formatZone(post.zone, locale)} — {formatGate(post.gate, locale)}
             </p>
+            <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
+              <p dir="auto" className="min-w-0 max-w-full truncate font-bold text-white/70">{post.username}</p>
+              <UserBadge badges={post.badges} />
+            </div>
             {!expired && (
               <div className="mt-1">
                 <CountdownTimer expiresAt={new Date(post.expires_at).getTime()} />

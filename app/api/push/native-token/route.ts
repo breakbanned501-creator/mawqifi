@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { nativeApiOptions, withNativeApiCorsHandler } from '@/lib/native-api-cors';
 import { getRequestAuthentication, getSupabaseServiceRole } from '@/lib/supabase-server';
 
 const NATIVE_PLATFORM = 'ios';
@@ -39,7 +40,12 @@ async function findNativeToken(token: string): Promise<{ data: StoredNativeToken
   return { data: data as StoredNativeToken | null, error };
 }
 
+export async function OPTIONS(request: Request) {
+  return nativeApiOptions(request);
+}
+
 export async function POST(request: Request) {
+  return withNativeApiCorsHandler(request, async () => {
   let phase = 'authenticate';
 
   try {
@@ -120,9 +126,11 @@ export async function POST(request: Request) {
     console.error('[native-push] token request failed', { phase, code: errorCode(error) });
     return NextResponse.json({ error: 'تعذر حفظ إشعارات هذا الجهاز.' }, { status: 500 });
   }
+  });
 }
 
 export async function DELETE(request: Request) {
+  return withNativeApiCorsHandler(request, async () => {
   let phase = 'authenticate';
 
   try {
@@ -153,4 +161,5 @@ export async function DELETE(request: Request) {
     console.error('[native-push] token disable failed', { phase, code: errorCode(error) });
     return NextResponse.json({ error: 'تعذر إيقاف إشعارات هذا الجهاز.' }, { status: 500 });
   }
+  });
 }

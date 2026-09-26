@@ -28,28 +28,16 @@ import { getNativeCurrentLocation, selectNativeChatImage, type NativeChatImageSo
 import type { TranslationKey } from '@/lib/i18n';
 import type { ChatMessage, Conversation, ParkingPost } from '@/lib/types';
 
-interface PostChatPageProps {
-  params: { id: string };
-  searchParams?: { chat?: string | string[] };
+interface PostChatScreenProps {
+  postId: string;
+  requestedConversationId: string | null;
 }
 
 type ChatError = { key: TranslationKey } | { message: string };
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function getRequestedConversationId(searchParams: PostChatPageProps['searchParams']): string | null {
-  const value = searchParams?.chat;
-  if (typeof value !== 'string') return null;
-
-  const conversationId = value.trim();
-  return UUID_PATTERN.test(conversationId) ? conversationId : null;
-}
-
-export default function PostChatPage({ params, searchParams }: PostChatPageProps) {
+export default function PostChatScreen({ postId, requestedConversationId }: PostChatScreenProps) {
   const { userId } = useAuth();
   const { dir, formatDate, locale, t } = useLocale();
-  const requestedConversationId = getRequestedConversationId(searchParams);
   const [post, setPost] = useState<ParkingPost | null>(null);
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -84,7 +72,7 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
       setLoading(true);
       setError(null);
       try {
-        const loadedPost = await fetchParkingPostById(params.id);
+        const loadedPost = await fetchParkingPostById(postId);
         if (cancelled) return;
         if (!loadedPost) {
           setError({ key: 'chat.postNotFound' });
@@ -100,13 +88,13 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
             userId,
           );
           if (cancelled) return;
-          if (!requestedConversation || requestedConversation.post_id !== params.id) {
+          if (!requestedConversation || requestedConversation.post_id !== postId) {
             setError({ key: 'chat.openError' });
             return;
           }
           conv = requestedConversation;
         } else if (loadedPost.user_id === userId) {
-          const existing = await fetchConversationByPostForUser(params.id, userId);
+          const existing = await fetchConversationByPostForUser(postId, userId);
           if (cancelled) return;
           if (!existing) {
             setError({ key: 'chat.ownerOnly' });
@@ -114,7 +102,7 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
           }
           conv = existing;
         } else {
-          const result = await getOrCreateConversation(params.id, userId);
+          const result = await getOrCreateConversation(postId, userId);
           if (cancelled) return;
           conv = result.conversation;
         }
@@ -138,7 +126,7 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
     return () => {
       cancelled = true;
     };
-  }, [params.id, requestedConversationId, userId]);
+  }, [postId, requestedConversationId, userId]);
 
   useEffect(() => {
     if (!conversationId) return;

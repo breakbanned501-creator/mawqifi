@@ -1,4 +1,5 @@
 import { getSupabase } from './supabase';
+import { getMawqifiCurrentPostHref, getMawqifiPostHref } from './capacitor';
 
 export type AppNotificationKind = 'parking_post' | 'chat_message' | 'system';
 
@@ -63,11 +64,11 @@ function getString(data: AppNotificationData, key: string): string {
 
 function getHref(row: NotificationRow, data: AppNotificationData): string | undefined {
   const explicitHref = getString(data, 'href');
-  if (explicitHref.startsWith('/')) return explicitHref;
+  if (explicitHref.startsWith('/')) return getMawqifiCurrentPostHref(explicitHref);
   if (row.post_id && row.conversation_id) {
-    return `/post/${encodeURIComponent(row.post_id)}?chat=${encodeURIComponent(row.conversation_id)}`;
+    return getMawqifiPostHref(row.post_id, row.conversation_id);
   }
-  if (row.post_id) return `/post/${row.post_id}`;
+  if (row.post_id) return getMawqifiPostHref(row.post_id);
   return undefined;
 }
 

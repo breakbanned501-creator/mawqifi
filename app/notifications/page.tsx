@@ -12,6 +12,7 @@ import { useLocale } from '@/components/LocaleProvider';
 import { useNotifications } from '@/components/NotificationProvider';
 import { formatGate, formatZone, getCollegeName } from '@/lib/university';
 import type { AppNotification } from '@/lib/notifications';
+import { getMawqifiCurrentPostHref, getMawqifiPostHref } from '@/lib/capacitor';
 
 function dataString(data: Record<string, unknown>, key: string): string {
   const value = data[key];
@@ -19,11 +20,11 @@ function dataString(data: Record<string, unknown>, key: string): string {
 }
 
 function notificationHref(item: AppNotification): string {
-  if (item.href) return item.href;
+  if (item.href) return getMawqifiCurrentPostHref(item.href);
   if (item.post_id && item.conversation_id) {
-    return `/post/${item.post_id}?chat=${item.conversation_id}`;
+    return getMawqifiPostHref(item.post_id, item.conversation_id);
   }
-  return item.post_id ? `/post/${item.post_id}` : '/';
+  return item.post_id ? getMawqifiPostHref(item.post_id) : '/';
 }
 
 export default function NotificationsPage() {

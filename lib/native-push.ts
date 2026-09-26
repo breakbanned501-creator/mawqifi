@@ -1,6 +1,7 @@
 import type { PushActionResult, PushDeviceState, PushStage, PushUnsubscribeResult } from './push';
 import { isNativeCapacitor, isNativeIOS } from './capacitor';
 import { ensureSession } from './auth';
+import { fetchMawqifiServerApi } from './server-api';
 import { getSupabase } from './supabase';
 
 const NATIVE_PUSH_DEVICE_PREFERENCE_KEY = 'mawqifi.native-push-device.v1';
@@ -170,9 +171,8 @@ async function sendNativePushRequest(
   const timeoutId = globalThis.setTimeout(() => controller.abort(), NATIVE_PUSH_TIMEOUT_MS);
 
   try {
-    const response = await fetch('/api/push/native-token', {
+    const response = await fetchMawqifiServerApi('/api/push/native-token', {
       method,
-      credentials: 'same-origin',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${accessToken}`,

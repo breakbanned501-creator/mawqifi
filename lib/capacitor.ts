@@ -2,6 +2,7 @@ import { Capacitor } from '@capacitor/core';
 
 export const MAWQIFI_NATIVE_SCHEME = 'mawqifi';
 export const MAWQIFI_PRODUCTION_ORIGIN = 'https://mawqifiapp.vercel.app';
+export const MAWQIFI_NATIVE_POST_ROUTE = '/post/view';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -12,6 +13,46 @@ export function isNativeCapacitor(): boolean {
 
 export function isNativeIOS(): boolean {
   return isNativeCapacitor() && Capacitor.getPlatform() === 'ios';
+}
+
+function isUuid(value: string): boolean {
+  return UUID_PATTERN.test(value);
+}
+
+function getStaticPostPath(postId: string, conversationId?: string | null): string {
+  const params = new URLSearchParams({ id: postId });
+  if (conversationId) params.set('chat', conversationId);
+  return `${MAWQIFI_NATIVE_POST_ROUTE}?${params.toString()}`;
+}
+
+/**
+ * Uses one static route for first-party navigation in every runtime. This
+ * prevents the locally bundled app from ever requesting an ungenerated
+ * `/post/<id>` file before client hydration. Existing browser/PWA deep links
+ * are retained through the Vercel compatibility redirect in next.config.js.
+ */
+export function getMawqifiPostHref(postId: string, conversationId?: string | null): string {
+  if (!isUuid(postId) || (conversationId && !isUuid(conversationId))) {
+    throw new Error('Invalid Mawqifi post or conversation identifier.');
+  }
+
+  return getStaticPostPath(postId, conversationId);
+}
+
+/** Converts an existing internal post link to the correct route for this runtime. */
+export function getMawqifiCurrentPostHref(href: string): string {
+  if (!href.startsWith('/')) return href;
+
+  try {
+    const url = new URL(href, MAWQIFI_PRODUCTION_ORIGIN);
+    const postMatch = url.pathname.match(/^\/post\/([0-9a-f-]+)$/i);
+    if (!postMatch || !isUuid(postMatch[1])) return href;
+
+    const chatId = url.searchParams.get('chat');
+    return getMawqifiPostHref(postMatch[1], chatId && isUuid(chatId) ? chatId : null);
+  } catch {
+    return href;
+  }
 }
 
 /**
@@ -40,12 +81,12 @@ export function getMawqifiInternalPath(rawUrl: string | null | undefined): strin
     if (pathname === '/' || pathname === '/notifications') return pathname;
 
     const postMatch = pathname.match(/^\/post\/([0-9a-f-]+)$/i);
-    if (!postMatch || !UUID_PATTERN.test(postMatch[1])) return null;
+    if (!postMatch || !isUuid(postMatch[1])) return null;
 
     const chatId = url.searchParams.get('chat');
-    if (!chatId) return pathname;
-    if (!UUID_PATTERN.test(chatId)) return null;
-    return `${pathname}?chat=${encodeURIComponent(chatId)}`;
+    if (!chatId) return getStaticPostPath(postMatch[1]);
+    if (!isUuid(chatId)) return null;
+    return getStaticPostPath(postMatch[1], chatId);
   } catch {
     return null;
   }

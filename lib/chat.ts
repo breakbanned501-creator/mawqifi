@@ -1,4 +1,5 @@
 import { getSupabase } from './supabase';
+import { fetchMawqifiServerApi } from './server-api';
 import type { ChatMessage } from './types';
 
 export async function fetchMessages(conversationId: string): Promise<ChatMessage[]> {
@@ -37,9 +38,8 @@ async function requestChatMessagePush(messageId: string): Promise<void> {
   };
 
   const send = (accessToken: string) =>
-    fetch('/api/push/notify-chat-message', {
+    fetchMawqifiServerApi('/api/push/notify-chat-message', {
       method: 'POST',
-      credentials: 'same-origin',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${accessToken}`,

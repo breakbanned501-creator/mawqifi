@@ -10,6 +10,7 @@ import Toast from '@/components/Toast';
 import { useAuth } from '@/components/AuthProvider';
 import { createParkingPost } from '@/lib/posts';
 import { getSupabase } from '@/lib/supabase';
+import { fetchMawqifiServerApi } from '@/lib/server-api';
 import {
   departurePresets,
   formatGate,
@@ -86,9 +87,8 @@ export default function CreatePage() {
         const { data: sessionData } = await getSupabase().auth.getSession();
         const accessToken = sessionData.session?.access_token;
         if (accessToken) {
-          void fetch('/api/push/notify-new-post', {
+          void fetchMawqifiServerApi('/api/push/notify-new-post', {
             method: 'POST',
-            credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
             body: JSON.stringify({ postId: createdPost.id }),
           }).catch((err) => console.error('Push broadcast error:', err));

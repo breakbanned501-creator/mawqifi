@@ -1,3 +1,5 @@
+const isCapacitorStaticExport = process.env.MAWQIFI_CAPACITOR_BUILD === '1';
+
 const withPWA = require('next-pwa')({
   dest: 'public',
   // App Router does not reliably run next-pwa's legacy main.js registrar.
@@ -12,7 +14,9 @@ const withPWA = require('next-pwa')({
   // Keep the push event handlers at a stable URL. A build-hashed custom
   // worker can be missing while an installed iOS PWA is upgrading.
   importScripts: ['/push-worker.js'],
-  disable: process.env.NODE_ENV === 'development',
+  // The iOS archive uses a local static bundle and must not carry a Workbox
+  // app shell. Browser/PWA production builds retain the existing worker.
+  disable: process.env.NODE_ENV === 'development' || isCapacitorStaticExport,
   runtimeCaching: [
     {
       urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
@@ -44,7 +48,16 @@ const withPWA = require('next-pwa')({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  ...(isCapacitorStaticExport
+    ? {
+        output: 'export',
+        trailingSlash: true,
+      }
+    : {}),
   images: {
+    // The native archive has no Next.js image optimizer. Supabase Storage URLs
+    // remain remote while the UI bundle itself is copied locally by Capacitor.
+    unoptimized: isCapacitorStaticExport,
     remotePatterns: [
       {
         protocol: 'https',
@@ -53,6 +66,22 @@ const nextConfig = {
       },
     ],
   },
+  ...(isCapacitorStaticExport
+    ? {}
+    : {
+        // Keep existing browser/PWA deep links working after moving the live
+        // post screen to one static route for the native export. The native
+        // build must not declare redirect rules because it has no server.
+        async redirects() {
+          return [
+            {
+              source: '/post/:id([0-9a-fA-F-]{36})',
+              destination: '/post/view?id=:id',
+              permanent: false,
+            },
+          ];
+        },
+      }),
 }
 
 module.exports = withPWA(nextConfig)

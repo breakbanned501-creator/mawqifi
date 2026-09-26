@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { nativeApiOptions, withNativeApiCorsHandler } from '@/lib/native-api-cors';
 import {
   configureWebPush,
   deliverPushNotifications,
@@ -42,7 +43,12 @@ function getNotificationBody(message: StoredMessage, senderName: string, locale:
   return locale === 'ar' ? `${senderName}: أرسل لك رسالة جديدة` : `${senderName}: sent you a new message`;
 }
 
+export async function OPTIONS(request: Request) {
+  return nativeApiOptions(request);
+}
+
 export async function POST(request: Request) {
+  return withNativeApiCorsHandler(request, async () => {
   try {
     const user = await getRequestUser(request);
     if (!user) return NextResponse.json({ error: 'يجب تسجيل الدخول لإرسال تنبيه الرسالة.' }, { status: 401 });
@@ -134,4 +140,5 @@ export async function POST(request: Request) {
     console.error('Error sending chat push notification.');
     return NextResponse.json({ error: 'تعذر إرسال إشعار الرسالة.' }, { status: 500 });
   }
+  });
 }

@@ -6,6 +6,7 @@ import {
   MawqifiServiceWorkerError,
 } from './service-worker';
 import { getSupabase } from './supabase';
+import { fetchMawqifiServerApi, type MawqifiServerApiPath } from './server-api';
 import type { Session } from '@supabase/supabase-js';
 
 const UNSAVED_DEVICE_MESSAGE = 'تم السماح بالإشعارات، لكن تعذر تسجيل هذا الجهاز. حاول مرة أخرى.';
@@ -278,7 +279,7 @@ async function withPushStageTimeout<T>(
   }
 }
 
-async function fetchWithPushTimeout(input: string, init: RequestInit): Promise<Response> {
+async function fetchWithPushTimeout(input: MawqifiServerApiPath, init: RequestInit): Promise<Response> {
   const stage: PushStage = 'server-save';
   const timeoutMs = PUSH_STAGE_TIMEOUTS[stage];
   const controller = new AbortController();
@@ -286,7 +287,7 @@ async function fetchWithPushTimeout(input: string, init: RequestInit): Promise<R
   logPushDiagnostic('stage.start', { stage, timeoutMs });
 
   try {
-    const response = await fetch(input, { ...init, signal: controller.signal });
+    const response = await fetchMawqifiServerApi(input, { ...init, signal: controller.signal });
     logPushDiagnostic('stage.complete', { stage, status: response.status });
     return response;
   } catch (error) {
@@ -371,7 +372,6 @@ async function authenticatedPushRequest(
   const send = async (accessToken: string) =>
     fetchWithPushTimeout('/api/push/subscribe', {
       method,
-      credentials: 'same-origin',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${accessToken}`,

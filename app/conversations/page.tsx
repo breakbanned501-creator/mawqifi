@@ -13,6 +13,7 @@ import { fetchConversations } from '@/lib/conversations';
 import { getSupabase } from '@/lib/supabase';
 import type { Conversation } from '@/lib/types';
 import { formatGate, getCollegeName } from '@/lib/university';
+import { getMawqifiPostHref } from '@/lib/capacitor';
 
 export default function ConversationsPage() {
   const { userId } = useAuth();
@@ -77,7 +78,7 @@ export default function ConversationsPage() {
             {items.map((conversation) => (
               <Link
                 key={conversation.id}
-                href={`/post/${conversation.post_id}`}
+                href={getMawqifiPostHref(conversation.post_id, conversation.id)}
                 className={`block glass-card p-4 transition-opacity ${conversation.closed ? 'opacity-50 grayscale' : 'hover:border-cyan-400/30'}`}
               >
                 <div className="flex items-center justify-between gap-3">

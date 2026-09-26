@@ -5,6 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:native": "node scripts/build-native.cjs",
+    "cap:sync:ios": "npx cap sync ios && node scripts/verify-native-archive.cjs",
+    "cap:ios:archive": "npm run build:native && npm run cap:sync:ios",
+    "cap:ios:dev": "npx cap run ios --live-reload",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"

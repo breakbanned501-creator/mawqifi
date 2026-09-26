@@ -6,6 +6,7 @@ import { Clock, MapPin, MessageCircle, Trash2, Flag } from 'lucide-react';
 import type { ParkingPost } from '@/lib/types';
 import { deleteParkingPost, isPostActive } from '@/lib/posts';
 import { getCollegeName, formatGate, formatZone } from '@/lib/university';
+import { getMawqifiPostHref } from '@/lib/capacitor';
 import { useLocale } from '@/components/LocaleProvider';
 import CountdownTimer from './CountdownTimer';
 import ReportModal from './ReportModal';
@@ -125,7 +126,7 @@ function ParkingCard({ post, currentUserId, onChanged, onExpire }: ParkingCardPr
           </Link>
         ) : (
           <Link
-            href={`/post/${post.id}`}
+            href={getMawqifiPostHref(post.id)}
             className="flex shrink-0 items-center gap-1.5 sm:gap-2 rounded-2xl bg-cyan-500 px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-extrabold text-navy-900 shadow-lg shadow-cyan-500/20 transition-transform active:scale-95"
           >
             <MessageCircle className="h-4 w-4 shrink-0" />

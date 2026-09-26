@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { nativeApiOptions, withNativeApiCorsHandler } from '@/lib/native-api-cors';
 import { getRequestAuthentication, getSupabaseServiceRole } from '@/lib/supabase-server';
 
 type SubscriptionPayload = {
@@ -62,7 +63,12 @@ async function findSubscriptionByEndpoint(
   return { data: data as StoredSubscription | null, error };
 }
 
+export async function OPTIONS(request: Request) {
+  return nativeApiOptions(request);
+}
+
 export async function POST(request: Request) {
+  return withNativeApiCorsHandler(request, async () => {
   let phase = 'authenticate';
 
   try {
@@ -169,9 +175,11 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ error: 'تعذر حفظ اشتراك الإشعارات.' }, { status: 500 });
   }
+  });
 }
 
 export async function DELETE(request: Request) {
+  return withNativeApiCorsHandler(request, async () => {
   let phase = 'authenticate';
 
   try {
@@ -216,4 +224,5 @@ export async function DELETE(request: Request) {
     });
     return NextResponse.json({ error: 'تعذر إيقاف اشتراك الإشعارات.' }, { status: 500 });
   }
+  });
 }

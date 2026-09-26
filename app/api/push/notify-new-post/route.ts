@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { nativeApiOptions, withNativeApiCorsHandler } from '@/lib/native-api-cors';
 import {
   configureWebPush,
   deliverPushNotifications,
@@ -17,7 +18,12 @@ type StoredParkingPost = {
   status: string;
 };
 
+export async function OPTIONS(request: Request) {
+  return nativeApiOptions(request);
+}
+
 export async function POST(request: Request) {
+  return withNativeApiCorsHandler(request, async () => {
   try {
     const user = await getRequestUser(request);
     if (!user) return NextResponse.json({ error: 'يجب تسجيل الدخول لنشر الموقف.' }, { status: 401 });
@@ -88,4 +94,5 @@ export async function POST(request: Request) {
     console.error('Error sending new-post push notification.');
     return NextResponse.json({ error: 'تعذر إرسال إشعار الموقف الجديد.' }, { status: 500 });
   }
+  });
 }

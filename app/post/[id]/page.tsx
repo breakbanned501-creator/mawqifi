@@ -1,6 +1,6 @@
 'use client';
 
-import { type ChangeEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { type ChangeEvent, type KeyboardEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, Camera, ImageIcon, MapPin, Send, X, Flag } from 'lucide-react';
@@ -23,6 +23,8 @@ import {
 import { fetchParkingPostById, isPostActive } from '@/lib/posts';
 import { getSupabase } from '@/lib/supabase';
 import { getCollegeName, formatGate, formatZone } from '@/lib/university';
+import { isNativeCapacitor, openExternalUrl, triggerNativeLightHaptic } from '@/lib/capacitor';
+import { getNativeCurrentLocation, selectNativeChatImage, type NativeChatImageSource } from '@/lib/native-media';
 import type { TranslationKey } from '@/lib/i18n';
 import type { ChatMessage, Conversation, ParkingPost } from '@/lib/types';
 
@@ -54,6 +56,7 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
   const [text, setText] = useState('');
   const [typing, setTyping] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [nativeRuntime, setNativeRuntime] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ChatError | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -67,6 +70,10 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
   const conversationId = conversation?.id;
   const errorMessage = error ? ('key' in error ? t(error.key) : error.message) : null;
   const BackIcon = dir === 'rtl' ? ArrowRight : ArrowLeft;
+
+  useEffect(() => {
+    setNativeRuntime(isNativeCapacitor());
+  }, []);
 
   useEffect(() => {
     if (!userId) return;
@@ -187,6 +194,7 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
         type: 'text',
         text: value,
       });
+      void triggerNativeLightHaptic();
     } catch {
       setError({ key: 'chat.sendError' });
       setText(value);
@@ -200,13 +208,14 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
     }
   };
 
-  const handleImage = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || expired || !conversationId || !userId) return;
+  const uploadSelectedImage = async (getFile: () => Promise<File | null>) => {
+    if (expired || !conversationId || !userId) return;
 
     setUploading(true);
     setError(null);
     try {
+      const file = await getFile();
+      if (!file) return;
       const publicUrl = await uploadChatImage(conversationId, userId, file);
       await sendMessage({
         conversationId,
@@ -215,16 +224,59 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
         imageUrl: publicUrl,
       });
       setToast(t('chat.sendImage'));
+      void triggerNativeLightHaptic();
     } catch {
       setError({ key: 'chat.imageUploadError' });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleImage = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      await uploadSelectedImage(async () => file);
+    } finally {
       event.target.value = '';
     }
   };
 
+  const handleNativeImage = async (source: NativeChatImageSource) => {
+    await uploadSelectedImage(() => selectNativeChatImage(source));
+  };
+
   const sendLocation = () => {
     if (expired || !conversationId || !userId) return;
+
+    const sendCurrentLocation = async (latitude: number, longitude: number) => {
+      try {
+        await sendMessage({
+          conversationId,
+          senderId: userId,
+          type: 'location',
+          text: t('chat.location'),
+          latitude,
+          longitude,
+        });
+        setToast(t('chat.sendLocationSuccess'));
+        void triggerNativeLightHaptic();
+      } catch {
+        setError({ key: 'chat.sendError' });
+      }
+    };
+
+    if (nativeRuntime) {
+      void (async () => {
+        try {
+          const position = await getNativeCurrentLocation();
+          await sendCurrentLocation(position.latitude, position.longitude);
+        } catch {
+          setError({ key: 'chat.locationUnavailable' });
+        }
+      })();
+      return;
+    }
 
     if (!navigator.geolocation) {
       setError({ key: 'chat.locationUnsupported' });
@@ -233,21 +285,7 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
 
     setError(null);
     navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          await sendMessage({
-            conversationId,
-            senderId: userId,
-            type: 'location',
-            text: t('chat.location'),
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          });
-          setToast(t('chat.sendLocationSuccess'));
-        } catch {
-          setError({ key: 'chat.sendError' });
-        }
-      },
+      (position) => void sendCurrentLocation(position.coords.latitude, position.coords.longitude),
       (geoError) => {
         const messages: Record<number, TranslationKey> = {
           1: 'chat.locationPermission',
@@ -258,6 +296,12 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
     );
+  };
+
+  const handleExternalMapLink = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (!nativeRuntime) return;
+    event.preventDefault();
+    void openExternalUrl(event.currentTarget.href).catch(() => setError({ key: 'chat.locationUnavailable' }));
   };
 
   const handleReport = async (reason: string, details: string) => {
@@ -395,16 +439,18 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
                           <a
                             className="rounded-xl bg-white/15 px-3 py-2"
                             target="_blank"
-                            rel="noreferrer"
+                            rel="noopener noreferrer"
                             href={`https://www.google.com/maps?q=${message.latitude},${message.longitude}`}
+                            onClick={handleExternalMapLink}
                           >
                             {t('chat.googleMaps')}
                           </a>
                           <a
                             className="rounded-xl bg-white/15 px-3 py-2"
                             target="_blank"
-                            rel="noreferrer"
+                            rel="noopener noreferrer"
                             href={`https://maps.apple.com/?q=${message.latitude},${message.longitude}`}
+                            onClick={handleExternalMapLink}
                           >
                             {t('chat.appleMaps')}
                           </a>
@@ -448,27 +494,51 @@ export default function PostChatPage({ params, searchParams }: PostChatPageProps
       ) : (
         <footer className="safe-bottom border-t border-white/10 bg-navy-900/95 px-3 sm:px-4 py-2.5 sm:py-3 backdrop-blur-xl">
           <div className="mx-auto flex max-w-md md:max-w-xl lg:max-w-2xl items-center gap-1.5 sm:gap-2">
-            <label aria-label={t('chat.takePhoto')} className="shrink-0 rounded-full bg-white/10 p-2.5 sm:p-3 text-white/60 cursor-pointer hover:bg-white/15">
-              <Camera className="h-4 w-4 sm:h-5 sm:w-5" />
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={handleImage}
+            {nativeRuntime ? (
+              <button
+                type="button"
+                onClick={() => void handleNativeImage('camera')}
                 disabled={uploading}
-              />
-            </label>
-            <label aria-label={t('chat.chooseImage')} className="shrink-0 rounded-full bg-white/10 p-2.5 sm:p-3 text-white/60 cursor-pointer hover:bg-white/15">
-              <ImageIcon className="h-4 w-4 sm:h-5 sm:w-5" />
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleImage}
+                className="shrink-0 rounded-full bg-white/10 p-2.5 text-white/60 hover:bg-white/15 disabled:opacity-40 sm:p-3"
+                aria-label={t('chat.takePhoto')}
+              >
+                <Camera className="h-4 w-4 sm:h-5 sm:w-5" />
+              </button>
+            ) : (
+              <label aria-label={t('chat.takePhoto')} className="cursor-pointer shrink-0 rounded-full bg-white/10 p-2.5 text-white/60 hover:bg-white/15 sm:p-3">
+                <Camera className="h-4 w-4 sm:h-5 sm:w-5" />
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={handleImage}
+                  disabled={uploading}
+                />
+              </label>
+            )}
+            {nativeRuntime ? (
+              <button
+                type="button"
+                onClick={() => void handleNativeImage('photos')}
                 disabled={uploading}
-              />
-            </label>
+                className="shrink-0 rounded-full bg-white/10 p-2.5 text-white/60 hover:bg-white/15 disabled:opacity-40 sm:p-3"
+                aria-label={t('chat.chooseImage')}
+              >
+                <ImageIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+              </button>
+            ) : (
+              <label aria-label={t('chat.chooseImage')} className="cursor-pointer shrink-0 rounded-full bg-white/10 p-2.5 text-white/60 hover:bg-white/15 sm:p-3">
+                <ImageIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImage}
+                  disabled={uploading}
+                />
+              </label>
+            )}
             <button
               type="button"
               onClick={sendLocation}

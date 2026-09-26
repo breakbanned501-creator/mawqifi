@@ -1,0 +1,4 @@
+"CFBundleDisplayName" = "Mawqifi";
+"NSCameraUsageDescription" = "Mawqifi uses the camera to send photos in conversations when you choose to do so.";
+"NSPhotoLibraryUsageDescription" = "Mawqifi uses your photo library to attach a photo in a conversation when you choose to do so.";
+"NSLocationWhenInUseUsageDescription" = "Mawqifi uses your location only when you choose to share it in a conversation.";

@@ -1,4 +1,5 @@
 import { isStandaloneMode } from './pwa';
+import { isNativeCapacitor } from './capacitor';
 
 export const MAWQIFI_SERVICE_WORKER_PATH = '/sw.js';
 export const MAWQIFI_SERVICE_WORKER_SCOPE = '/';
@@ -267,6 +268,12 @@ async function registerOrRepairRootWorker(): Promise<ServiceWorkerRegistration> 
  * install is stuck, which left the iOS notification action waiting forever.
  */
 export function ensureMawqifiServiceWorker(): Promise<ServiceWorkerRegistration> {
+  // Native Capacitor Push uses APNs device tokens. A browser worker would
+  // compete with that path and can leave stale PWA shell state in the WebView.
+  if (isNativeCapacitor()) {
+    return Promise.reject(new MawqifiServiceWorkerError('unsupported'));
+  }
+
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
     return Promise.reject(new MawqifiServiceWorkerError('unsupported'));
   }
@@ -282,6 +289,7 @@ export function ensureMawqifiServiceWorker(): Promise<ServiceWorkerRegistration>
 }
 
 export async function getMawqifiServiceWorkerRegistration(): Promise<ServiceWorkerRegistration | undefined> {
+  if (isNativeCapacitor()) return undefined;
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return undefined;
   return findRootRegistration();
 }

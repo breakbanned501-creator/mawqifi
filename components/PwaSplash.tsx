@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { isStandaloneMode } from '@/lib/pwa';
+import { isNativeCapacitor } from '@/lib/capacitor';
 import { useLocale } from '@/components/LocaleProvider';
 import { getTextDirection, readStoredLocale, translate, type Locale } from '@/lib/i18n';
 
@@ -18,6 +19,7 @@ export default function PwaSplash() {
 
   useEffect(() => {
     setStoredLocale(readStoredLocale());
+    if (isNativeCapacitor()) return;
     if (!isStandaloneMode()) return;
     setVisible(true);
     const timer = window.setTimeout(() => setVisible(false), 700);

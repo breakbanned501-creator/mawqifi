@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { Cairo } from 'next/font/google'
 import AuthProvider from '@/components/AuthProvider'
 import LocaleProvider from '@/components/LocaleProvider'
+import NativeAppBridge from '@/components/NativeAppBridge'
 import NotificationProvider from '@/components/NotificationProvider'
 import PwaInstallPrompt from '@/components/PwaInstallPrompt'
 import PwaSplash from '@/components/PwaSplash'
@@ -138,6 +139,7 @@ export default function RootLayout({
         <PwaSplash />
         <ServiceWorkerRegistrar />
         <AuthProvider>
+          <NativeAppBridge />
           <LocaleProvider>
             <NotificationProvider>
               <TutorialProvider>

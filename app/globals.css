@@ -121,6 +121,13 @@ body {
   padding-top: max(0.5rem, env(safe-area-inset-top));
 }
 
+/* The native bridge uses a non-overlay status bar. Keep the WebView's dark
+   canvas behind the Dynamic Island/home indicator without changing PWA layout. */
+html.capacitor-native,
+html.capacitor-native body {
+  background-color: #0a1128;
+}
+
 /* Space for fixed footer + bottom nav (~7.5rem + safe area) */
 .page-with-chrome {
   padding-bottom: calc(7.75rem + env(safe-area-inset-bottom, 0px));

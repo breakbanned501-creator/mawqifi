@@ -11,6 +11,12 @@ import {
   type PushStage,
   type PushDeviceState,
 } from '@/lib/push';
+import {
+  getNativePushDeviceState,
+  subscribeToNativePushNotifications,
+  unsubscribeFromNativePushNotifications,
+} from '@/lib/native-push';
+import { isNativeCapacitor } from '@/lib/capacitor';
 
 const PUSH_EXPLAINER_DEFERRED_KEY = 'mawqifi_push_explainer_deferred';
 
@@ -62,6 +68,7 @@ function getDisplayedPushMessage(
 export default function PushNotificationControl() {
   const { userId } = useAuth();
   const { locale, t } = useLocale();
+  const nativeRuntime = isNativeCapacitor();
   const [pushState, setPushState] = useState<PushDeviceState>({ kind: 'disabled', message: '' });
   const [isLoading, setIsLoading] = useState(true);
   const [showExplainer, setShowExplainer] = useState(false);
@@ -80,7 +87,7 @@ export default function PushNotificationControl() {
     void (async () => {
       setIsLoading(true);
       try {
-        const next = await getPushDeviceState();
+        const next = await (nativeRuntime ? getNativePushDeviceState() : getPushDeviceState());
         if (!cancelled) setPushState(next);
       } catch {
         if (!cancelled) setPushState({ kind: 'error', message: t('common.error') });
@@ -92,7 +99,7 @@ export default function PushNotificationControl() {
     return () => {
       cancelled = true;
     };
-  }, [t, userId]);
+  }, [nativeRuntime, t, userId]);
 
   const notifyEnabled = pushState.kind === 'enabled';
   const actionLabel = useMemo(() => {
@@ -106,7 +113,7 @@ export default function PushNotificationControl() {
     setShowExplainer(false);
     setIsLoading(true);
     try {
-      const result = await subscribeToPushNotifications();
+      const result = await (nativeRuntime ? subscribeToNativePushNotifications() : subscribeToPushNotifications());
       setPushState({
         kind: result.success ? 'enabled' : result.state ?? 'error',
         message: result.message,
@@ -125,7 +132,7 @@ export default function PushNotificationControl() {
     if (notifyEnabled) {
       setIsLoading(true);
       try {
-        const result = await unsubscribeFromPushNotifications();
+        const result = await (nativeRuntime ? unsubscribeFromNativePushNotifications() : unsubscribeFromPushNotifications());
         setPushState({
           kind: result.success && result.deviceUnsubscribed ? 'disabled' : result.state ?? 'error',
           message: result.message,

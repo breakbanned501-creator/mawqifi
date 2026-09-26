@@ -11,6 +11,7 @@ import {
   wasInstallBannerDismissed,
 } from '@/lib/pwa';
 import { useLocale } from '@/components/LocaleProvider';
+import { isNativeCapacitor } from '@/lib/capacitor';
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -27,6 +28,7 @@ export default function PwaInstallPrompt() {
   const [installing, setInstalling] = useState(false);
 
   useEffect(() => {
+    if (isNativeCapacitor()) return;
     if (isStandaloneMode() || wasInstallBannerDismissed()) return;
 
     const isMobile = isIOSDevice() || isAndroidDevice() || window.innerWidth < 768;

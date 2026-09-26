@@ -1,12 +1,20 @@
 'use client';
 
+import { type MouseEvent } from 'react';
 import { ExternalLink, MessageCircle } from 'lucide-react';
 import { useLocale } from '@/components/LocaleProvider';
 import { MAWQIFI_WHATSAPP_CHANNEL_URL } from '@/lib/links';
+import { isNativeCapacitor, openExternalUrl } from '@/lib/capacitor';
 
 /** A low-friction link to Mawqifi's official announcement channel. */
 export default function WhatsAppChannelCta() {
   const { t } = useLocale();
+
+  const handleChannelClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (!isNativeCapacitor()) return;
+    event.preventDefault();
+    void openExternalUrl(MAWQIFI_WHATSAPP_CHANNEL_URL).catch(() => undefined);
+  };
 
   return (
     <section className="glass-card mb-6 border-cyan-400/20 bg-cyan-500/[0.06] p-4 sm:p-5">
@@ -29,6 +37,7 @@ export default function WhatsAppChannelCta() {
           href={MAWQIFI_WHATSAPP_CHANNEL_URL}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={handleChannelClick}
           aria-label={t('whatsapp.channelAria')}
           className="btn inline-flex w-full shrink-0 items-center justify-center gap-2 border border-cyan-300/25 bg-cyan-400/10 text-cyan-50 hover:bg-cyan-400/20 sm:w-auto"
         >

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { type MouseEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Bell, CircleHelp, Languages, LogOut, MessageCircle, ShieldCheck, User } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
@@ -12,6 +12,7 @@ import { useLocale } from '@/components/LocaleProvider';
 import { useTutorial } from '@/components/TutorialProvider';
 import { signOut, updateUsername } from '@/lib/auth';
 import { MAWQIFI_WHATSAPP_CHANNEL_URL } from '@/lib/links';
+import { isNativeCapacitor, openExternalUrl } from '@/lib/capacitor';
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   fetchNotificationPreferences,
@@ -76,6 +77,12 @@ export default function SettingsPage() {
   const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
   const [preferenceLoading, setPreferenceLoading] = useState<PreferenceKey | null>(null);
   const [preferencesError, setPreferencesError] = useState(false);
+
+  const handleChannelClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (!isNativeCapacitor()) return;
+    event.preventDefault();
+    void openExternalUrl(MAWQIFI_WHATSAPP_CHANNEL_URL).catch(() => setError(t('common.error')));
+  };
 
   useEffect(() => {
     setUsername(profile?.username ?? '');
@@ -316,6 +323,7 @@ export default function SettingsPage() {
               href={MAWQIFI_WHATSAPP_CHANNEL_URL}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={handleChannelClick}
               aria-label={t('whatsapp.channelAria')}
               className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-bold text-white/80 transition-colors hover:bg-white/10"
             >

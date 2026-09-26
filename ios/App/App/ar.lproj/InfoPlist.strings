@@ -1,0 +1,4 @@
+"CFBundleDisplayName" = "موقفي";
+"NSCameraUsageDescription" = "يستخدم موقفي الكاميرا لإرسال الصور داخل المحادثات عند اختيارك ذلك.";
+"NSPhotoLibraryUsageDescription" = "يستخدم موقفي الصور لإرفاق صورة داخل المحادثات عند اختيارك ذلك.";
+"NSLocationWhenInUseUsageDescription" = "يستخدم موقفي موقعك فقط عند اختيارك مشاركة الموقع داخل المحادثة.";

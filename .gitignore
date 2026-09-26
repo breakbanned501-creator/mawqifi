@@ -16,6 +16,14 @@
 # misc
 .DS_Store
 *.pem
+*.p12
+*.cer
+*.mobileprovision
+*.key
+
+# Xcode user signing/workspace state
+xcuserdata/
+*.xcuserstate
 
 # debug
 npm-debug.log*

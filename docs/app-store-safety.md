@@ -33,14 +33,20 @@ cannot be retracted.
 ## Filtering and limits
 
 React renders messages as escaped text, never HTML. Arabic/Kuwaiti text, mixed
-English, emoji, URLs and paragraphs remain supported. Empty/invisible-only text,
-over 2,000 characters and 40 repeated identical characters are rejected. Database
+English, emoji, URLs and paragraphs remain supported. Empty/invisible-only text
+and 40 repeated identical characters are rejected. Main has no message maxLength;
+this migration does not introduce a message-length cap. Database
 triggers reject repeat text within 30 seconds and more than 20 messages/minute.
 Image URLs must be HTTPS; explicit location coordinates must be valid. Post
-descriptions are limited to 200 characters. A private submission ledger limits
+descriptions are limited to 500 characters on insert/content edits, matching main.
+Unchanged legacy descriptions do not prevent status-only updates/expiry. A private submission ledger limits
 posts to five/five minutes even if the user deletes posts. Client timestamps cannot
 bypass limits. Existing content/identities are not rewritten or deleted.
 This is basic submission filtering, not automated semantic or image moderation.
+New conversations accept an owner-matched post in active/expired status until
+30 seconds after expiry to cover the fetch/insert network race. Explicitly closed
+or longer-expired posts are rejected. History and existing UI expiry behavior stay
+unchanged. See `app-store-safety-deployment.md` for old-client compatibility and rollback.
 
 ## Contact and trusted moderation
 

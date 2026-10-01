@@ -2,6 +2,7 @@ import { getSupabase } from './supabase';
 import { parseBadgeKeys } from './badges';
 import type { Conversation, ParkingPost } from './types';
 import { fetchParkingPostById, isPostActive } from './posts';
+import { canStartConversation } from './safety';
 
 type ConversationRow = {
   id: string;
@@ -123,8 +124,8 @@ export async function getOrCreateConversation(
   if (post.user_id === requesterId) {
     throw new Error('لا يمكنك بدء محادثة على موقفك الخاص');
   }
-  if (!isPostActive(post)) {
-    throw new Error('انتهى وقت هذا الموقف');
+  if (!canStartConversation(post)) {
+    throw new Error('SAFETY_POST_EXPIRED');
   }
 
   const supabase = getSupabase();

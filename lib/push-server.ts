@@ -3,6 +3,7 @@ import 'server-only';
 import webPush from 'web-push';
 import type { Locale } from '@/lib/i18n';
 import { getSupabaseServiceRole } from '@/lib/supabase-server';
+import { blockedRecipientIds } from '@/lib/push-safety';
 
 type StoredSubscription = {
   id: string;
@@ -110,12 +111,12 @@ export async function deliverPushNotifications({
   if (subscriptionsError) throw subscriptionsError;
 
   const activeSubscriptions = (subscriptions ?? []) as StoredSubscription[];
-  const blockedRecipients = new Set<string>();
+  let blockedRecipients = new Set<string>();
   if (excludeUserId) {
     const { data: blocks, error: blockError } = await supabase.from('user_blocks')
       .select('blocker_id, blocked_id').or(`blocker_id.eq.${excludeUserId},blocked_id.eq.${excludeUserId}`);
     if (blockError) throw blockError;
-    for (const block of blocks ?? []) blockedRecipients.add(block.blocker_id === excludeUserId ? block.blocked_id : block.blocker_id);
+    blockedRecipients = blockedRecipientIds(excludeUserId, blocks ?? []);
   }
   const userIds = [...new Set(activeSubscriptions.map((subscription) => subscription.user_id))];
   const preferencesByUser = new Map<string, StoredNotificationPreferences>();

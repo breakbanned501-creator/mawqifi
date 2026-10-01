@@ -1,13 +1,18 @@
 import { getSupabase } from './supabase';
 
 export type ReportTarget = 'post' | 'message' | 'user';
-export function safetyErrorKey(error: unknown): 'safety.rateLimited' | 'safety.invalidText' | 'safety.duplicate' | 'safety.blockedHint' | 'safety.restricted' | 'common.error' {
+/** UX precheck only; the database independently checks its own wall-clock. */
+export function canStartConversation(post: { status: string; expires_at: string }, now = Date.now()): boolean {
+  return (post.status === 'active' || post.status === 'expired') && new Date(post.expires_at).getTime() > now - 30_000;
+}
+export function safetyErrorKey(error: unknown): 'safety.rateLimited' | 'safety.invalidText' | 'safety.duplicate' | 'safety.blockedHint' | 'safety.restricted' | 'safety.postExpired' | 'common.error' {
   const message = typeof error === 'object' && error !== null && 'message' in error ? String(error.message) : '';
   if (message.includes('SAFETY_RATE_LIMIT')) return 'safety.rateLimited';
   if (message.includes('SAFETY_INVALID_TEXT')) return 'safety.invalidText';
   if (message.includes('SAFETY_DUPLICATE')) return 'safety.duplicate';
   if (message.includes('SAFETY_BLOCKED')) return 'safety.blockedHint';
   if (message.includes('SAFETY_RESTRICTED')) return 'safety.restricted';
+  if (message.includes('SAFETY_POST_EXPIRED')) return 'safety.postExpired';
   return 'common.error';
 }
 export async function submitReport(targetType: ReportTarget, targetId: string, reason: string, details: string): Promise<void> {
@@ -47,7 +52,7 @@ export async function fetchBlockedUsers(): Promise<BlockedUser[]> {
 
 /** Preserve normal Arabic, URLs and paragraphs; React renders this as escaped text. */
 export function validateMessageText(text: string): void {
-  if (!text.replace(/[\s\u200B-\u200F\uFEFF]/g, '') || text.length > 2000 || /(.)\1{39,}/u.test(text)) {
+  if (!text.replace(/[\s\u200B-\u200F\uFEFF]/g, '') || /(.)\1{39,}/u.test(text)) {
     throw new Error('SAFETY_INVALID_TEXT');
   }
 }

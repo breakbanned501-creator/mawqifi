@@ -128,7 +128,10 @@ begin
   end if;
   if auth.uid() is null or new.requester_id<>auth.uid() then raise exception 'Authentication required' using errcode='42501'; end if;
   perform mawqifi_safety.assert_unrestricted();
-  if not exists(select 1 from public.parking_posts p where p.id=new.post_id and p.user_id=new.owner_id and p.status='active' and p.expires_at>now()) then raise exception 'Invalid post'; end if;
+  if not exists(select 1 from public.parking_posts p where p.id=new.post_id and p.user_id=new.owner_id) then raise exception 'Invalid post'; end if;
+  -- Cover a fetch/insert network race, including the expiry RPC changing status.
+  -- Explicitly closed posts and posts expired longer than 30 seconds stay closed.
+  if not exists(select 1 from public.parking_posts p where p.id=new.post_id and p.status in ('active','expired') and p.expires_at>clock_timestamp()-interval '30 seconds') then raise exception 'SAFETY_POST_EXPIRED'; end if;
   perform mawqifi_safety.lock_pair(new.owner_id,new.requester_id);
   if mawqifi_safety.blocked_pair(new.owner_id,new.requester_id) then raise exception 'SAFETY_BLOCKED'; end if;
   return new;
@@ -149,8 +152,8 @@ begin
   perform mawqifi_safety.lock_pair(c.owner_id,c.requester_id);
   if mawqifi_safety.blocked_pair(c.owner_id,c.requester_id) then raise exception 'SAFETY_BLOCKED'; end if;
   perform pg_advisory_xact_lock(hashtextextended('message:'||auth.uid()::text,0));
-  if new.type='text' and (btrim(regexp_replace(coalesce(new.text,''),'[[:space:]​‌‍‎‏]+','','g'))='' or length(new.text)>2000 or new.text ~ '(.)\1{39,}') then raise exception 'SAFETY_INVALID_TEXT'; end if;
-  if length(coalesce(new.text,''))>2000 then raise exception 'SAFETY_INVALID_TEXT'; end if;
+  -- Main has no message maxLength: do not invent a smaller storage contract.
+  if new.type='text' and (btrim(regexp_replace(coalesce(new.text,''),'[[:space:]​‌‍‎‏]+','','g'))='' or new.text ~ '(.)\1{39,}') then raise exception 'SAFETY_INVALID_TEXT'; end if;
   if new.type='image' and (new.image_url is null or new.image_url !~ '^https://') then raise exception 'Invalid image URL'; end if;
   if new.type='location' and (new.latitude is null or new.longitude is null or new.latitude not between -90 and 90 or new.longitude not between -180 and 180) then raise exception 'Invalid location'; end if;
   if (select count(*) from public.messages where sender_id=auth.uid() and created_at>now()-interval '1 minute')>=20 then raise exception 'SAFETY_RATE_LIMIT'; end if;
@@ -165,7 +168,9 @@ revoke update, delete on public.messages from anon, authenticated;
 create function mawqifi_safety.guard_post() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
-  if length(coalesce(new.car_desc,''))>200 then raise exception 'SAFETY_INVALID_TEXT'; end if;
+  -- Cached clients already support 500 characters. Status-only legacy updates
+  -- must not revalidate unchanged content (e.g. the existing expiry RPC).
+  if (TG_OP='INSERT' or new.car_desc is distinct from old.car_desc) and length(coalesce(new.car_desc,''))>500 then raise exception 'SAFETY_INVALID_TEXT'; end if;
   if TG_OP='UPDATE' and (new.user_id<>old.user_id or new.created_at<>old.created_at) then raise exception 'Post identity is immutable'; end if;
   if TG_OP='INSERT' then
     if auth.uid() is null or new.user_id<>auth.uid() then raise exception 'Authentication required' using errcode='42501'; end if;

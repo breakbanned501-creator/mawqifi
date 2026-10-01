@@ -127,9 +127,10 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
         if (cancelled) return;
         setMessages(initialMessages);
         await markConversationRead(conv.id, userId);
-      } catch {
+      } catch (error) {
         if (!cancelled) {
-          setError({ key: 'chat.openError' });
+          const key = safetyErrorKey(error);
+          setError({ key: key === 'common.error' ? 'chat.openError' : key });
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -262,8 +263,9 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
         });
         setToast(t('chat.sendLocationSuccess'));
         void triggerNativeLightHaptic();
-      } catch {
-        setError({ key: 'chat.sendError' });
+      } catch (error) {
+        const key = safetyErrorKey(error);
+        setError({ key: key === 'common.error' ? 'chat.sendError' : key });
       }
     };
 

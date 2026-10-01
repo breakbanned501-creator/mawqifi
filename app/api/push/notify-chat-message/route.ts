@@ -114,6 +114,7 @@ export async function POST(request: Request) {
 
     const delivery = await deliverPushNotifications({
       recipientUserId: recipientId,
+      excludeUserId: user.id,
       notificationType: 'chat_message',
       payloadForLocale: (locale) => {
         const senderName = sender?.username?.trim() || (locale === 'ar' ? 'طالب' : 'Student');

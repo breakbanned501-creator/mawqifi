@@ -11,6 +11,8 @@ import ErrorBanner from '@/components/ErrorBanner';
 import LoadingScreen from '@/components/LoadingScreen';
 import ReportModal from '@/components/ReportModal';
 import UserBadge from '@/components/UserBadge';
+import UserSafetyActions from '@/components/UserSafetyActions';
+import { isUserBlocked, submitReport, safetyErrorKey } from '@/lib/safety';
 import { useAuth } from '@/components/AuthProvider';
 import { useLocale } from '@/components/LocaleProvider';
 import { fetchMessages, sendMessage, uploadChatImage } from '@/lib/chat';
@@ -51,6 +53,8 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
   const [toast, setToast] = useState('');
   const [showReportModal, setShowReportModal] = useState(false);
   const [messageToReport, setMessageToReport] = useState<string | null>(null);
+  const [blocked, setBlocked] = useState(true);
+  const otherUserId = conversation ? (conversation.owner_id === userId ? conversation.requester_id : conversation.owner_id) : null;
   const endRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
 
@@ -58,6 +62,15 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
   const conversationId = conversation?.id;
   const errorMessage = error ? ('key' in error ? t(error.key) : error.message) : null;
   const BackIcon = dir === 'rtl' ? ArrowRight : ArrowLeft;
+
+  useEffect(() => {
+    if (!otherUserId) return;
+    let cancelled = false;
+    const check = () => { void isUserBlocked(otherUserId).then(value => { if (!cancelled) setBlocked(value); }).catch(() => { if (!cancelled) setBlocked(true); }); };
+    check();
+    window.addEventListener('focus', check);
+    return () => { cancelled = true; window.removeEventListener('focus', check); };
+  }, [otherUserId]);
 
   useEffect(() => {
     setNativeRuntime(isNativeCapacitor());
@@ -171,7 +184,7 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
   }, [text]);
 
   const sendText = async () => {
-    if (!text.trim() || expired || !conversationId || !userId) return;
+    if (!text.trim() || blocked || expired || !conversationId || !userId) return;
     const value = text;
     setText('');
     setError(null);
@@ -183,8 +196,8 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
         text: value,
       });
       void triggerNativeLightHaptic();
-    } catch {
-      setError({ key: 'chat.sendError' });
+    } catch (error) {
+      setError({ key: safetyErrorKey(error) });
       setText(value);
     }
   };
@@ -197,7 +210,7 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
   };
 
   const uploadSelectedImage = async (getFile: () => Promise<File | null>) => {
-    if (expired || !conversationId || !userId) return;
+    if (blocked || expired || !conversationId || !userId) return;
 
     setUploading(true);
     setError(null);
@@ -213,8 +226,8 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
       });
       setToast(t('chat.sendImage'));
       void triggerNativeLightHaptic();
-    } catch {
-      setError({ key: 'chat.imageUploadError' });
+    } catch (error) {
+      setError({ key: safetyErrorKey(error) });
     } finally {
       setUploading(false);
     }
@@ -235,7 +248,7 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
   };
 
   const sendLocation = () => {
-    if (expired || !conversationId || !userId) return;
+    if (blocked || expired || !conversationId || !userId) return;
 
     const sendCurrentLocation = async (latitude: number, longitude: number) => {
       try {
@@ -293,9 +306,8 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
   };
 
   const handleReport = async (reason: string, details: string) => {
-    // In production, this would send to a backend endpoint
-    console.log('Report submitted:', { messageId: messageToReport, reason, details });
-    // For now, just log it
+    if (!messageToReport) throw new Error('No message selected');
+    await submitReport('message', messageToReport, reason, details);
   };
 
   if (loading) return <LoadingScreen message={t('common.loading')} />;
@@ -360,6 +372,7 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
               </div>
             )}
             {typing && <p className="mt-1 animate-pulse-soft text-xs text-cyan-300">{t('chat.typing')}</p>}
+            {otherUserId && <UserSafetyActions userId={otherUserId} onBlocked={() => setBlocked(true)} />}
           </div>
         </div>
       </header>
@@ -475,9 +488,9 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
         <div ref={endRef} />
       </section>
 
-      {expired || conversation?.closed ? (
+      {blocked || expired || conversation?.closed ? (
         <div className="animate-fade-up border-t border-red-400/20 bg-red-500/10 px-4 py-5 text-center text-red-100">
-          {t('chat.closed')}
+          {t(blocked ? 'safety.blockedHint' : 'chat.closed')}
         </div>
       ) : (
         <footer className="safe-bottom border-t border-white/10 bg-navy-900/95 px-3 sm:px-4 py-2.5 sm:py-3 backdrop-blur-xl">

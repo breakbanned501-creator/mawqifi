@@ -4,13 +4,13 @@ import { useState } from 'react';
 import { AlertTriangle, X, Check } from 'lucide-react';
 import { useLocale } from '@/components/LocaleProvider';
 import type { TranslationKey } from '@/lib/i18n';
-import { reportRateLimiter, sanitizeInput } from '@/lib/security';
+import { sanitizeInput } from '@/lib/security';
 
 interface ReportModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (reason: string, details: string) => Promise<void>;
-  targetType: 'post' | 'message' | 'conversation';
+  targetType: 'post' | 'message' | 'user';
 }
 
 const reportReasons = [
@@ -34,7 +34,7 @@ export default function ReportModal({ isOpen, onClose, onSubmit, targetType }: R
       ? 'report.postTarget'
       : targetType === 'message'
         ? 'report.messageTarget'
-        : 'chat.title';
+        : 'safety.user';
 
   if (!isOpen) return null;
 
@@ -57,13 +57,6 @@ export default function ReportModal({ isOpen, onClose, onSubmit, targetType }: R
       return;
     }
 
-    // Rate limiting check
-    const userId = 'user'; // In production, use actual user ID
-    if (!reportRateLimiter.canMakeRequest(userId)) {
-      setErrorKey('report.rateLimited');
-      return;
-    }
-
     setSubmitting(true);
     try {
       await onSubmit(selectedReason, sanitizeInput(details.trim()));
@@ -74,8 +67,9 @@ export default function ReportModal({ isOpen, onClose, onSubmit, targetType }: R
         setSelectedReason('');
         setDetails('');
       }, 2000);
-    } catch {
-      setErrorKey('report.submitError');
+    } catch (error) {
+      setErrorKey(typeof error === 'object' && error !== null && 'message' in error && String(error.message).includes('SAFETY_RATE_LIMIT')
+        ? 'report.rateLimited' : 'report.submitError');
     } finally {
       setSubmitting(false);
     }

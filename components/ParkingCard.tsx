@@ -11,6 +11,7 @@ import { useLocale } from '@/components/LocaleProvider';
 import CountdownTimer from './CountdownTimer';
 import ReportModal from './ReportModal';
 import UserBadge from './UserBadge';
+import { submitReport } from '@/lib/safety';
 
 interface ParkingCardProps {
   post: ParkingPost;
@@ -40,9 +41,7 @@ function ParkingCard({ post, currentUserId, onChanged, onExpire }: ParkingCardPr
   }, [currentUserId, deleting, onChanged, post.id]);
 
   const handleReport = useCallback(async (reason: string, details: string) => {
-    // In production, this would send to a backend endpoint
-    console.log('Report submitted:', { postId: post.id, reason, details });
-    // For now, just log it
+    await submitReport('post', post.id, reason, details);
   }, [post.id]);
 
   if (!active) return null;

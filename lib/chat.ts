@@ -1,6 +1,7 @@
 import { getSupabase } from './supabase';
 import { fetchMawqifiServerApi } from './server-api';
 import type { ChatMessage } from './types';
+import { validateMessageText } from './safety';
 
 export async function fetchMessages(conversationId: string): Promise<ChatMessage[]> {
   const supabase = getSupabase();
@@ -74,6 +75,7 @@ async function requestChatMessagePush(messageId: string): Promise<void> {
 }
 
 export async function sendMessage(input: SendMessageInput): Promise<ChatMessage> {
+  if (input.type === 'text') validateMessageText(input.text ?? '');
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('messages')

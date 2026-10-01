@@ -11,6 +11,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { createParkingPost } from '@/lib/posts';
 import { getSupabase } from '@/lib/supabase';
 import { fetchMawqifiServerApi } from '@/lib/server-api';
+import { safetyErrorKey } from '@/lib/safety';
 import {
   departurePresets,
   formatGate,
@@ -96,8 +97,8 @@ export default function CreatePage() {
       }
 
       setTimeout(() => router.push('/'), 900);
-    } catch {
-      setError(t('common.error'));
+    } catch (error) {
+      setError(t(safetyErrorKey(error)));
     } finally {
       setLoading(false);
     }

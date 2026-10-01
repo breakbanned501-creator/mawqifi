@@ -1,6 +1,7 @@
 import { getSupabase } from './supabase';
 import { parseBadgeKeys } from './badges';
 import type { ParkingPost } from './types';
+import { fetchBlockedUsers } from './safety';
 
 type UserRow = {
   username: string;
@@ -74,7 +75,8 @@ export async function fetchParkingPosts(): Promise<ParkingPost[]> {
     .order('created_at', { ascending: false });
 
   if (error) throw error;
-  return filterActivePosts((data as ParkingPostRow[]).map(mapRow));
+  const blocked = new Set((await fetchBlockedUsers()).map(row => row.blocked_id));
+  return filterActivePosts((data as ParkingPostRow[]).map(mapRow)).filter(post => !blocked.has(post.user_id));
 }
 
 export type CreateParkingPostInput = {

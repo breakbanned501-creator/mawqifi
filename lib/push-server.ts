@@ -110,6 +110,13 @@ export async function deliverPushNotifications({
   if (subscriptionsError) throw subscriptionsError;
 
   const activeSubscriptions = (subscriptions ?? []) as StoredSubscription[];
+  const blockedRecipients = new Set<string>();
+  if (excludeUserId) {
+    const { data: blocks, error: blockError } = await supabase.from('user_blocks')
+      .select('blocker_id, blocked_id').or(`blocker_id.eq.${excludeUserId},blocked_id.eq.${excludeUserId}`);
+    if (blockError) throw blockError;
+    for (const block of blocks ?? []) blockedRecipients.add(block.blocker_id === excludeUserId ? block.blocked_id : block.blocker_id);
+  }
   const userIds = [...new Set(activeSubscriptions.map((subscription) => subscription.user_id))];
   const preferencesByUser = new Map<string, StoredNotificationPreferences>();
 
@@ -133,7 +140,7 @@ export async function deliverPushNotifications({
   };
 
   const eligibleSubscriptions = activeSubscriptions.filter((subscription) =>
-    isAllowedForType(preferencesByUser.get(subscription.user_id)),
+    !blockedRecipients.has(subscription.user_id) && isAllowedForType(preferencesByUser.get(subscription.user_id)),
   );
   const serializedPayloads = new Map<Locale, string>();
   const payloadForSubscription = (subscription: StoredSubscription) => {

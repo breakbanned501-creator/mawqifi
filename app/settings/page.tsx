@@ -317,7 +317,10 @@ export default function SettingsPage() {
               {t('settings.terms')}
             </Link>
             <Link href="/feedback" className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-bold text-white/80">
-              {t('settings.feedback')}
+              {t('safety.support')}
+            </Link>
+            <Link href="/settings/blocked" className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-bold text-white/80">
+              {t('safety.blockedUsers')}
             </Link>
             <a
               href={MAWQIFI_WHATSAPP_CHANNEL_URL}

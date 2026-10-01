@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { requireServerApiOrigin } = require('../lib/server-api-origin');
 
 const root = path.resolve(__dirname, '..');
 const outputDir = path.join(root, 'out');
@@ -47,8 +48,11 @@ function verifyNativeWebOutput() {
     }
   }
 
+  const expectedOrigin = requireServerApiOrigin(fs.readFileSync(path.join(root, '.capacitor-build', 'server-api-origin.txt'), 'utf8'));
+  let foundApiOrigin = false;
   for (const filePath of findTextFiles(outputDir)) {
     const contents = fs.readFileSync(filePath, 'utf8');
+    if (contents.includes(expectedOrigin)) foundApiOrigin = true;
     for (const forbidden of forbiddenText) {
       if (contents.includes(forbidden)) {
         fail(`Forbidden server-only material was found in ${path.relative(root, filePath)}.`);
@@ -61,6 +65,7 @@ function verifyNativeWebOutput() {
       }
     }
   }
+  if (!foundApiOrigin) fail('The explicit native API origin is missing from the client bundle.');
 }
 
 function verifyGeneratedCapacitorConfig() {

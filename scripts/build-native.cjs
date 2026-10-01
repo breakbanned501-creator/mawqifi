@@ -6,6 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { requireServerApiOrigin } = require('../lib/server-api-origin');
 
 const root = path.resolve(__dirname, '..');
 const apiDir = path.join(root, 'app', 'api');
@@ -15,6 +16,7 @@ const nativePwaArtifacts = ['sw.js', 'push-worker.js'];
 const requiredPublicVariables = [
   'NEXT_PUBLIC_SUPABASE_URL',
   'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+  'NEXT_PUBLIC_SERVER_API_ORIGIN',
 ];
 const forbiddenEnvironmentVariables = [
   'SUPABASE_SERVICE_ROLE_KEY',
@@ -140,6 +142,7 @@ function verifyStaticOutput() {
 function main() {
   const environment = getBuildEnvironment();
   ensureRequiredPublicEnvironment(environment);
+  environment.NEXT_PUBLIC_SERVER_API_ORIGIN = requireServerApiOrigin(environment.NEXT_PUBLIC_SERVER_API_ORIGIN);
   restoreInterruptedApiMove();
   clearNativeOutput();
 
@@ -154,6 +157,8 @@ function main() {
 
   removeNativePwaArtifacts();
   verifyStaticOutput();
+  fs.mkdirSync(path.join(root, '.capacitor-build'), { recursive: true });
+  fs.writeFileSync(path.join(root, '.capacitor-build', 'server-api-origin.txt'), environment.NEXT_PUBLIC_SERVER_API_ORIGIN);
   console.log('[native-build] Created local archive bundle in out/.');
 }
 

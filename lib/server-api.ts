@@ -1,4 +1,5 @@
-import { isNativeCapacitor, MAWQIFI_PRODUCTION_ORIGIN } from './capacitor';
+import { isNativeCapacitor } from './capacitor';
+import { requireServerApiOrigin } from './server-api-origin';
 
 const SERVER_API_PATHS = [
   '/api/push/subscribe',
@@ -16,14 +17,15 @@ function isServerApiPath(path: string): path is MawqifiServerApiPath {
 /**
  * Resolves only the small set of server-authoritative endpoints that native
  * Mawqifi needs. Browser/PWA calls stay same-origin; Capacitor calls the
- * existing HTTPS Vercel backend with the same bearer-token authorization.
+ * explicit build-time HTTPS backend with the same bearer-token authorization.
  */
 export function getMawqifiServerApiUrl(path: MawqifiServerApiPath): string {
   if (!isServerApiPath(path)) {
     throw new Error('Unsupported Mawqifi server API path.');
   }
 
-  return isNativeCapacitor() ? new URL(path, MAWQIFI_PRODUCTION_ORIGIN).href : path;
+  if (!isNativeCapacitor()) return path;
+  return new URL(path, requireServerApiOrigin(process.env.NEXT_PUBLIC_SERVER_API_ORIGIN)).href;
 }
 
 /**

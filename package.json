@@ -54,6 +54,10 @@
   "overrides": {
     "next": {
       "postcss": "$postcss"
+    },
+    "next-pwa": {
+      "workbox-webpack-plugin": "6.6.1",
+      "workbox-window": "6.6.1"
     }
   }
 }

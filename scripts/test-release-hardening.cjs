@@ -5,7 +5,7 @@ const root = path.resolve(__dirname, '..');
 let tests = 0;
 const check = (value, label) => { assert.ok(value, label); tests++; };
 function load(file, modules = {}) {
-    const code = ts.transpileModule(fs.readFileSync(path.join(root, file), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
+    const code = ts.transpileModule(fs.readFileSync(path.join(root, file), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
     const exports = {};
     new Function('require', 'exports', code)(name => { if (name in modules)
         return modules[name]; throw Error('Unexpected import ' + name); }, exports);
@@ -65,6 +65,37 @@ async function main() {
         check(run.status !== 0 && (run.stderr + run.stdout).includes('NEXT_PUBLIC_SERVER_API_ORIGIN'), 'Invalid archive configuration fails before build');
         check(fs.existsSync(path.join(root, 'app/api')), 'API routes untouched by failed configuration');
     }
+    // Render the real safety UI with React 19, without a browser or database.
+    const React = require('react');
+    const { renderToStaticMarkup } = require('react-dom/server');
+    const i18n = load('lib/i18n/index.ts');
+    for (const locale of ['ar', 'en']) {
+        const dir = i18n.getTextDirection(locale);
+        check(dir === (locale === 'ar' ? 'rtl' : 'ltr'), 'Locale direction ' + locale);
+        const localeModule = { useLocale: () => ({ dir, t: (key, values) => i18n.translate(locale, key, values) }) };
+        const modal = load('components/ReportModal.tsx', {
+            'react': React, 'react/jsx-runtime': require('react/jsx-runtime'),
+            'lucide-react': require('lucide-react'), '@/components/LocaleProvider': localeModule,
+            '@/lib/security': { sanitizeInput: value => value },
+        }).default;
+        for (const targetType of ['post', 'message', 'user']) {
+            const html = renderToStaticMarkup(React.createElement(modal, {
+                isOpen: true, targetType, onClose: () => {}, onSubmit: async () => {},
+            }));
+            check(html.includes('role="dialog"') && html.includes('dir="' + dir + '"'), 'Report dialog renders ' + locale + ' ' + targetType);
+            check(html.includes(i18n.translate(locale, 'report.reasonSpam')), 'Localized report reasons ' + locale + ' ' + targetType);
+        }
+        check(renderToStaticMarkup(React.createElement(modal, { isOpen: false, targetType: 'user' })) === '', 'Closed report modal is hidden ' + locale);
+        const actions = load('components/UserSafetyActions.tsx', {
+            'react': React, 'react/jsx-runtime': require('react/jsx-runtime'),
+            './ReportModal': { default: modal }, './LocaleProvider': localeModule,
+            '@/lib/safety': { setUserBlocked: async () => {}, submitReport: async () => {} },
+        }).default;
+        const html = renderToStaticMarkup(React.createElement(actions, { userId: 'disposable-ui-fixture' }));
+        check(html.includes(i18n.translate(locale, 'safety.block')) && html.includes(i18n.translate(locale, 'safety.reportUser')), 'Report/block controls render ' + locale);
+    }
+    check(fs.readFileSync(path.join(root, 'app/settings/page.tsx'), 'utf8').includes('href="/settings/blocked"'), 'Blocked users screen reachable from Settings');
+    check(fs.readFileSync(path.join(root, 'app/settings/blocked/page.tsx'), 'utf8').includes('setUserBlocked(id, false)'), 'Unblock action connected to safety helper');
     console.log('Release hardening checks passed (' + tests + ' assertions).');
 }
 main().catch(e => { console.error(e); process.exitCode = 1; });

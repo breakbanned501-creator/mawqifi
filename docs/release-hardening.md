@@ -85,4 +85,4 @@ These are existing PWA/native build-tool chains. npm proposes incompatible next-
 
 No main merge, production deployment, production Supabase access, production migration or edits to the original dirty worktree occurred. Existing untracked supabase/staging files and verification artifacts are excluded from the hardening commit. Generated service-worker and Capacitor build changes are excluded too.
 
-The requested automated upgrade and packaging checks passed. Complete interactive/device regression and resolve or explicitly accept the remaining tooling advisories before treating this as full release clearance.
+The follow-up [release audit triage](release-audit-triage.md) verifies compatible Workbox patch updates and 57 non-interactive hardening assertions, classifies the remaining findings as build-only/non-applicable to runtime, and records the current automated conclusion: A. RELEASE HARDENING PASSED. Visual, signing and device validation remain separate final Apple-device steps.

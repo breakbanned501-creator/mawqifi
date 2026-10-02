@@ -4,7 +4,8 @@ import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Send } from 'lucide-react';
 import PlaceSelector from '@/components/PlaceSelector';
-import PlaceGuidance from '@/components/PlaceGuidance';
+import KeyboardAssist from '@/components/KeyboardAssist';
+import { currentParkingLocation, type ParkingLocation } from '@/lib/handoff';
 import { usePlace } from '@/components/PlaceProvider';
 import { LOCATION_DESCRIPTION_MAX, usefulLocationDescription } from '@/lib/places';
 import BottomNav from '@/components/BottomNav';
@@ -12,7 +13,7 @@ import ErrorBanner from '@/components/ErrorBanner';
 import { useLocale } from '@/components/LocaleProvider';
 import Toast from '@/components/Toast';
 import { useAuth } from '@/components/AuthProvider';
-import { createParkingPost } from '@/lib/posts';
+
 import { getSupabase } from '@/lib/supabase';
 import { fetchMawqifiServerApi } from '@/lib/server-api';
 import { safetyErrorKey } from '@/lib/safety';
@@ -38,6 +39,8 @@ export default function CreatePage() {
   const [notes, setNotes] = useState('');
   const [minutes, setMinutes] = useState(10);
   const [customMinutes, setCustomMinutes] = useState('');
+  const [location, setLocation] = useState<ParkingLocation | null>(null);
+  const [locating, setLocating] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState('');
@@ -58,9 +61,9 @@ export default function CreatePage() {
   const isValidDuration =
     Number.isFinite(departureMinutes) && departureMinutes >= 1 && departureMinutes <= 180;
 
-  useEffect(() => { setLocationDescription(''); setError(null); }, [place?.id]);
+  useEffect(() => { setLocationDescription(''); setLocation(null); setError(null); }, [place?.id]);
 
-  const canPublish = Boolean(place && userId && isValidDuration && (isKu ? college && gate : usefulLocationDescription(locationDescription)));
+  const canPublish = Boolean(place && userId && location && isValidDuration && (isKu ? college && gate : usefulLocationDescription(locationDescription)));
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -79,20 +82,16 @@ export default function CreatePage() {
     setError(null);
 
     try {
-      const expiresAt = new Date(Date.now() + departureMinutes * 60 * 1000).toISOString();
       const trimmedNotes = notes.trim().slice(0, NOTES_MAX);
 
-      const createdPost = await createParkingPost({
-        userId,
-        placeId: place.id,
-        locationDescription: isKu ? null : locationDescription.trim(),
-        college: isKu ? college : null,
-        zone: isKu ? selectedCollege.zone : null,
-        gate: isKu ? gate : null,
-        carDesc: trimmedNotes || null,
-        departureMinutes,
-        expiresAt,
+      if (!location) throw new Error('HANDOFF_LOCATION_REQUIRED');
+      const {data:postId,error:publishError}=await getSupabase().rpc('publish_parking_handoff',{
+        payload:{place_id:place.id,location_description:isKu?null:locationDescription.trim(),college:isKu?college:null,
+        zone:isKu?selectedCollege.zone:null,gate:isKu?gate:null,car_desc:trimmedNotes||null,departure_minutes:departureMinutes},
+        latitude:location.latitude,longitude:location.longitude,accuracy_meters:location.accuracy_meters,
       });
+      if(publishError)throw publishError;
+      const createdPost={id:postId as string};
 
       setToast(t('create.success'));
 
@@ -133,16 +132,23 @@ export default function CreatePage() {
             <BackIcon className="h-5 w-5" />
           </button>
           <div className="min-w-0 flex-1">
-            <h1 className="text-xl sm:text-2xl font-black truncate">{t('create.title')}</h1>
+            <h1 className="text-xl sm:text-2xl font-black truncate">{t('handoff.leave')}</h1>
             <p className="text-xs sm:text-sm text-white/50 truncate">{t('create.subtitle')}</p>
           </div>
         </header>
 
         <PlaceSelector />
-        <PlaceGuidance />
+
         {error && <ErrorBanner message={error} />}
 
         {!place ? <p className="glass-card p-5 text-center text-sm leading-7 text-white/70">{t('place.empty')}</p> : <form key={place.id} onSubmit={handleSubmit} className="glass-card animate-fade-up space-y-5 p-4 sm:p-5">
+          <section className="space-y-3 rounded-2xl bg-cyan-500/10 p-4">
+            <p className="text-sm leading-7">{t('handoff.private')}</p>
+            <button type="button" className="btn btn-secondary w-full" disabled={locating} onClick={async()=>{
+              setLocating(true);setError(null);
+              try{setLocation(await currentParkingLocation());}catch{setError(t('handoff.locationRequired'));}finally{setLocating(false);}
+            }}>{locating?t('common.loading'):t(location?'handoff.shared':'handoff.share')}</button>
+          </section>
           {isKu ? <>
           <div>
             <label className="mb-2 block text-sm font-bold text-white/70">{t('create.college')}</label>
@@ -174,6 +180,7 @@ export default function CreatePage() {
                 value={formatZone(selectedCollege.zone, locale)}
                 dir={dir}
                 readOnly
+                tabIndex={-1}
               />
             </div>
             <div>
@@ -276,6 +283,7 @@ export default function CreatePage() {
           </button>
         </form>}
       </div>
+      <KeyboardAssist />
       <BottomNav />
     </main>
   );

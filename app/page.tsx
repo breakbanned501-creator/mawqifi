@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, Car, Map, MessageCircle, PlusCircle, RefreshCw } from 'lucide-react';
+import { Bell, Car, MessageCircle, PlusCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import BottomNav from '@/components/BottomNav';
 import ErrorBanner from '@/components/ErrorBanner';
@@ -126,29 +126,17 @@ export default function Home() {
           </div>
         )}
 
-        <div className="mb-5 grid grid-cols-2 gap-2.5 sm:gap-3">
-          <Link
-            href="/conversations"
-            data-tutorial-target="chat"
-            className="glass-card flex items-center gap-2 sm:gap-3 p-3 sm:p-4 text-white min-w-0 transition-all hover:border-cyan-400/30"
-          >
-            <MessageCircle className="h-5 w-5 shrink-0 text-cyan-300" />
-            <span className="text-xs sm:text-sm font-bold truncate">{t('home.chat')}</span>
-          </Link>
-          <Link href="/map" className="glass-card flex items-center gap-2 sm:gap-3 p-3 sm:p-4 text-white min-w-0 transition-all hover:border-cyan-400/30">
-            <Map className="h-5 w-5 shrink-0 text-cyan-300" />
-            <span className="text-xs sm:text-sm font-bold truncate">{t('home.map')}</span>
+        <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <button type="button" className="btn btn-primary min-h-20 text-lg" onClick={()=>{
+            if(!place){const selector=document.getElementById('place-selector');selector?.scrollIntoView({behavior:'smooth',block:'start'});selector?.focus();return;}
+            document.querySelector('[data-tutorial-target="feed"]')?.scrollIntoView({behavior:'smooth',block:'start'});
+          }}>{t('handoff.need')}</button>
+          <Link href="/create" data-tutorial-target="publish" className="btn btn-secondary flex min-h-20 items-center justify-center gap-2 text-lg">
+            <PlusCircle className="h-6 w-6"/>{t('handoff.leave')}
           </Link>
         </div>
-
-        {place ? <Link
-          href="/create"
-          data-tutorial-target="publish"
-          className="btn btn-primary mb-6 flex w-full items-center justify-center gap-2 py-3.5 sm:py-4 text-sm sm:text-base transition-transform active:scale-[0.98]"
-        >
-          <PlusCircle className="h-5 w-5 shrink-0" />
-          {t('home.createPost')}
-        </Link> : <p className="glass-card mb-6 p-5 text-center text-sm leading-7 text-white/70">{t('place.empty')}</p>}
+        {!place&&<p className="glass-card mb-5 p-5 text-center text-sm leading-7">{t('place.empty')}</p>}
+        <Link href="/conversations" data-tutorial-target="chat" className="mb-5 flex items-center gap-2 p-3 font-bold"><MessageCircle className="h-5 w-5"/>{t('home.chat')}</Link>
 
         <WhatsAppChannelCta />
 

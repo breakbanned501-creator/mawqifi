@@ -116,3 +116,6 @@ the physical iPhone during manual TestFlight validation.
   signed Xcode/TestFlight validation remain manual.
 - KU assets unchanged; no database migration/schema changes. No production
   access/deployment or Codemagic build initiated.
+
+## Parking handoff redesign (2026-10-02)
+Guidance-map cards and galleries were removed from publishing and public navigation. Sources remain provenance documentation. Real matched parking locations use private system-map navigation; institution maps are not used to infer a parking stall.

@@ -20,7 +20,7 @@ type ParkingPostRow = {
   car_desc: string | null;
   departure_minutes: number;
   expires_at: string;
-  status: 'active' | 'expired' | 'closed';
+  status: 'active' | 'closed' | 'expired' | 'claimed' | 'completed' | 'cancelled';
   created_at: string;
   users: UserRow | UserRow[] | null;
 };
@@ -175,7 +175,7 @@ export async function fetchParkingPostById(postId: string): Promise<ParkingPost 
 
 export async function deleteParkingPost(postId: string, userId: string): Promise<void> {
   const supabase = getSupabase();
-  const { error } = await supabase.from('parking_posts').delete().eq('id', postId).eq('user_id', userId);
+  const { error } = await supabase.from('parking_posts').update({ status: 'cancelled' }).eq('id', postId).eq('user_id', userId);
   if (error) throw error;
 }
 

@@ -21,6 +21,7 @@ export default function TermsPage() {
         <PageHeader title={t('terms.title')} subtitle={t('terms.subtitle')} backHref="/" />
 
         <div className="space-y-4">
+          <section className="glass-card space-y-3 p-5"><h2 className="font-bold">{t("handoff.location")}</h2><p className="text-sm leading-7 text-white/70">{t("privacy.locationBody")}</p><p className="text-sm leading-7 text-white/70">{t("privacy.messagesBody")}</p></section>
           <section className="glass-card p-5">
             <div className="mb-4 flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/15">

@@ -80,10 +80,19 @@ export default function NativeAppBridge() {
         await Promise.allSettled([
           StatusBar.setStyle({ style: Style.Dark }),
           StatusBar.setOverlaysWebView({ overlay: false }),
-          Keyboard.setResizeMode({ mode: KeyboardResize.Body }),
+          Keyboard.setResizeMode({ mode: KeyboardResize.Native }),
           Keyboard.setStyle({ style: KeyboardStyle.Dark }),
+          Keyboard.setAccessoryBarVisible({ isVisible: true }),
         ]);
 
+        const shown = await Keyboard.addListener('keyboardDidShow', () => {
+          document.documentElement.classList.add('keyboard-open');
+          document.activeElement?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        });
+        const hidden = await Keyboard.addListener('keyboardDidHide', () => {
+          document.documentElement.classList.remove('keyboard-open');
+        });
+        listeners.push(shown, hidden);
         const appStateListener = await App.addListener('appStateChange', ({ isActive }) => {
           try {
             const supabase = getSupabase();
@@ -128,7 +137,7 @@ export default function NativeAppBridge() {
 
     return () => {
       disposed = true;
-      document.documentElement.classList.remove('capacitor-native');
+      document.documentElement.classList.remove('capacitor-native', 'keyboard-open');
       void Promise.all(listeners.map((listener) => listener.remove()));
     };
   }, [router]);

@@ -140,3 +140,16 @@ html.capacitor-native body {
   z-index: 141 !important;
   pointer-events: none !important;
 }
+
+/* Native WebView resizing supplies the keyboard inset: do not add keyboard height twice. */
+.handoff-chat { min-height: 100dvh; }
+
+.keyboard-open .bottom-chrome { display: none; }
+.keyboard-open .page-with-chrome { padding-bottom: 1rem; }
+.keyboard-open .safe-bottom { padding-bottom: .5rem; }
+input, textarea { scroll-margin-block: 6rem; }
+.chat-composer { z-index: 40; }
+
+.keyboard-editing .bottom-chrome { display: none; }
+.keyboard-editing .page-with-chrome { padding-bottom: 5rem; }
+.keyboard-editing .chat-composer { bottom: 3.5rem; }

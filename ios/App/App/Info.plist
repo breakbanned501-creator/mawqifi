@@ -33,12 +33,16 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Mawqifi does not request background location. Location is used only while the app is open for voluntary sharing and arrival checks.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Mawqifi uses the camera to send photos in conversations when you choose to do so.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Mawqifi uses your location only when you choose to share it in a conversation.</string>
+	<string>Mawqifi uses your location while the app is open when you share a parking spot or enable arrival checks. Your parking location is shared only with the matched participant.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Mawqifi uses your photo library to attach a photo in a conversation when you choose to do so.</string>
 	<key>UIApplicationSceneManifest</key>

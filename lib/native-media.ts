@@ -52,18 +52,19 @@ export async function selectNativeChatImage(source: NativeChatImageSource): Prom
 }
 
 /** Reads one current location only when the student explicitly taps send location. */
-export async function getNativeCurrentLocation(): Promise<{ latitude: number; longitude: number }> {
+export async function getNativeCurrentLocation(): Promise<{ latitude: number; longitude: number; accuracy: number }> {
   if (!isNativeCapacitor()) throw new Error('Native location is unavailable.');
 
   const { Geolocation } = await import('@capacitor/geolocation');
   const position = await Geolocation.getCurrentPosition({
     enableHighAccuracy: true,
     timeout: 15_000,
-    maximumAge: 10_000,
+    maximumAge: 0,
   });
 
   return {
     latitude: position.coords.latitude,
     longitude: position.coords.longitude,
+    accuracy: position.coords.accuracy,
   };
 }

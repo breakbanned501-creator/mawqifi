@@ -19,7 +19,7 @@ export type ParkingPost = {
   car_desc: string | null;
   departure_minutes: number;
   expires_at: string;
-  status: 'active' | 'closed' | 'expired';
+  status: 'active' | 'closed' | 'expired' | 'claimed' | 'completed' | 'cancelled';
   username: string;
   badges: BadgeKey[];
   created_at: string;

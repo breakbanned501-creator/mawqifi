@@ -2,13 +2,14 @@
 
 import { postLocationTitle, postLocationDetails } from '@/lib/post-location';
 
-import { type ChangeEvent, type KeyboardEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
+import { type ChangeEvent, type KeyboardEvent, type MouseEvent, useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, Camera, ImageIcon, MapPin, Send, X, Flag } from 'lucide-react';
 import AppFooter from '@/components/AppFooter';
 import Toast from '@/components/Toast';
-import CountdownTimer from '@/components/CountdownTimer';
+import HandoffPanel from '@/components/HandoffPanel';
+import KeyboardAssist from '@/components/KeyboardAssist';
 import ErrorBanner from '@/components/ErrorBanner';
 import LoadingScreen from '@/components/LoadingScreen';
 import ReportModal from '@/components/ReportModal';
@@ -24,7 +25,7 @@ import {
   getOrCreateConversation,
   markConversationRead,
 } from '@/lib/conversations';
-import { fetchParkingPostById, isPostActive } from '@/lib/posts';
+import { fetchParkingPostById } from '@/lib/posts';
 import { getSupabase } from '@/lib/supabase';
 import { isNativeCapacitor, openExternalUrl, triggerNativeLightHaptic } from '@/lib/capacitor';
 import { getNativeCurrentLocation, selectNativeChatImage, type NativeChatImageSource } from '@/lib/native-media';
@@ -59,7 +60,9 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
   const endRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
 
-  const expired = post ? !isPostActive(post) : false;
+  const [handoffClosed, setHandoffClosed] = useState(true);
+  const onHandoffClosed = useCallback((closed: boolean) => setHandoffClosed(closed), []);
+  const expired = handoffClosed || Boolean(conversation?.closed);
   const conversationId = conversation?.id;
   const errorMessage = error ? ('key' in error ? t(error.key) : error.message) : null;
   const BackIcon = dir === 'rtl' ? ArrowRight : ArrowLeft;
@@ -324,7 +327,7 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
   }
 
   return (
-    <main className="flex min-h-screen flex-col bg-navy-950" dir={dir}>
+    <main className="handoff-chat flex flex-col bg-navy-950" dir={dir}>
       <Toast message={toast} visible={Boolean(toast)} onHide={() => setToast('')} />
       {selectedImage && (
         <div
@@ -369,17 +372,13 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
               <p dir="auto" className="min-w-0 max-w-full truncate font-bold text-white/70">{post.username}</p>
               <UserBadge badges={post.badges} />
             </div>
-            {!expired && (
-              <div className="mt-1">
-                <CountdownTimer expiresAt={new Date(post.expires_at).getTime()} />
-              </div>
-            )}
             {typing && <p className="mt-1 animate-pulse-soft text-xs text-cyan-300">{t('chat.typing')}</p>}
             {otherUserId && <UserSafetyActions userId={otherUserId} onBlocked={() => setBlocked(true)} />}
           </div>
         </div>
       </header>
 
+      {conversationId && userId && <HandoffPanel conversationId={conversationId} userId={userId} blocked={blocked} onClosed={onHandoffClosed}/>}
       {error && (
         <div className="mx-auto w-full max-w-md md:max-w-xl lg:max-w-2xl px-4 pt-3">
           <ErrorBanner message={errorMessage ?? t('common.error')} onRetry={() => setError(null)} />
@@ -493,10 +492,10 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
 
       {blocked || expired || conversation?.closed ? (
         <div className="animate-fade-up border-t border-red-400/20 bg-red-500/10 px-4 py-5 text-center text-red-100">
-          {t(blocked ? 'safety.blockedHint' : 'chat.closed')}
+          {t(blocked ? 'safety.blockedHint' : 'handoff.closed')}
         </div>
       ) : (
-        <footer className="safe-bottom border-t border-white/10 bg-navy-900/95 px-3 sm:px-4 py-2.5 sm:py-3 backdrop-blur-xl">
+        <footer className="chat-composer safe-bottom sticky bottom-0 border-t border-white/10 bg-navy-900/95 px-3 sm:px-4 py-2.5 sm:py-3 backdrop-blur-xl">
           <div className="mx-auto flex max-w-md md:max-w-xl lg:max-w-2xl items-center gap-1.5 sm:gap-2">
             {nativeRuntime ? (
               <button
@@ -564,7 +563,7 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
               aria-label={t('chat.typeMessage')}
               dir="auto"
               disabled={uploading}
-              className="min-h-10 max-h-32 min-w-0 flex-1 resize-none overflow-y-auto rounded-3xl border border-white/10 bg-navy-950 px-3.5 py-2.5 text-xs leading-6 text-white outline-none placeholder:text-white/40 focus:border-cyan-500 disabled:opacity-50 sm:min-h-11 sm:px-4 sm:py-3 sm:text-sm"
+              className="min-h-10 max-h-32 min-w-0 flex-1 resize-none overflow-y-auto rounded-3xl border border-white/10 bg-navy-950 px-3.5 py-2.5 text-base leading-6 text-white outline-none placeholder:text-white/40 focus:border-cyan-500 disabled:opacity-50 sm:min-h-11 sm:px-4 sm:py-3 sm:text-sm"
             />
             <button
               type="button"
@@ -589,6 +588,7 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
         targetType="message"
       />
       
+      <KeyboardAssist />
       <AppFooter />
     </main>
   );

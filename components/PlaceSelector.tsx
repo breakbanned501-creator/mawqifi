@@ -8,7 +8,7 @@ export default function PlaceSelector() {
   const { locale, dir, t } = useLocale();
   const { places, place, loading, error, selectPlace, retry } = usePlace();
   return (
-    <section className="glass-card mb-5 space-y-3 border-cyan-400/20 p-4 sm:p-5" dir={dir} aria-label={t('place.title')}>
+    <section id="place-selector" tabIndex={-1} className="glass-card mb-5 space-y-3 border-cyan-400/20 p-4 sm:p-5" dir={dir} aria-label={t('place.title')}>
       <div>
         <h2 className="text-lg font-extrabold text-white">{t('place.title')}</h2>
         <p className="mt-1 text-sm leading-6 text-white/60">{t('place.helper')}</p>

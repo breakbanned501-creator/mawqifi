@@ -1,8 +1,8 @@
 import { getSupabase } from './supabase';
 import { parseBadgeKeys } from './badges';
 import type { Conversation, ParkingPost } from './types';
-import { fetchParkingPostById, isPostActive } from './posts';
-import { canStartConversation } from './safety';
+import { fetchParkingPostById } from './posts';
+
 
 type ConversationRow = {
   id: string;
@@ -35,7 +35,7 @@ type ParkingPostRow = {
   car_desc: string | null;
   departure_minutes: number;
   expires_at: string;
-  status: 'active' | 'expired' | 'closed';
+  status: 'active' | 'closed' | 'expired' | 'claimed' | 'completed' | 'cancelled';
   created_at: string;
   users: UserRow | UserRow[] | null;
 };
@@ -75,7 +75,7 @@ function mapConversation(row: ConversationRow, currentUserId: string): Conversat
     post_id: row.post_id,
     owner_id: row.owner_id,
     requester_id: row.requester_id,
-    closed: row.closed || (postRaw ? !isPostActive(mapPost(postRaw)) : false),
+    closed: row.closed,
     unread_count: unread,
     last_message: row.last_message_text,
     updated_at: row.updated_at,
@@ -133,29 +133,9 @@ export async function getOrCreateConversation(
   if (post.user_id === requesterId) {
     throw new Error('لا يمكنك بدء محادثة على موقفك الخاص');
   }
-  if (!canStartConversation(post)) {
-    throw new Error('SAFETY_POST_EXPIRED');
-  }
-
   const supabase = getSupabase();
-  const { data: existing, error: findError } = await supabase
-    .from('conversations')
-    .select('id')
-    .eq('post_id', postId)
-    .eq('requester_id', requesterId)
-    .maybeSingle();
-
-  if (findError) throw findError;
-
-  if (!existing) {
-    const { error: insertError } = await supabase.from('conversations').insert({
-      post_id: postId,
-      owner_id: post.user_id,
-      requester_id: requesterId,
-    });
-    if (insertError) throw insertError;
-  }
-
+  const { error: claimError } = await supabase.rpc('claim_parking_post', { post_id: postId });
+  if (claimError) throw claimError;
   const { data, error } = await supabase
     .from('conversations')
     .select(

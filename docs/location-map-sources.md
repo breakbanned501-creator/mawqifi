@@ -52,3 +52,67 @@ Places are read from the active database catalogue. Future destinations use
 descriptive publishing without a schema enum change. Destinations without a
 reviewed map source show "Map not available yet". New structured metadata
 requires separate source verification.
+
+## Publish-flow integration re-check (2026-10-02)
+
+| Place/source | Asset classification | In-app treatment | Local file added | Attribution/reuse note |
+|---|---|---|---|---|
+| KU existing gallery | Existing local images, public/map1.png and public/map2.png | Existing previews and tap-to-enlarge unchanged | None | Existing provenance limitation above remains; no replacement asset copied |
+| PAAET official contact/directions directory, https://www.paaet.edu.kw/ar/call/ | Webpage with separate Google Maps directions links; displayed location icon is an SVG icon, not a campus map. No downloadable campus-map image/PDF found on this source | Prominent bilingual official-map card opens the directory until a location is selected; then it opens only that location's published directions. Official source link remains the institution directory | None | PAAET footer reserves rights; https://www.paaet.edu.kw/ar/privacypolicy/ provides publishing/usage rules, not a third-party map redistribution licence. No Google map tiles or screenshots copied |
+| GUST campus page, https://www.gust.edu.kw/about-us/gust-campus-map | Official campus webpage includes public CDN imagery and campus/parking/access information | Bilingual campus guidance card opens the official page; no copied image preview | None | Page footer: Copyright 2026 GUST, All Rights Reserved. https://www.gust.edu.kw/privacy-policy contains data/privacy provisions, not an image reuse grant. No clear permission for bundling campus imagery in a third-party app |
+| GUST accessibility PDF, https://www.gust.edu.kw/static/e0d74832-2e51-4e8f-9ae5-f2dde6ae687d.pdf | Direct downloadable application/pdf, 12 pages, titled GUST Map for Accessible Navigation, 2024; contains accessibility text/map pages | Dedicated bilingual PDF card opens the complete original document, with its official campus-page source link | None | The document discusses distributing accessibility information digitally/printed for students; that is not an unambiguous licence to extract, adapt, or bundle its imagery in Mawqifi. Keep complete original publisher content, notices and legends on its own host; not repurposed as verified parking-zone metadata |
+
+Public GUST image asset URLs referenced by the official campus page:
+
+- https://static.gust.edu.kw/cd2b0eda-3d79-4b27-9d46-8c0d6e4d4d55
+- https://static.gust.edu.kw/51851c3d-bc37-425d-aaf0-2dc116f87111
+- https://static.gust.edu.kw/4624ddc3-ee49-4f9a-9a27-27ed9a651d6c
+- https://static.gust.edu.kw/4be0c924-95b0-4e2b-a266-c2ecd3dda28d
+
+These URLs establish public availability, not reuse permission. They are not
+embedded/hotlinked, downloaded into the repository, or assigned invented
+parking legends. The last CDN asset could not be independently retrieved by
+the research fetcher; its reference on the official page is verified.
+
+PAAET's three existing directions choices retain their exact URLs recorded
+above. No map is assigned to all PAAET colleges, and selecting a directions
+location does not create database campus/gate metadata.
+
+New UI code: components/OfficialMapCard.tsx. Updated PlaceGuidance and bilingual
+translations expose View official map / عرض الخريطة الرسمية, Open official
+source, document type, exact location, and browser-opening guidance. On web
+the links open a new tab with noopener/noreferrer; in Capacitor the new
+HTTPS/official-host-validated helper uses @capacitor/app-launcher 8.0.1 and
+UIApplication.open on iOS to open the OS browser/installed map URL handler,
+not an in-app Safari sheet. It never navigates the Capacitor asset origin
+to a remote webpage. No new map image or PDF files were added.
+
+Recheck outcome: all new PAAET/GUST sources remain **link-only** because the
+reuse permission needed for local app bundling is unclear. Their cards are
+available inside Publish and Map; KU keeps the existing local gallery.
+
+Native integration: added lib/official-map-links.ts, @capacitor/app-launcher
+8.0.1 (compatible with Capacitor 8), and its Swift Package Manager registration.
+No additional device permissions, URL-scheme queries, remote server.url,
+private keys, or schema changes are needed. Confirm OS browser/map handoff on
+the physical iPhone during manual TestFlight validation.
+
+## Integration validation
+
+- npm run typecheck: PASS.
+- npm run lint: PASS.
+- npm run build: PASS; browser PWA build retained.
+- npm run cap:ios:archive: PASS (local static assets, not a signed IPA).
+- npx cap sync ios: PASS; AppLauncherPlugin registered in generated config
+  and CapacitorAppLauncher included in Swift Package Manager.
+- node scripts/test-official-map-links.cjs: PASS, 11 URL/browser contract
+  assertions; rejects HTTP, credentials and non-official hosts before OS handoff.
+- npm run test:release-hardening: PASS, 57 existing regression assertions.
+- Arabic RTL at 390px and English LTR at 320px: cards render without horizontal
+  overflow or browser errors. Ardiya/Jahra/Shuwaikh choices update the exact
+  official directions URL and retain one card, without stale campus guidance.
+- Native verification: staging Supabase/API origin, no private server material,
+  no service worker, no server.url. Physical iPhone browser/app handoff and
+  signed Xcode/TestFlight validation remain manual.
+- KU assets unchanged; no database migration/schema changes. No production
+  access/deployment or Codemagic build initiated.

@@ -12,6 +12,19 @@ export const localeMetadata: Record<Locale, { dir: TextDirection; tag: string }>
 };
 
 const arabicTranslations = {
+  "place.viewOfficialMap": "عرض الخريطة الرسمية",
+  "place.externalBrowser": "يفتح المصدر الرسمي في المتصفح",
+  "place.mapKind.directory": "دليل المواقع الرسمي",
+  "place.mapKind.directions": "خريطة الوصول إلى الموقع المختار",
+  "place.mapKind.campus": "إرشادات الحرم الجامعي الرسمية",
+  "place.mapKind.pdf": "دليل الوصول الرسمي · PDF",
+  "place.paaetDirectoryTitle": "دليل مواقع التطبيقي",
+  "place.paaetDirectoryHint": "يفتح دليل الهيئة الرسمي. اختر الكلية أو المعهد للوصول إلى خريطته؛ لا توجد خريطة واحدة لجميع مواقع التطبيقي.",
+  "place.paaetDirectionsHint": "خريطة الوصول المنشورة في دليل الهيئة لهذا الموقع فقط. ليست مخططاً لمناطق المواقف أو البوابات.",
+  "place.gustCampusTitle": "GUST — حرم مشرف",
+  "place.gustCampusHint": "اعرض صور الحرم وإرشادات الوصول والمواقف على موقع الجامعة الرسمي. لا تحدد هذه الإرشادات موقع موقف متاح.",
+  "place.gustAccessibleTitle": "GUST — دليل الوصول الميسر",
+  "place.gustAccessibleHint": "افتح دليل الجامعة الأصلي لعام ٢٠٢٤ كاملاً بصيغة PDF لقراءة إرشادات الوصول؛ تحقق من اللوحات المحلية عند الوصول.",
   "place.title": "اختر مكانك",
   "place.helper": "لن تظهر المواقف حتى تختار الجهة",
   "place.selected": "المكان المختار: {{place}}",
@@ -385,6 +398,19 @@ const arabicTranslations = {
 } as const;
 
 const englishTranslations: Record<keyof typeof arabicTranslations, string> = {
+  "place.viewOfficialMap": "View official map",
+  "place.externalBrowser": "Opens the official source in your browser",
+  "place.mapKind.directory": "Official locations directory",
+  "place.mapKind.directions": "Selected location directions",
+  "place.mapKind.campus": "Official campus guidance",
+  "place.mapKind.pdf": "Official accessibility guide · PDF",
+  "place.paaetDirectoryTitle": "PAAET locations directory",
+  "place.paaetDirectoryHint": "Opens the official directory. Choose your college or institute to find its map; PAAET locations do not share one campus map.",
+  "place.paaetDirectionsHint": "Directions published in the official directory for this location only. This is not a diagram of parking zones or gates.",
+  "place.gustCampusTitle": "GUST — Mishref campus",
+  "place.gustCampusHint": "View campus imagery and parking/access guidance on the official university website. This guidance does not identify an available parking spot.",
+  "place.gustAccessibleTitle": "GUST — Accessible navigation guide",
+  "place.gustAccessibleHint": "Open the complete original 2024 university PDF to read accessibility guidance; check local signage when you arrive.",
   "place.title": "Choose your place",
   "place.helper": "Parking will not appear until you choose a place",
   "place.selected": "Selected place: {{place}}",

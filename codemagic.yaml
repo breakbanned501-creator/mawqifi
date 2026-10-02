@@ -140,4 +140,3 @@ workflows:
         # Upload for internal TestFlight; this switch means EXTERNAL beta review.
         submit_to_testflight: false
         submit_to_app_store: false
-        release_type: MANUAL

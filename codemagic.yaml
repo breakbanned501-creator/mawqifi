@@ -1,0 +1,143 @@
+# Manual-only: select ios-release-hardening in Codemagic.
+# Create group mawqifi_testflight_staging with NEXT_PUBLIC_SUPABASE_URL,
+# NEXT_PUBLIC_SUPABASE_ANON_KEY, NEXT_PUBLIC_SERVER_API_ORIGIN, APP_STORE_APPLE_ID.
+# Keep server-side Supabase, VAPID, and APNs credentials out of this group.
+workflows:
+  ios-testflight-staging:
+    name: Mawqifi iOS TestFlight Staging
+    instance_type: mac_mini_m2
+    max_build_duration: 120
+    integrations:
+      app_store_connect: Mawqifi Codemagic
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.mawqifi.app
+      groups:
+        - mawqifi_testflight_staging
+      vars:
+        XCODE_WORKSPACE: ios/App/App.xcworkspace
+        XCODE_SCHEME: App
+      node: 22
+      xcode: latest
+    # No triggering section: pushing this file must not start an upload.
+    scripts:
+      - name: Verify release branch and staging-only configuration
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          test "$CM_BRANCH" = "ios-release-hardening"
+          git merge-base --is-ancestor 399a817dcc0724250004ac35b1f1d5ef555f38f5 HEAD
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const env = process.env;
+          const ref = 'jrmiwmsgnztqwbigumlw';
+          assert.equal(env.NEXT_PUBLIC_SUPABASE_URL, 'https://' + ref + '.supabase.co', 'Expected staging Supabase URL');
+          assert.equal(env.NEXT_PUBLIC_SERVER_API_ORIGIN, 'https://mawqifi-testflight-staging.vercel.app', 'Expected staging API origin');
+          assert(/^[0-9]+$/.test(env.APP_STORE_APPLE_ID || ''), 'Set the numeric App Store Connect Apple ID');
+          assert(!env.MAWQIFI_NATIVE_ENV_FILE, 'Native env-file overrides are not allowed in staging CI');
+          for (const name of ['SUPABASE_SERVICE_ROLE_KEY', 'VAPID_PRIVATE_KEY', 'APNS_PRIVATE_KEY', 'APNS_AUTH_KEY']) {
+            assert(!env[name], name + ' must not be available to this native build');
+          }
+          const forbiddenRef = ['opsy', 'vdsivxoqphkfdsbb'].join('');
+          assert(!Object.values(env).some(value => value.includes(forbiddenRef)), 'Production backend reference in build environment');
+          assert(!fs.readdirSync('.').some(name => name !== '.env.example' && /^\.env(?:\.|$)/.test(name)), 'Local env files must not override CI configuration');
+          const key = env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+          if (key.startsWith('eyJ')) {
+            const payload = JSON.parse(Buffer.from(key.split('.')[1], 'base64url').toString());
+            assert.equal(payload.ref, ref, 'Public key must belong to staging');
+            assert.equal(payload.role, 'anon', 'Only an anon key may be bundled');
+          } else {
+            assert(key.startsWith('sb_publishable_'), 'Expected a staging anon/publishable key');
+          }
+          // Validate against staging Auth without creating users or logging values.
+          (async () => {
+            const response = await fetch(env.NEXT_PUBLIC_SUPABASE_URL + '/auth/v1/settings', {
+              headers: { apikey: key },
+            });
+            assert.equal(response.status, 200, 'Staging public key failed validation');
+            console.log('Staging-only public build configuration verified.');
+          })().catch(() => {
+            console.error('Staging public-key validation failed.');
+            process.exitCode = 1;
+          });
+          NODE
+      - name: Install locked dependencies
+        script: npm ci
+      - name: Typecheck
+        script: npm run typecheck
+      - name: Lint
+        script: npm run lint
+      - name: Build and verify local Capacitor assets
+        # Includes cap sync ios and verify-native-archive; no second sync needed.
+        script: npm run cap:ios:archive
+      - name: Prepare the Swift Package Manager workspace
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          # Capacitor 8 uses SPM here, so there is no CocoaPods-generated workspace.
+          if [ ! -d "$XCODE_WORKSPACE" ]; then
+            mkdir -p "$XCODE_WORKSPACE"
+            cat > "$XCODE_WORKSPACE/contents.xcworkspacedata" <<'XML'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <Workspace version="1.0">
+            <FileRef location="group:App.xcodeproj"/>
+          </Workspace>
+          XML
+          fi
+          # Share the existing App target's scheme for headless workspace archives.
+          ruby <<'RUBY'
+          require 'xcodeproj'
+          project_path = 'ios/App/App.xcodeproj'
+          project = Xcodeproj::Project.open(project_path)
+          target = project.targets.find { |item| item.name == 'App' }
+          abort 'Missing App target' unless target
+          scheme = Xcodeproj::XCScheme.new
+          scheme.configure_with_targets(target, nil, launch_target: true)
+          scheme.save_as(project_path, 'App', true)
+          RUBY
+      - name: Apply existing App Store provisioning profiles
+        # Resolves the uploaded matching profile (mawqifi_app_store) and certificate.
+        # Internal-only exports cannot be distributed externally or to customers.
+        script: |
+          xcode-project use-profiles \
+            --custom-export-options='{"testFlightInternalTestingOnly": true}'
+      - name: Select an incrementing TestFlight build number
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          # Fail on API/auth errors; only a successful empty result means no prior build.
+          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-build-number "$APP_STORE_APPLE_ID")
+          if [ -z "$LATEST_BUILD_NUMBER" ]; then LATEST_BUILD_NUMBER=0; fi
+          CI_BUILD_NUMBER="$PROJECT_BUILD_NUMBER"
+          [[ "$LATEST_BUILD_NUMBER" =~ ^[0-9]+$ ]]
+          [[ "$CI_BUILD_NUMBER" =~ ^[0-9]+$ ]]
+          IOS_BUILD_NUMBER=$((LATEST_BUILD_NUMBER + 1))
+          if (( CI_BUILD_NUMBER > IOS_BUILD_NUMBER )); then
+            IOS_BUILD_NUMBER="$CI_BUILD_NUMBER"
+          fi
+          echo "IOS_BUILD_NUMBER=$IOS_BUILD_NUMBER" >> "$CM_ENV"
+          echo "Using iOS build number $IOS_BUILD_NUMBER; marketing version remains 1.0."
+      - name: Build signed App Store IPA
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          xcode-project build-ipa \
+            --workspace "$CM_BUILD_DIR/$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME" \
+            --config Release \
+            --no-show-build-settings \
+            --archive-xcargs "COMPILER_INDEX_STORE_ENABLE=NO CURRENT_PROJECT_VERSION=$IOS_BUILD_NUMBER" \
+            --ipa-directory "$CM_BUILD_DIR/build/ios/ipa"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - build/ios/xcarchive/**/*.dSYM
+    publishing:
+      app_store_connect:
+        auth: integration
+        # Upload for internal TestFlight; this switch means EXTERNAL beta review.
+        submit_to_testflight: false
+        submit_to_app_store: false
+        release_type: MANUAL

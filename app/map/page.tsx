@@ -2,7 +2,9 @@
 
 import { MapPin } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
-import CampusMapGallery from '@/components/CampusMapGallery';
+import PlaceGuidance from '@/components/PlaceGuidance';
+import PlaceSelector from '@/components/PlaceSelector';
+import { usePlace } from '@/components/PlaceProvider';
 import { useLocale } from '@/components/LocaleProvider';
 import PageHeader from '@/components/PageHeader';
 import {
@@ -17,6 +19,7 @@ import {
 
 export default function MapPage() {
   const { dir, locale, t } = useLocale();
+  const { place } = usePlace();
 
   return (
     <main className="page-with-chrome min-h-screen px-4 pt-6 text-white" dir={dir}>
@@ -27,9 +30,11 @@ export default function MapPage() {
           backHref="/"
         />
 
-        <CampusMapGallery />
+        <PlaceSelector />
+        <PlaceGuidance />
+        {!place && <p className="glass-card p-5 text-sm text-white/70">{t('place.empty')}</p>}
 
-        {kuZones.map((zone) => {
+        {place?.id === 'kuwait_university' && kuZones.map((zone) => {
           const colleges = collegesByZone(zone.id);
           return (
             <article key={zone.id} className="glass-card overflow-hidden">
@@ -77,11 +82,11 @@ export default function MapPage() {
           );
         })}
 
-        <div className="rounded-3xl border border-yellow-300/20 bg-yellow-400/10 p-4 text-center">
+        {place?.id === 'kuwait_university' && <div className="rounded-3xl border border-yellow-300/20 bg-yellow-400/10 p-4 text-center">
           <p className="text-sm font-semibold leading-7 text-yellow-100">
             {t('map.notice')}
           </p>
-        </div>
+        </div>}
       </div>
       <BottomNav />
     </main>

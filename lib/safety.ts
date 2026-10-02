@@ -5,9 +5,12 @@ export type ReportTarget = 'post' | 'message' | 'user';
 export function canStartConversation(post: { status: string; expires_at: string }, now = Date.now()): boolean {
   return (post.status === 'active' || post.status === 'expired') && new Date(post.expires_at).getTime() > now - 30_000;
 }
-export function safetyErrorKey(error: unknown): 'safety.rateLimited' | 'safety.invalidText' | 'safety.duplicate' | 'safety.blockedHint' | 'safety.restricted' | 'safety.postExpired' | 'common.error' {
+export function safetyErrorKey(error: unknown): 'safety.rateLimited' | 'safety.invalidText' | 'safety.duplicate' | 'safety.blockedHint' | 'safety.restricted' | 'safety.postExpired' | 'common.error' | 'place.locationRequired' | 'place.locationTooLong' | 'place.unavailable' {
   const message = typeof error === 'object' && error !== null && 'message' in error ? String(error.message) : '';
   if (message.includes('SAFETY_RATE_LIMIT')) return 'safety.rateLimited';
+  if (message.includes('PLACE_UNAVAILABLE')) return 'place.unavailable';
+  if (message.includes('PLACE_LOCATION_TOO_LONG')) return 'place.locationTooLong';
+  if (message.includes('PLACE_')) return 'place.locationRequired';
   if (message.includes('SAFETY_INVALID_TEXT')) return 'safety.invalidText';
   if (message.includes('SAFETY_DUPLICATE')) return 'safety.duplicate';
   if (message.includes('SAFETY_BLOCKED')) return 'safety.blockedHint';

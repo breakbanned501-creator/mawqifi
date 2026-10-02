@@ -1,5 +1,7 @@
 'use client';
 
+import { postLocationTitle, postLocationDetails } from '@/lib/post-location';
+
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { MessageCircle } from 'lucide-react';
@@ -12,7 +14,6 @@ import { useAuth } from '@/components/AuthProvider';
 import { fetchConversations } from '@/lib/conversations';
 import { getSupabase } from '@/lib/supabase';
 import type { Conversation } from '@/lib/types';
-import { formatGate, getCollegeName } from '@/lib/university';
 import { getMawqifiPostHref } from '@/lib/capacitor';
 
 export default function ConversationsPage() {
@@ -93,13 +94,13 @@ export default function ConversationsPage() {
                     </div>
                     <div className="min-w-0">
                       <h2 className="truncate font-extrabold text-white">
-                        {conversation.post?.college
-                          ? getCollegeName(conversation.post.college, locale)
+                        {conversation.post?.place_id
+                          ? postLocationTitle(conversation.post, locale)
                           : t('conversations.new')}
                       </h2>
                       <p className="truncate text-sm text-white/55">
-                        {conversation.post?.gate && (
-                          <span>{formatGate(conversation.post.gate, locale)}</span>
+                        {conversation.post?.place_id && (
+                          <span>{postLocationDetails(conversation.post, locale)}</span>
                         )}
                         <span aria-hidden="true"> — </span>
                         {conversation.last_message ? (

@@ -10,9 +10,12 @@ export type Profile = {
 export type ParkingPost = {
   id: string;
   user_id: string;
-  college: string;
-  zone: 'A' | 'B';
-  gate: string;
+  place_id: string | null;
+  location_description: string | null;
+  place?: { name_ar: string; name_en: string } | null;
+  college: string | null;
+  zone: 'A' | 'B' | null;
+  gate: string | null;
   car_desc: string | null;
   departure_minutes: number;
   expires_at: string;

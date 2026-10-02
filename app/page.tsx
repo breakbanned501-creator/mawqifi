@@ -1,12 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Bell, Car, Map, MessageCircle, PlusCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import BottomNav from '@/components/BottomNav';
 import ErrorBanner from '@/components/ErrorBanner';
 import { useLocale } from '@/components/LocaleProvider';
 import { useNotifications } from '@/components/NotificationProvider';
+import PlaceSelector from '@/components/PlaceSelector';
+import { usePlace } from '@/components/PlaceProvider';
 import ParkingCard from '@/components/ParkingCard';
 import WhatsAppChannelCta from '@/components/WhatsAppChannelCta';
 import { useAuth } from '@/components/AuthProvider';
@@ -16,6 +18,9 @@ import type { ParkingPost } from '@/lib/types';
 
 export default function Home() {
   const { userId } = useAuth();
+  const { place } = usePlace();
+  const placeId = place?.id ?? null;
+  const refreshVersion = useRef(0);
   const { t, formatNumber } = useLocale();
   const { unreadCount } = useNotifications();
   const [posts, setPosts] = useState<ParkingPost[]>([]);
@@ -23,24 +28,29 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    if (!userId) return;
+    const version = ++refreshVersion.current;
+    if (!userId || !placeId) { setPosts([]); setIsLoading(false); return; }
     setError(null);
     try {
-      const nextPosts = await fetchParkingPosts();
-      setPosts(filterActivePosts(nextPosts));
+      const nextPosts = await fetchParkingPosts(placeId);
+      if (version === refreshVersion.current) setPosts(filterActivePosts(nextPosts));
     } catch {
-      setError(t('home.loadError'));
+      if (version === refreshVersion.current) setError(t('home.loadError'));
     } finally {
-      setIsLoading(false);
+      if (version === refreshVersion.current) setIsLoading(false);
     }
-  }, [t, userId]);
+  }, [t, userId, placeId]);
 
   useEffect(() => {
+    setPosts([]);
+    setIsLoading(Boolean(placeId));
     void refresh();
-  }, [refresh]);
+    const invalidate = () => { refreshVersion.current++; };
+    return invalidate;
+  }, [refresh, placeId]);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !placeId) return;
 
     const supabase = getSupabase();
     const channel = supabase
@@ -56,14 +66,14 @@ export default function Home() {
       clearInterval(interval);
       void supabase.removeChannel(channel);
     };
-  }, [userId, refresh]);
+  }, [userId, refresh, placeId]);
 
   const handlePostExpired = useCallback((postId: string) => {
     setPosts((current) => current.filter((post) => post.id !== postId));
     void expireStalePosts().catch(() => {});
   }, []);
 
-  const activePosts = useMemo(() => filterActivePosts(posts), [posts]);
+  const activePosts = useMemo(() => filterActivePosts(posts).filter(post => post.place_id === placeId), [posts, placeId]);
 
   return (
     <main className="page-with-chrome min-h-screen px-4 pt-5">
@@ -108,7 +118,9 @@ export default function Home() {
           </div>
         </header>
 
-        {error && (
+        <PlaceSelector />
+
+        {error && place && (
           <div className="mb-5">
             <ErrorBanner message={error} onRetry={() => { setIsLoading(true); void refresh(); }} />
           </div>
@@ -129,19 +141,19 @@ export default function Home() {
           </Link>
         </div>
 
-        <Link
+        {place ? <Link
           href="/create"
           data-tutorial-target="publish"
           className="btn btn-primary mb-6 flex w-full items-center justify-center gap-2 py-3.5 sm:py-4 text-sm sm:text-base transition-transform active:scale-[0.98]"
         >
           <PlusCircle className="h-5 w-5 shrink-0" />
           {t('home.createPost')}
-        </Link>
+        </Link> : <p className="glass-card mb-6 p-5 text-center text-sm leading-7 text-white/70">{t('place.empty')}</p>}
 
         <WhatsAppChannelCta />
 
         <div data-tutorial-target="feed">
-          {isLoading ? (
+          {!place ? null : isLoading ? (
             <div className="py-12 text-center">
               <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-cyan-500 border-t-transparent" />
               <p className="mt-4 text-white/60">{t('common.loading')}</p>
@@ -151,8 +163,8 @@ export default function Home() {
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-cyan-500/10">
                 <Car size={32} className="text-cyan-300" />
               </div>
-              <h3 className="mb-2 text-lg font-extrabold text-white">{t('home.emptyTitle')}</h3>
-              <p className="text-sm leading-6 text-white/60">{t('home.emptyBody')}</p>
+              <h3 className="mb-2 text-lg font-extrabold text-white">{t('place.emptyPosts')}</h3>
+              <p className="text-sm leading-6 text-white/60">{t('place.emptyPostsHint')}</p>
             </div>
           ) : (
             <div className="mb-6">

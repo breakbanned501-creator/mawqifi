@@ -26,9 +26,12 @@ type UserRow = {
 type ParkingPostRow = {
   id: string;
   user_id: string;
-  college: string;
-  zone: 'A' | 'B';
-  gate: string;
+  place_id: string | null;
+  location_description: string | null;
+  place?: { name_ar: string; name_en: string } | { name_ar: string; name_en: string }[] | null;
+  college: string | null;
+  zone: 'A' | 'B' | null;
+  gate: string | null;
   car_desc: string | null;
   departure_minutes: number;
   expires_at: string;
@@ -42,6 +45,9 @@ function mapPost(row: ParkingPostRow): ParkingPost {
   return {
     id: row.id,
     user_id: row.user_id,
+    place_id: row.place_id,
+    location_description: row.location_description,
+    place: Array.isArray(row.place) ? row.place[0] ?? null : row.place ?? null,
     college: row.college,
     zone: row.zone,
     gate: row.gate,
@@ -96,6 +102,9 @@ export async function fetchConversations(userId: string): Promise<Conversation[]
       parking_posts (
         id,
         user_id,
+        place_id,
+        location_description,
+        place:places(name_ar,name_en),
         college,
         zone,
         gate,
@@ -164,6 +173,9 @@ export async function getOrCreateConversation(
       parking_posts (
         id,
         user_id,
+        place_id,
+        location_description,
+        place:places(name_ar,name_en),
         college,
         zone,
         gate,
@@ -228,6 +240,9 @@ export async function fetchConversationByPostForUser(
       parking_posts (
         id,
         user_id,
+        place_id,
+        location_description,
+        place:places(name_ar,name_en),
         college,
         zone,
         gate,
@@ -276,6 +291,9 @@ export async function fetchConversationByIdForUser(
       parking_posts (
         id,
         user_id,
+        place_id,
+        location_description,
+        place:places(name_ar,name_en),
         college,
         zone,
         gate,

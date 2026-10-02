@@ -1,8 +1,12 @@
 'use client';
 
-import { type FormEvent, useMemo, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Send } from 'lucide-react';
+import PlaceSelector from '@/components/PlaceSelector';
+import PlaceGuidance from '@/components/PlaceGuidance';
+import { usePlace } from '@/components/PlaceProvider';
+import { LOCATION_DESCRIPTION_MAX, usefulLocationDescription } from '@/lib/places';
 import BottomNav from '@/components/BottomNav';
 import ErrorBanner from '@/components/ErrorBanner';
 import { useLocale } from '@/components/LocaleProvider';
@@ -25,6 +29,9 @@ const NOTES_MAX = 500;
 export default function CreatePage() {
   const router = useRouter();
   const { userId } = useAuth();
+  const { place } = usePlace();
+  const isKu = place?.id === 'kuwait_university';
+  const [locationDescription, setLocationDescription] = useState('');
   const { dir, formatNumber, locale, t } = useLocale();
   const [college, setCollege] = useState(kuColleges[0].nameAr);
   const [gate, setGate] = useState(kuColleges[0].gates[0]);
@@ -51,12 +58,16 @@ export default function CreatePage() {
   const isValidDuration =
     Number.isFinite(departureMinutes) && departureMinutes >= 1 && departureMinutes <= 180;
 
-  const canPublish = Boolean(college && gate && userId && isValidDuration);
+  useEffect(() => { setLocationDescription(''); setError(null); }, [place?.id]);
+
+  const canPublish = Boolean(place && userId && isValidDuration && (isKu ? college && gate : usefulLocationDescription(locationDescription)));
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (loading || !canPublish || !userId) {
-      if (!college || !gate) {
+    if (loading || !canPublish || !userId || !place) {
+      if (!place || (!isKu && !usefulLocationDescription(locationDescription))) {
+        setError(t('place.locationRequired'));
+      } else if (!college || !gate) {
         setError(t('create.invalidLocation'));
       } else if (!isValidDuration) {
         setError(t('create.invalidMinutes'));
@@ -73,9 +84,11 @@ export default function CreatePage() {
 
       const createdPost = await createParkingPost({
         userId,
-        college,
-        zone: selectedCollege.zone,
-        gate,
+        placeId: place.id,
+        locationDescription: isKu ? null : locationDescription.trim(),
+        college: isKu ? college : null,
+        zone: isKu ? selectedCollege.zone : null,
+        gate: isKu ? gate : null,
         carDesc: trimmedNotes || null,
         departureMinutes,
         expiresAt,
@@ -125,9 +138,12 @@ export default function CreatePage() {
           </div>
         </header>
 
+        <PlaceSelector />
+        <PlaceGuidance />
         {error && <ErrorBanner message={error} />}
 
-        <form onSubmit={handleSubmit} className="glass-card animate-fade-up space-y-5 p-4 sm:p-5">
+        {!place ? <p className="glass-card p-5 text-center text-sm leading-7 text-white/70">{t('place.empty')}</p> : <form key={place.id} onSubmit={handleSubmit} className="glass-card animate-fade-up space-y-5 p-4 sm:p-5">
+          {isKu ? <>
           <div>
             <label className="mb-2 block text-sm font-bold text-white/70">{t('create.college')}</label>
             <select
@@ -178,6 +194,12 @@ export default function CreatePage() {
             </div>
           </div>
 
+          </> : <div>
+            <label htmlFor="parking-location" className="mb-2 block text-sm font-bold text-white/70">{t('place.describeLocation')}</label>
+            <textarea id="parking-location" className="input min-h-28" dir="auto" required minLength={3} maxLength={LOCATION_DESCRIPTION_MAX}
+              value={locationDescription} onChange={event => setLocationDescription(event.target.value)} placeholder={t('place.locationHint')} />
+            <p className="mt-2 text-xs leading-6 text-white/50">{t(place.id === 'paaet' ? 'place.paaetLocationHint' : 'place.locationHint')}</p>
+          </div>}
           <div>
             <label htmlFor="notes" className="mb-2 block text-sm font-bold text-white/70">
               {t('create.notes')}
@@ -252,7 +274,7 @@ export default function CreatePage() {
             <Send className="h-5 w-5" />
             {loading ? t('create.posting') : t('create.post')}
           </button>
-        </form>
+        </form>}
       </div>
       <BottomNav />
     </main>

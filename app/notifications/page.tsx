@@ -49,7 +49,7 @@ export default function NotificationsPage() {
         getCollegeName(dataString(data, 'college'), locale),
         zone === 'A' || zone === 'B' ? formatZone(zone, locale) : '',
         gate ? formatGate(gate, locale) : '',
-      ].filter(Boolean).join(' — ');
+      ].filter(Boolean).join(' — ') || [dataString(data, locale === 'ar' ? 'place_name_ar' : 'place_name_en'), dataString(data, 'location_description')].filter(Boolean).join(' — ');
 
       return {
         ...item,

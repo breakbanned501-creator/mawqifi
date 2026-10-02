@@ -5,7 +5,7 @@ import { memo, useCallback, useState } from 'react';
 import { Clock, MapPin, MessageCircle, Trash2, Flag } from 'lucide-react';
 import type { ParkingPost } from '@/lib/types';
 import { deleteParkingPost, isPostActive } from '@/lib/posts';
-import { getCollegeName, formatGate, formatZone } from '@/lib/university';
+import { postLocationTitle, postLocationDetails } from '@/lib/post-location';
 import { getMawqifiPostHref } from '@/lib/capacitor';
 import { useLocale } from '@/components/LocaleProvider';
 import CountdownTimer from './CountdownTimer';
@@ -54,16 +54,11 @@ function ParkingCard({ post, currentUserId, onChanged, onExpire }: ParkingCardPr
       <div className="mb-3 flex items-start justify-between gap-2.5 sm:gap-3">
         <div className="min-w-0 flex-1">
           <h3 dir="auto" className="break-words text-base font-extrabold leading-snug text-white sm:text-lg">
-            {getCollegeName(post.college, locale)}
+            {postLocationTitle(post, locale)}
           </h3>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-white/70">
-            <span className="rounded-full bg-cyan-400/10 px-2 py-0.5 sm:px-2.5 sm:py-1 font-bold text-cyan-200 text-[11px] sm:text-xs">
-              {formatZone(post.zone, locale)}
-            </span>
-            <span className="flex items-center gap-1 text-xs sm:text-sm">
-              <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 text-cyan-300" />
-              {formatGate(post.gate, locale)}
-            </span>
+            <MapPin className="h-3.5 w-3.5 shrink-0 text-cyan-300" />
+            <span dir="auto" className="break-words whitespace-pre-wrap">{postLocationDetails(post, locale)}</span>
           </div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1.5 sm:gap-2">

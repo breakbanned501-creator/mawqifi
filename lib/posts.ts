@@ -11,9 +11,12 @@ type UserRow = {
 type ParkingPostRow = {
   id: string;
   user_id: string;
-  college: string;
-  zone: 'A' | 'B';
-  gate: string;
+  place_id: string | null;
+  location_description: string | null;
+  place?: { name_ar: string; name_en: string } | { name_ar: string; name_en: string }[] | null;
+  college: string | null;
+  zone: 'A' | 'B' | null;
+  gate: string | null;
   car_desc: string | null;
   departure_minutes: number;
   expires_at: string;
@@ -27,6 +30,9 @@ function mapRow(row: ParkingPostRow): ParkingPost {
   return {
     id: row.id,
     user_id: row.user_id,
+    place_id: row.place_id,
+    location_description: row.location_description,
+    place: Array.isArray(row.place) ? row.place[0] ?? null : row.place ?? null,
     college: row.college,
     zone: row.zone,
     gate: row.gate,
@@ -49,9 +55,10 @@ export function filterActivePosts(posts: ParkingPost[]): ParkingPost[] {
   return posts.filter(isPostActive);
 }
 
-export async function fetchParkingPosts(): Promise<ParkingPost[]> {
+export async function fetchParkingPosts(placeId: string | null): Promise<ParkingPost[]> {
   const supabase = getSupabase();
 
+  if (!placeId) return [];
   const now = new Date().toISOString();
   const { data, error } = await supabase
     .from('parking_posts')
@@ -59,6 +66,9 @@ export async function fetchParkingPosts(): Promise<ParkingPost[]> {
       `
       id,
       user_id,
+      place_id,
+      location_description,
+      place:places(name_ar,name_en),
       college,
       zone,
       gate,
@@ -70,6 +80,7 @@ export async function fetchParkingPosts(): Promise<ParkingPost[]> {
       users (username, user_badges (badge_key))
     `,
     )
+    .eq('place_id', placeId)
     .eq('status', 'active')
     .gt('expires_at', now)
     .order('created_at', { ascending: false });
@@ -81,9 +92,11 @@ export async function fetchParkingPosts(): Promise<ParkingPost[]> {
 
 export type CreateParkingPostInput = {
   userId: string;
-  college: string;
-  zone: 'A' | 'B';
-  gate: string;
+  placeId: string;
+  locationDescription: string | null;
+  college: string | null;
+  zone: 'A' | 'B' | null;
+  gate: string | null;
   carDesc: string | null;
   departureMinutes: number;
   expiresAt: string;
@@ -96,6 +109,8 @@ export async function createParkingPost(input: CreateParkingPostInput): Promise<
     .from('parking_posts')
     .insert({
       user_id: input.userId,
+      place_id: input.placeId,
+      location_description: input.locationDescription,
       college: input.college,
       zone: input.zone,
       gate: input.gate,
@@ -108,6 +123,9 @@ export async function createParkingPost(input: CreateParkingPostInput): Promise<
       `
       id,
       user_id,
+      place_id,
+      location_description,
+      place:places(name_ar,name_en),
       college,
       zone,
       gate,
@@ -133,6 +151,9 @@ export async function fetchParkingPostById(postId: string): Promise<ParkingPost 
       `
       id,
       user_id,
+      place_id,
+      location_description,
+      place:places(name_ar,name_en),
       college,
       zone,
       gate,

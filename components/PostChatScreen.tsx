@@ -1,5 +1,7 @@
 'use client';
 
+import { postLocationTitle, postLocationDetails } from '@/lib/post-location';
+
 import { type ChangeEvent, type KeyboardEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -24,7 +26,6 @@ import {
 } from '@/lib/conversations';
 import { fetchParkingPostById, isPostActive } from '@/lib/posts';
 import { getSupabase } from '@/lib/supabase';
-import { getCollegeName, formatGate, formatZone } from '@/lib/university';
 import { isNativeCapacitor, openExternalUrl, triggerNativeLightHaptic } from '@/lib/capacitor';
 import { getNativeCurrentLocation, selectNativeChatImage, type NativeChatImageSource } from '@/lib/native-media';
 import type { TranslationKey } from '@/lib/i18n';
@@ -362,7 +363,7 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
           <div className="min-w-0 flex-1">
             <h1 className="truncate font-extrabold text-white">{t('chat.title')}</h1>
             <p className="truncate text-sm text-white/55">
-              {getCollegeName(post.college, locale)} — {formatZone(post.zone, locale)} — {formatGate(post.gate, locale)}
+              {postLocationTitle(post, locale)} — {postLocationDetails(post, locale)}
             </p>
             <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
               <p dir="auto" className="min-w-0 max-w-full truncate font-bold text-white/70">{post.username}</p>

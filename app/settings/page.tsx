@@ -20,7 +20,7 @@ import {
   type NotificationPreferences,
   type NotificationPreferencesPatch,
 } from '@/lib/notification-preferences';
-import { fetchParkingPosts } from '@/lib/posts';
+import { getSupabase } from '@/lib/supabase';
 
 type PreferenceKey = Exclude<keyof NotificationPreferencesPatch, 'locale'>;
 
@@ -111,9 +111,12 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (!userId) return;
-    void fetchParkingPosts().then((posts) => {
-      setActivePosts(posts.filter((post) => post.user_id === userId && post.status === 'active').length);
-    }).catch(() => {});
+    void (async () => {
+      try {
+        const { data: posts, error: loadError } = await getSupabase().from('parking_posts').select('id').eq('user_id', userId).eq('status', 'active').gt('expires_at', new Date().toISOString());
+        if (!loadError) setActivePosts(posts?.length ?? 0);
+      } catch { /* Keep account settings usable offline. */ }
+    })();
   }, [userId]);
 
   const saveUsername = async () => {

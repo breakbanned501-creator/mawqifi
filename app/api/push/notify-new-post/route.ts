@@ -6,14 +6,17 @@ import {
   PushConfigurationError,
 } from '@/lib/push-server';
 import { getRequestUser, getSupabaseServiceRole } from '@/lib/supabase-server';
-import { formatGate, formatZone, getCollegeName } from '@/lib/university';
+import { postLocationTitle, postLocationDetails } from '@/lib/post-location';
 
 type StoredParkingPost = {
   id: string;
   user_id: string;
-  college: string;
-  zone: 'A' | 'B';
-  gate: string;
+  place_id: string | null;
+  location_description: string | null;
+  place?: { name_ar: string; name_en: string } | null;
+  college: string | null;
+  zone: 'A' | 'B' | null;
+  gate: string | null;
   departure_minutes: number;
   status: string;
 };
@@ -36,7 +39,7 @@ export async function POST(request: Request) {
     const supabase = getSupabaseServiceRole();
     const { data: post, error: postError } = await supabase
       .from('parking_posts')
-      .select('id, user_id, college, zone, gate, departure_minutes, status')
+      .select('id, user_id, place_id, location_description, place:places(name_ar,name_en), college, zone, gate, departure_minutes, status')
       .eq('id', postId)
       .maybeSingle();
     if (postError) throw postError;
@@ -56,18 +59,12 @@ export async function POST(request: Request) {
     }
     if (eventError) throw eventError;
 
-    const storedPost = post as StoredParkingPost;
+    const storedPost = post as unknown as StoredParkingPost;
     const delivery = await deliverPushNotifications({
       excludeUserId: user.id,
       notificationType: 'parking_post',
       payloadForLocale: (locale) => {
-        const location = [
-          getCollegeName(storedPost.college, locale),
-          formatZone(storedPost.zone, locale),
-          storedPost.gate ? formatGate(storedPost.gate, locale) : '',
-        ]
-          .filter(Boolean)
-          .join(' — ');
+        const location = [postLocationTitle(storedPost, locale), postLocationDetails(storedPost, locale)].filter(Boolean).join(' - ');
         const departure = locale === 'ar'
           ? `يغادر خلال ${storedPost.departure_minutes} د`
           : `leaving in ${storedPost.departure_minutes} min`;

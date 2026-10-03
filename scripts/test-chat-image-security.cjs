@@ -1,0 +1,50 @@
+// Disposable PostgreSQL only: node scripts/test-chat-image-security.cjs <pglite> <bootstrap>
+const fs=require('fs'),path=require('path'),assert=require('node:assert/strict');
+const {PGlite}=require(process.argv[2]);const {pgcrypto}=require(path.join(process.argv[2],'dist/contrib/pgcrypto.cjs'));
+const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222222222',C='33333333-3333-4333-8333-333333333333';
+let assertions=0;const check=(name,value)=>{assert(value,name);assertions++;console.log('PASS '+name);};
+(async()=>{const db=new PGlite({extensions:{pgcrypto}});try{
+ await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
+ create schema auth; create schema storage;
+ create table auth.users(id uuid primary key,raw_user_meta_data jsonb default '{}'::jsonb,is_anonymous boolean default true);
+ create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+ grant usage on schema auth,storage to anon,authenticated; grant execute on function auth.uid() to anon,authenticated;
+ create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
+ create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text references storage.buckets(id),name text); alter table storage.objects enable row level security;
+ grant select,insert,update,delete on storage.objects to anon,authenticated;
+ create function storage.foldername(name text) returns text[] language sql immutable as $$select (string_to_array(name,'/'))[1:array_length(string_to_array(name,'/'),1)-1]$$;
+ create publication supabase_realtime;`);
+ await db.exec(fs.readFileSync(process.argv[3],'utf8'));
+ for(const f of fs.readdirSync('supabase/migrations').filter(f=>/^2026100[23]/.test(f)).sort())await db.exec(fs.readFileSync('supabase/migrations/'+f,'utf8'));
+ for(const id of [A,B,C])await db.query('insert into auth.users(id) values($1)',[id]);
+ const login=async(id,role='authenticated')=>{await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id??'']);await db.exec('set role '+role);};
+ const denied=async(name,query)=>{try{await query();assert.fail(name);}catch(e){check(name,/row-level security|permission denied|SAFETY_BLOCKED|HANDOFF_CHAT_CLOSED/.test(e.message));}};
+ await login(A);const pid=(await db.query("select public.publish_parking_handoff('{\"place_id\":\"gust\",\"departure_minutes\":60}',29.3,47.9,5) as id")).rows[0].id;
+ await login(B);const cid=(await db.query('select public.claim_parking_post($1) as state',[pid])).rows[0].state.claim.conversation_id;
+ const object='chat/'+cid+'/'+A+'-fixture.png';const legacy='https://jrmiwmsgnztqwbigumlw.supabase.co/storage/v1/object/public/chat-images/'+object;
+ await login(A);await db.query("insert into storage.objects(bucket_id,name) values('chat-images',$1)",[object]);
+ check('A can upload',true);await db.query("insert into public.messages(conversation_id,sender_id,type,image_url) values($1,$2,'image',$3)",[cid,A,legacy]);
+ check('Legacy message locator preserved', (await db.query('select image_url from public.messages where conversation_id=$1',[cid])).rows[0].image_url===legacy);
+ for(const id of [A,B]){await login(id);check('Participant reads object',(await db.query('select name from storage.objects where name=$1',[object])).rows.length===1);}
+ await login(C);check('C cannot list/read',(await db.query('select * from storage.objects')).rows.length===0);
+ await denied('C cannot upload into conversation',()=>db.query("insert into storage.objects(bucket_id,name) values('chat-images',$1)",['chat/'+cid+'/c.png']));
+ check('C cannot overwrite',(await db.query('update storage.objects set name=$1 returning id',['changed'])).rows.length===0);
+ check('C cannot delete',(await db.query('delete from storage.objects returning id')).rows.length===0);
+ await login(null,'anon');check('Unauthenticated read denied',(await db.query('select * from storage.objects')).rows.length===0);
+ await login(A);await db.query('insert into public.user_blocks(blocker_id,blocked_id) values($1,$2)',[A,B]);
+ await login(B);await denied('Blocked participant upload denied',()=>db.query("insert into storage.objects(bucket_id,name) values('chat-images',$1)",['chat/'+cid+'/blocked.png']));
+ check('Blocked history remains readable',(await db.query('select * from storage.objects')).rows.length===1);
+ await login(A);await db.query('delete from public.user_blocks where blocker_id=$1',[A]);
+ await login(B);const arrived=(await db.query('select public.arrive_parking_handoff($1,true) as state',[cid])).rows[0].state.claim;
+ const repeat=(await db.query('select public.arrive_parking_handoff($1,true) as state',[cid])).rows[0].state.claim;
+ check('Arrival cannot extend timer',arrived.chat_closes_at===repeat.chat_closes_at);
+ await db.exec('reset role');await db.query("with t as(select clock_timestamp()-interval '16 minutes' as v) update public.parking_claims set arrived_at=t.v,chat_closes_at=t.v+interval '15 minutes' from t where conversation_id=$1",[cid]);
+ for(const id of [A,B]){await login(id);check('Closed history reads',(await db.query('select * from storage.objects')).rows.length===1);await denied('Closed upload denied',()=>db.query("insert into storage.objects(bucket_id,name) values('chat-images',$1)",['chat/'+cid+'/'+id+'-closed.png']));}
+ await denied('Closed message rejected',()=>db.query("insert into public.messages(conversation_id,sender_id,type,text) values($1,$2,'text','after timer')",[cid,B]));
+ check('History not deleted',(await db.query('select * from public.messages where conversation_id=$1',[cid])).rows.length===1);
+ await db.exec('reset role');check('Bucket private',(await db.query("select public from storage.buckets where id='chat-images'")).rows[0].public===false);
+ await db.exec('create policy test_overbroad on storage.objects for all to authenticated using(true) with check(true)');
+ await login(C);check('Restrictive guard resists broad policy',(await db.query('select * from storage.objects')).rows.length===0);
+ await denied('Restrictive guard rejects forged folder',()=>db.query("insert into storage.objects(bucket_id,name) values('chat-images','chat/not-a-uuid/f.png')"));
+ console.log('Chat storage SQL/RLS assertions: '+assertions);
+}finally{await db.close();}})().catch(e=>{console.error(e.message);process.exitCode=1;});

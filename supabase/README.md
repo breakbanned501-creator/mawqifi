@@ -47,4 +47,4 @@ The schema adds `parking_posts`, `messages`, and `conversations` to the realtime
 
 ## 5. Storage
 
-The schema creates a public `chat-images` bucket for chat photos. Uploads go under `chat/{conversationId}/...`.
+The historical foundation creates `chat-images`; `20261003181232_secure_chat_image_storage.sql` converts it to private with conversation-membership RLS. Uploads remain under `chat/{conversationId}/...`. Apply this reviewed migration to staging first; production requires separate approval. Existing message URLs are not rewritten: the client resolves legacy locators and downloads using the participant JWT. New records store authenticated locators, never public/signed URLs. Closed conversations retain image reads but reject uploads.

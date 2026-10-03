@@ -2,6 +2,7 @@ import { getSupabase } from './supabase';
 import { fetchMawqifiServerApi } from './server-api';
 import type { ChatMessage } from './types';
 import { validateMessageText } from './safety';
+import { authenticatedChatImageReference } from './chat-images';
 
 export async function fetchMessages(conversationId: string): Promise<ChatMessage[]> {
   const supabase = getSupabase();
@@ -115,10 +116,10 @@ export async function uploadChatImage(
   const { error: uploadError } = await supabase.storage.from('chat-images').upload(path, file, {
     upsert: false,
     contentType: file.type,
+    cacheControl: '0',
   });
 
   if (uploadError) throw uploadError;
 
-  const { data } = supabase.storage.from('chat-images').getPublicUrl(path);
-  return data.publicUrl;
+  return authenticatedChatImageReference(path);
 }

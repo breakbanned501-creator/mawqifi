@@ -16,7 +16,11 @@ export function getSupabase(): SupabaseClient {
   if (!client) {
     client = createClient(supabaseUrl, supabaseAnonKey, {
       // Older cached clients omit this marker and retain their KU-only feed.
-      global: { headers: { 'x-mawqifi-place-aware': '1' } },
+      global: {
+        headers: { 'x-mawqifi-place-aware': '1' },
+        // Private responses must not be reused across identities by HTTP caches.
+        fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }),
+      },
       auth: {
         persistSession: true,
         autoRefreshToken: true,

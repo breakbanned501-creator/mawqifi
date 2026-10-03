@@ -193,6 +193,7 @@ export default function SettingsPage() {
               </p>
             </div>
           </div>
+          {isGuest && <p className="mt-3 text-sm leading-7 text-white/60">{t('auth.guestNotice')}</p>}
           <div className="mt-4 flex gap-2">
             <input
               className="input min-w-0 flex-1"

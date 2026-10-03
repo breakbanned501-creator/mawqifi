@@ -6,7 +6,7 @@ import {
   PushConfigurationError,
 } from '@/lib/push-server';
 import { getRequestUser, getSupabaseServiceRole } from '@/lib/supabase-server';
-import { postLocationTitle, postLocationDetails } from '@/lib/post-location';
+import { postLocationTitle } from '@/lib/post-location';
 
 type StoredParkingPost = {
   id: string;
@@ -64,7 +64,8 @@ export async function POST(request: Request) {
       excludeUserId: user.id,
       notificationType: 'parking_post',
       payloadForLocale: (locale) => {
-        const location = [postLocationTitle(storedPost, locale), postLocationDetails(storedPost, locale)].filter(Boolean).join(' - ');
+        // Never include free-text location details or precise coordinates in previews.
+        const location = postLocationTitle(storedPost, locale);
         const departure = locale === 'ar'
           ? `يغادر خلال ${storedPost.departure_minutes} د`
           : `leaving in ${storedPost.departure_minutes} min`;

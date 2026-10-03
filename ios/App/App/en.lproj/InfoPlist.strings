@@ -1,4 +1,5 @@
 "CFBundleDisplayName" = "Mawqifi";
 "NSCameraUsageDescription" = "Mawqifi uses the camera to send photos in conversations when you choose to do so.";
 "NSPhotoLibraryUsageDescription" = "Mawqifi uses your photo library to attach a photo in a conversation when you choose to do so.";
-"NSLocationWhenInUseUsageDescription" = "Mawqifi uses your location only when you choose to share it in a conversation.";
+"NSLocationWhenInUseUsageDescription" = "Mawqifi uses your location when you choose to publish a parking spot, share your location in chat, or check arrival at a shared spot while the app is open.";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "Mawqifi uses your location only while the app is open for voluntary parking sharing and arrival checks. It does not request background tracking.";

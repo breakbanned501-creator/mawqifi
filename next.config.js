@@ -20,11 +20,8 @@ const withPWA = require('next-pwa')({
   runtimeCaching: [
     {
       urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-      handler: 'NetworkFirst',
-      options: {
-        cacheName: 'supabase-api',
-        expiration: { maxEntries: 32, maxAgeSeconds: 24 * 60 * 60 },
-      },
+      // Authenticated data and photos must never be cached across identities.
+      handler: 'NetworkOnly',
     },
     {
       urlPattern: /\/_next\/static\/.*/i,
@@ -69,6 +66,16 @@ const nextConfig = {
   ...(isCapacitorStaticExport
     ? {}
     : {
+        async headers() {
+          return [{ source: '/:path*', headers: [
+            { key: 'X-Content-Type-Options', value: 'nosniff' },
+            { key: 'X-Frame-Options', value: 'DENY' },
+            { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+            { key: 'Permissions-Policy', value: 'camera=(self), geolocation=(self), microphone=()' },
+            // App Router hydration and inline styles require unsafe-inline.
+            { key: 'Content-Security-Policy', value: "default-src 'self'; script-src 'self' 'unsafe-inline'" + (process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : '') + "; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.supabase.co; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co" + (process.env.NODE_ENV === 'development' ? ' ws://localhost:* ws://127.0.0.1:*' : '') + "; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" },
+          ] }];
+        },
         // Keep existing browser/PWA deep links working after moving the live
         // post screen to one static route for the native export. The native
         // build must not declare redirect rules because it has no server.

@@ -1,5 +1,10 @@
 /* Stable custom Service Worker handlers for Mawqifi Web Push Notifications */
 
+// Clear private responses/images left by the former broad runtime caching rules.
+self.addEventListener('activate', (event) => {
+  event.waitUntil(Promise.all(['supabase-api', 'static-images'].map((name) => caches.delete(name))));
+});
+
 function sameOriginPath(value) {
   try {
     const url = new URL(typeof value === 'string' ? value : '/', self.location.origin);

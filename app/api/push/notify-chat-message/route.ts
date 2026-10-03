@@ -8,7 +8,6 @@ import {
 import { getRequestUser, getSupabaseServiceRole } from '@/lib/supabase-server';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const MAX_NOTIFICATION_PREVIEW_LENGTH = 120;
 
 type StoredMessage = {
   id: string;
@@ -29,15 +28,8 @@ function isUuid(value: unknown): value is string {
   return typeof value === 'string' && UUID_PATTERN.test(value);
 }
 
-function compactPreview(text: string): string {
-  const compacted = text.replace(/\s+/g, ' ').trim();
-  if (compacted.length <= MAX_NOTIFICATION_PREVIEW_LENGTH) return compacted;
-  return `${compacted.slice(0, MAX_NOTIFICATION_PREVIEW_LENGTH - 1).trimEnd()}…`;
-}
-
 function getNotificationBody(message: StoredMessage, senderName: string, locale: 'ar' | 'en'): string {
-  const preview = message.text ? compactPreview(message.text) : '';
-  if (preview) return `${senderName}: ${preview}`;
+  // Lock-screen previews must not expose private chat text or typed coordinates.
   if (message.type === 'image') return locale === 'ar' ? 'أرسل لك صورة 📷' : 'Sent you a photo 📷';
   if (message.type === 'location') return locale === 'ar' ? 'أرسل لك موقعًا 📍' : 'Sent you a location 📍';
   return locale === 'ar' ? `${senderName}: أرسل لك رسالة جديدة` : `${senderName}: sent you a new message`;

@@ -10,6 +10,7 @@ import AppFooter from '@/components/AppFooter';
 import Toast from '@/components/Toast';
 import HandoffPanel from '@/components/HandoffPanel';
 import KeyboardAssist from '@/components/KeyboardAssist';
+import PrivateChatImage from '@/components/PrivateChatImage';
 import ErrorBanner from '@/components/ErrorBanner';
 import LoadingScreen from '@/components/LoadingScreen';
 import ReportModal from '@/components/ReportModal';
@@ -52,6 +53,7 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ChatError | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedImageUser, setSelectedImageUser] = useState<string | null>(null);
   const [toast, setToast] = useState('');
   const [showReportModal, setShowReportModal] = useState(false);
   const [messageToReport, setMessageToReport] = useState<string | null>(null);
@@ -222,17 +224,18 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
     try {
       const file = await getFile();
       if (!file) return;
-      const publicUrl = await uploadChatImage(conversationId, userId, file);
+      const imageReference = await uploadChatImage(conversationId, userId, file);
       await sendMessage({
         conversationId,
         senderId: userId,
         type: 'image',
-        imageUrl: publicUrl,
+        imageUrl: imageReference,
       });
       setToast(t('chat.sendImage'));
       void triggerNativeLightHaptic();
     } catch (error) {
-      setError({ key: safetyErrorKey(error) });
+      const key = safetyErrorKey(error);
+      setError({ key: key === 'common.error' ? 'chat.imageUploadError' : key });
     } finally {
       setUploading(false);
     }
@@ -329,7 +332,7 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
   return (
     <main className="handoff-chat flex flex-col bg-navy-950" dir={dir}>
       <Toast message={toast} visible={Boolean(toast)} onHide={() => setToast('')} />
-      {selectedImage && (
+      {selectedImage && selectedImageUser === userId && (
         <div
           className="fixed inset-0 z-[80] flex items-center justify-center bg-black/90 p-4"
           onClick={() => setSelectedImage(null)}
@@ -415,20 +418,8 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
                     </p>
                   )}
                   {hasImage && message.image_url && (
-                    <button
-                      type="button"
-                      onClick={() => setSelectedImage(message.image_url)}
-                      className="block max-w-full min-w-0 overflow-hidden rounded-2xl"
-                    >
-                      <Image
-                        src={message.image_url}
-                        alt={t('chat.imageAlt')}
-                        width={240}
-                        height={180}
-                        className="block h-auto max-w-full rounded-2xl object-cover"
-                        unoptimized
-                      />
-                    </button>
+                    <PrivateChatImage key={`${userId}:${message.id}`} reference={message.image_url} conversationId={message.conversation_id}
+                      userId={userId} onEnlarge={(url) => { setSelectedImageUser(userId); setSelectedImage(url); }} />
                   )}
                   {message.type === 'location' &&
                     message.latitude != null &&

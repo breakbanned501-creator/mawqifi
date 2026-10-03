@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getMawqifiInternalPath, isNativeCapacitor } from '@/lib/capacitor';
+import { publishAppState } from '@/lib/publish-location';
 import { getSupabase } from '@/lib/supabase';
 
 type NativeListener = { remove: () => Promise<void> };
@@ -94,6 +95,7 @@ export default function NativeAppBridge() {
         });
         listeners.push(shown, hidden);
         const appStateListener = await App.addListener('appStateChange', ({ isActive }) => {
+          publishAppState(isActive);
           try {
             const supabase = getSupabase();
             if (isActive) reconnectRealtime();

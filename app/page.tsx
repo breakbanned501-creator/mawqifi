@@ -19,6 +19,9 @@ import WhatsAppChannelCta from '@/components/WhatsAppChannelCta';
 import { useAuth } from '@/components/AuthProvider';
 import { expireStalePosts, fetchParkingPosts, filterActivePosts } from '@/lib/posts';
 import { getSupabase } from '@/lib/supabase';
+import { takePublishedPost, clearPublishedPost } from '@/lib/published-post';
+import { publishTiming } from '@/lib/publish-timing';
+import Toast from '@/components/Toast';
 import type { ParkingPost } from '@/lib/types';
 
 export default function Home() {
@@ -29,7 +32,17 @@ export default function Home() {
   const refreshVersion = useRef(0);
   const { t, dir, formatNumber } = useLocale();
   const { unreadCount } = useNotifications();
-  const [posts, setPosts] = useState<ParkingPost[]>([]);
+  const [posts, setPosts] = useState<ParkingPost[]>(()=>{const post=takePublishedPost(userId,placeId,subPlaceId);return post?[post]:[];});
+  const [recentPublish,setRecentPublish]=useState(()=>Boolean(takePublishedPost(userId,placeId,subPlaceId)));
+  const feedRequest=useRef<{key:string;promise:Promise<ParkingPost[]>}|null>(null);
+  const loadPosts=useCallback(()=>{
+    const key=JSON.stringify([userId,placeId,subPlaceId]);
+    if(feedRequest.current?.key===key)return feedRequest.current.promise;
+    const promise=fetchParkingPosts(placeId,subPlaceId);
+    const request={key,promise};feedRequest.current=request;
+    void promise.finally(()=>{if(feedRequest.current===request)feedRequest.current=null;}).catch(()=>{});
+    return promise;
+  },[userId,placeId,subPlaceId]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,22 +51,24 @@ export default function Home() {
     if (!userId || !placeId || !ready) { setPosts([]); setIsLoading(false); return; }
     setError(null);
     try {
-      const nextPosts = await fetchParkingPosts(placeId, subPlaceId);
-      if (version === refreshVersion.current) setPosts(filterActivePosts(nextPosts));
+      const nextPosts = await loadPosts();
+      if (version === refreshVersion.current) {setPosts(filterActivePosts(nextPosts));clearPublishedPost(userId,placeId,subPlaceId);publishTiming('feed-ready');}
     } catch {
       if (version === refreshVersion.current) setError(t('home.loadError'));
     } finally {
       if (version === refreshVersion.current) setIsLoading(false);
     }
-  }, [t, userId, placeId, subPlaceId, ready]);
+  }, [t, userId, placeId, subPlaceId, ready, loadPosts]);
 
   useEffect(() => {
-    setPosts([]);
-    setIsLoading(ready);
+    const optimistic=takePublishedPost(userId,placeId,subPlaceId);
+    setPosts(optimistic?[optimistic]:[]);
+    if(optimistic){setRecentPublish(true);publishTiming('success-ui');}
+    setIsLoading(ready && !optimistic);
     void refresh();
     const invalidate = () => { refreshVersion.current++; };
     return invalidate;
-  }, [refresh, placeId, subPlaceId, ready]);
+  }, [refresh, userId, placeId, subPlaceId, ready]);
 
   useEffect(() => {
     if (!userId || !placeId || !ready) return;
@@ -115,7 +130,7 @@ export default function Home() {
         // Fetch again at the tap, rather than auto-claiming from a stale feed.
         const selected = placeId;
         const selectedKey = scopeKey;
-        const latest = filterActivePosts(await fetchParkingPosts(selected, subPlaceId)).filter(item => item.place_id === selected);
+        const latest = filterActivePosts(await loadPosts()).filter(item => item.place_id === selected);
         if (selectedKey !== selectedScope.current) return;
         setPosts(latest);
         const choices = latest.filter(item => item.user_id !== userId);
@@ -174,6 +189,7 @@ export default function Home() {
           </div>
         </header>
 
+        <Toast message={t('handoff.published')} visible={recentPublish} onHide={()=>setRecentPublish(false)} />
         <PlaceSelector />
 
         {error && place && (
@@ -186,7 +202,7 @@ export default function Home() {
           <button type="button" className="btn btn-primary min-h-20 text-lg" disabled={busy || isLoading} onClick={() => void needSpot()}>
             {busy ? t('common.loading') : t('handoff.need')}
           </button>
-          <Link href="/create" data-tutorial-target="publish" className="btn btn-secondary flex min-h-20 items-center justify-center gap-2 text-lg">
+          <Link href="/create" onClick={() => publishTiming('tap')} data-tutorial-target="publish" className="btn btn-secondary flex min-h-20 items-center justify-center gap-2 text-lg">
             <PlusCircle className="h-6 w-6"/>{t('handoff.leave')}
           </Link>
         </div>

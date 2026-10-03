@@ -89,10 +89,10 @@ export async function fetchParkingPosts(placeId: string | null, subPlaceId: stri
     .gt('expires_at', now)
     .order('created_at', { ascending: false });
   if (requiresSubPlace(placeId)) query = query.eq('sub_place_id', subPlaceId!);
-  const { data, error } = await query;
+  const [{ data, error }, blockRows] = await Promise.all([query, fetchBlockedUsers()]);
 
   if (error) throw error;
-  const blocked = new Set((await fetchBlockedUsers()).map(row => row.blocked_id));
+  const blocked = new Set(blockRows.map(row => row.blocked_id));
   return filterActivePosts((data as ParkingPostRow[]).map(mapRow)).filter(post => !blocked.has(post.user_id));
 }
 

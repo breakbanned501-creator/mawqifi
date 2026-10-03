@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, MessageCircle, PlusCircle, User } from 'lucide-react';
+import { publishTiming } from '@/lib/publish-timing';
 import { useLocale } from '@/components/LocaleProvider';
 
 /** Fixed footer + bottom navigation — always visible together */
@@ -33,6 +34,7 @@ export default function BottomChrome() {
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={() => {if(item.href==='/create')publishTiming('tap');}}
                 className={`flex flex-col items-center justify-center gap-1 rounded-2xl px-1 py-1.5 min-[360px]:px-1.5 min-[360px]:py-2 transition-all ${
                   active
                     ? 'bg-cyan-500 text-navy-900 shadow-lg shadow-cyan-500/20'

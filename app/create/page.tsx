@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ArrowRight, MapPin } from 'lucide-react';
 import PlaceSelector from '@/components/PlaceSelector';
-import { acquirePublishLocation, usablePublishLocation, type PublishLocation } from '@/lib/publish-location';
+import { acquirePublishLocation, cancelPublishLocation, usablePublishLocation, type PublishLocation } from '@/lib/publish-location';
 import { rememberPublishedPost } from '@/lib/published-post';
 import { publishTiming } from '@/lib/publish-timing';
 import { usePlace } from '@/components/PlaceProvider';
@@ -52,7 +52,7 @@ export default function CreatePage() {
   useEffect(() => {
     setError(null);
     void locate();
-    const invalidate = () => { request.current++; };
+    const invalidate = () => { request.current++; cancelPublishLocation(); };
     return invalidate;
   }, [locate, subPlaceId]);
 
@@ -66,6 +66,7 @@ export default function CreatePage() {
   const publish = async () => {
     if (publishLock.current || !ready || !userId || !placeId || !location) return;
     publishLock.current = true;
+    const version = request.current;
     setLoading(true);
     setError(null);
     try {
@@ -76,6 +77,7 @@ export default function CreatePage() {
         setLocation(fix);
         setLocating(false);
       }
+      if (version !== request.current) throw new Error('PUBLISH_LOCATION_CANCELLED');
       if (!usablePublishLocation(fix)) throw new Error('HANDOFF_LOCATION_REQUIRED');
       publishTiming('rpc-start');
       // Same atomic private-GPS RPC. No invented college, gate, or description.
@@ -143,7 +145,7 @@ export default function CreatePage() {
               </>
             ) : null}
             <button type="button" className="btn btn-secondary min-h-12 w-full" disabled={loading || published}
-              onClick={() => router.back()}>{t('common.cancel')}</button>
+              onClick={() => { cancelPublishLocation(); router.back(); }}>{t('common.cancel')}</button>
           </section>
         )}
       </div>

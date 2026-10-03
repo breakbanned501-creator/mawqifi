@@ -1,5 +1,7 @@
 # GPS publish performance verification
 
+The performance measurements below describe the original optimization. The later single-sample GPS acquisition was replaced by the bounded foreground watch documented in [publish-gps-reliability.md](publish-gps-reliability.md); the RPC, immediate success UI, and background-feed optimizations remain intact.
+
 Verified 2026-10-03 on `ios-release-hardening`, based on `06efa8025923abfc612b5a0b9c4c93f2eb174b3f`. No schema/RPC changes, production access, deployment, or Codemagic run.
 
 ## Findings and changes

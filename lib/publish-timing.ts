@@ -2,6 +2,18 @@
 export type PublishStage = 'tap' | 'permission-resolved' | 'gps-ready' | 'rpc-start' | 'rpc-success' | 'success-ui' | 'feed-ready';
 const enabled = process.env.NODE_ENV === 'development' ||
   (process.env.NEXT_PUBLIC_PUBLISH_TIMING === '1' && process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://jrmiwmsgnztqwbigumlw.supabase.co');
+export function publishGpsDiagnostics(detail: {
+  firstAccuracyMeters: number | null;
+  bestAccuracyMeters: number | null;
+  sampleCount: number;
+  elapsedMs: number;
+  timeToAcceptableMs: number | null;
+  outcome: 'accepted' | 'cancelled' | 'failed';
+}): void {
+  if (!enabled || typeof performance === 'undefined') return;
+  performance.clearMarks('mawqifi-publish:gps-acquisition');
+  performance.mark('mawqifi-publish:gps-acquisition', { detail });
+}
 export function publishTiming(stage: PublishStage): void {
   if (!enabled || typeof performance === 'undefined') return;
   if (stage === 'tap') {

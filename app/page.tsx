@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PlusCircle } from 'lucide-react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getOrCreateConversation } from '@/lib/conversations';
 import { getMawqifiPostHref } from '@/lib/capacitor';
@@ -19,7 +18,9 @@ import WhatsAppChannelCta from '@/components/WhatsAppChannelCta';
 import { useAuth } from '@/components/AuthProvider';
 import { expireStalePosts, fetchParkingPosts, filterActivePosts } from '@/lib/posts';
 import { getSupabase } from '@/lib/supabase';
-import { takePublishedPost, clearPublishedPost } from '@/lib/published-post';
+import { takePublishedPost, clearPublishedPost, rememberPublishedPost } from '@/lib/published-post';
+import { acquirePublishLocation, cancelPublishLocation, usablePublishLocation } from '@/lib/publish-location';
+import { fetchMawqifiServerApi } from '@/lib/server-api';
 import { publishTiming } from '@/lib/publish-timing';
 import Toast from '@/components/Toast';
 import HomeHeader from '@/components/HomeHeader';
@@ -31,16 +32,17 @@ export default function Home() {
   const { place, subPlaceId, ready } = usePlace();
   const placeId = place?.id ?? null;
   const refreshVersion = useRef(0);
+  const publicationEpoch = useRef(0);
   const { t, dir } = useLocale();
   const { unreadCount } = useNotifications();
   const [posts, setPosts] = useState<ParkingPost[]>(()=>{const post=takePublishedPost(userId,placeId,subPlaceId);return post?[post]:[];});
   const [recentPublish,setRecentPublish]=useState(()=>Boolean(takePublishedPost(userId,placeId,subPlaceId)));
-  const feedRequest=useRef<{key:string;promise:Promise<ParkingPost[]>}|null>(null);
+  const feedRequest=useRef<{key:string;promise:Promise<ParkingPost[]>;epoch:number}|null>(null);
   const loadPosts=useCallback(()=>{
     const key=JSON.stringify([userId,placeId,subPlaceId]);
     if(feedRequest.current?.key===key)return feedRequest.current.promise;
     const promise=fetchParkingPosts(placeId,subPlaceId);
-    const request={key,promise};feedRequest.current=request;
+    const request={key,promise,epoch:publicationEpoch.current};feedRequest.current=request;
     void promise.finally(()=>{if(feedRequest.current===request)feedRequest.current=null;}).catch(()=>{});
     return promise;
   },[userId,placeId,subPlaceId]);
@@ -52,8 +54,14 @@ export default function Home() {
     if (!userId || !placeId || !ready) { setPosts([]); setIsLoading(false); return; }
     setError(null);
     try {
-      const nextPosts = await loadPosts();
-      if (version === refreshVersion.current) {setPosts(filterActivePosts(nextPosts));clearPublishedPost(userId,placeId,subPlaceId);publishTiming('feed-ready');}
+      const read = loadPosts();
+      const epoch = feedRequest.current?.epoch ?? publicationEpoch.current;
+      const nextPosts = await read;
+      if (version === refreshVersion.current && epoch === publicationEpoch.current) {
+        setPosts(filterActivePosts(nextPosts));
+        clearPublishedPost(userId, placeId, subPlaceId);
+        publishTiming('feed-ready');
+      }
     } catch {
       if (version === refreshVersion.current) setError(t('home.loadError'));
     } finally {
@@ -108,7 +116,103 @@ export default function Home() {
   const [noSpotToast, setNoSpotToast] = useState(0);
   const hideNoSpotToast = useCallback(() => setNoSpotToast(0), []);
   const hidePublishedToast = useCallback(() => setRecentPublish(false), []);
+  const [scopeToast, setScopeToast] = useState(0);
+  const hideScopeToast = useCallback(() => setScopeToast(0), []);
+  const [publishPhase, setPublishPhase] = useState<'locating' | 'publishing' | null>(null);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [publishErrorToast, setPublishErrorToast] = useState(false);
+  const hidePublishErrorToast = useCallback(() => setPublishErrorToast(false), []);
+  const publishRequest = useRef(0);
+  const publishLock = useRef(false);
+  const invalidatePublish = useCallback(() => { publishRequest.current++; cancelPublishLocation(); }, []);
+  useEffect(() => {
+    setPublishError(null);
+    setPublishErrorToast(false);
+    setScopeToast(0);
+    return invalidatePublish;
+  }, [userId, placeId, subPlaceId, invalidatePublish]);
+  useEffect(() => { if (recentPublish) publishTiming('success-ui'); }, [recentPublish]);
   useEffect(() => { setShowSpots(false); setNoSpotToast(0); }, [placeId, subPlaceId]);
+
+  const leaveSpot = async () => {
+    if (publishLock.current || actionLock.current) return;
+    if (!ready || !placeId) {
+      setRecentPublish(false);
+      setNoSpotToast(0);
+      setScopeToast(n => n + 1);
+      const selector = document.getElementById('place-selector');
+      selector?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      selector?.focus();
+      return;
+    }
+    if (!userId) return;
+    publishLock.current = true;
+    const version = publishRequest.current;
+    const key = scopeKey;
+    const current = () => version === publishRequest.current && key === selectedScope.current;
+    setPublishError(null);
+    setPublishErrorToast(false);
+    setRecentPublish(false);
+    setNoSpotToast(0);
+    publishTiming('tap');
+    setPublishPhase('locating');
+    try {
+      const fix = await acquirePublishLocation();
+      if (!current()) return;
+      if (!usablePublishLocation(fix)) throw new Error('HANDOFF_LOCATION_REQUIRED');
+      setPublishPhase('publishing');
+      publishTiming('rpc-start');
+      // Reuse the existing atomic private-GPS transaction; no public coordinates.
+      const { data: postId, error: failure } = await getSupabase().rpc('publish_parking_handoff', {
+        payload: { place_id: placeId, sub_place_id: subPlaceId, departure_minutes: 10 },
+        latitude: fix.latitude, longitude: fix.longitude, accuracy_meters: fix.accuracy_meters,
+      });
+      if (failure) throw failure;
+      if (!postId) throw new Error('HANDOFF_INVALID');
+      publishTiming('rpc-success');
+      const now = new Date();
+      const post: ParkingPost = {
+        id: postId, user_id: userId, place_id: placeId, sub_place_id: subPlaceId,
+        place: { name_ar: place!.name_ar, name_en: place!.name_en },
+        location_description: null, college: null, zone: null, gate: null, car_desc: null,
+        departure_minutes: 10, expires_at: new Date(now.getTime() + 600000).toISOString(),
+        status: 'active', created_at: now.toISOString(), username: '', badges: [],
+      };
+      rememberPublishedPost(post);
+      if (current()) {
+        // Invalidate reads started before publication without overlapping their replacement.
+        refreshVersion.current++;
+        publicationEpoch.current++;
+        const pendingRead = feedRequest.current?.promise;
+        setPosts(items => [post, ...items.filter(item => item.id !== post.id)]);
+        setIsLoading(false);
+        setRecentPublish(true);
+        void (async () => {
+          if (pendingRead) await pendingRead.catch(() => {});
+          if (current()) await refresh();
+        })();
+      }
+      // Preserve optional notification dispatch, outside the success/refresh critical path.
+      void (async () => {
+        const { data } = await getSupabase().auth.getSession();
+        const token = data.session?.access_token;
+        if (token) await fetchMawqifiServerApi('/api/push/notify-new-post', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ postId }),
+        });
+      })().catch(() => {});
+    } catch (failure) {
+      if (!current()) return;
+      const code = failure instanceof Error ? failure.message : '';
+      setPublishError(t(code === 'PUBLISH_LOCATION_TIMEOUT' ? 'handoff.locationTimeout' :
+        code === 'PUBLISH_LOCATION_INACCURATE' ? 'handoff.locationAccuracy' :
+        code.startsWith('PUBLISH_LOCATION_') ? 'handoff.locationRequired' : safetyErrorKey(failure)));
+      setPublishErrorToast(true);
+    } finally {
+      publishLock.current = false;
+      setPublishPhase(null);
+    }
+  };
 
   const claim = async (post: ParkingPost) => {
     if (!userId || !ready || JSON.stringify([post.place_id, requiresSubPlace(placeId) ? post.sub_place_id : null]) !== selectedScope.current) return;
@@ -123,7 +227,7 @@ export default function Home() {
       selector?.focus();
       return;
     }
-    if (!userId || actionLock.current) return;
+    if (!userId || actionLock.current || publishLock.current) return;
     actionLock.current = true;
     setBusy(true);
     setError(null);
@@ -165,7 +269,12 @@ export default function Home() {
         <Toast message={t('handoff.published')} visible={recentPublish && noSpotToast === 0} onHide={hidePublishedToast} />
         <Toast message={t('handoff.noSpots')} visible={noSpotToast > 0} onHide={hideNoSpotToast}
           duration={3000} resetKey={noSpotToast} variant="info" />
+        <Toast message={t('handoff.chooseLocation')} visible={scopeToast > 0} onHide={hideScopeToast}
+          duration={3000} resetKey={scopeToast} variant="info" />
+        <Toast message={publishError ?? ''} visible={publishErrorToast} onHide={hidePublishErrorToast}
+          duration={3000} variant="info" />
         <PlaceSelector />
+        {publishError && <div className="mb-5"><ErrorBanner message={publishError} onRetry={() => void leaveSpot()} /></div>}
 
         {error && place && (
           <div className="mb-5">
@@ -174,12 +283,15 @@ export default function Home() {
         )}
 
         <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <button type="button" className="btn btn-primary min-h-20 text-lg" disabled={busy || isLoading} onClick={() => void needSpot()}>
+          <button type="button" className="btn btn-primary min-h-20 text-lg" disabled={busy || isLoading || publishPhase !== null} onClick={() => void needSpot()}>
             {busy ? t('common.loading') : t('handoff.need')}
           </button>
-          <Link href="/create" onClick={() => publishTiming('tap')} data-tutorial-target="publish" className="btn btn-secondary flex min-h-20 items-center justify-center gap-2 text-lg">
-            <PlusCircle className="h-6 w-6"/>{t('handoff.leave')}
-          </Link>
+          <button type="button" onClick={() => void leaveSpot()} disabled={busy || publishPhase !== null}
+            aria-busy={publishPhase !== null} data-tutorial-target="publish"
+            className="btn btn-secondary flex min-h-20 items-center justify-center gap-2 text-lg disabled:opacity-50">
+            <PlusCircle className="h-6 w-6" aria-hidden="true" />
+            <span role={publishPhase ? 'status' : undefined}>{t(publishPhase === 'locating' ? 'handoff.locating' : publishPhase === 'publishing' ? 'handoff.publishing' : 'handoff.leave')}</span>
+          </button>
         </div>
         {!ready&&<p className="glass-card mb-5 p-5 text-center text-sm leading-7">{t(!place ? 'place.empty' : placeId === 'kuwait_university' ? 'subPlace.kuHelper' : 'subPlace.paaetHelper')}</p>}
 

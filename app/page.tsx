@@ -1,8 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, Car, MessageCircle, PlusCircle, RefreshCw } from 'lucide-react';
+import { Bell, Car, PlusCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { getOrCreateConversation } from '@/lib/conversations';
+import { getMawqifiPostHref } from '@/lib/capacitor';
+import { safetyErrorKey } from '@/lib/safety';
 import BottomNav from '@/components/BottomNav';
 import ErrorBanner from '@/components/ErrorBanner';
 import { useLocale } from '@/components/LocaleProvider';
@@ -17,11 +21,12 @@ import { getSupabase } from '@/lib/supabase';
 import type { ParkingPost } from '@/lib/types';
 
 export default function Home() {
+  const router = useRouter();
   const { userId } = useAuth();
   const { place } = usePlace();
   const placeId = place?.id ?? null;
   const refreshVersion = useRef(0);
-  const { t, formatNumber } = useLocale();
+  const { t, dir, formatNumber } = useLocale();
   const { unreadCount } = useNotifications();
   const [posts, setPosts] = useState<ParkingPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -75,8 +80,56 @@ export default function Home() {
 
   const activePosts = useMemo(() => filterActivePosts(posts).filter(post => post.place_id === placeId), [posts, placeId]);
 
+
+  const availablePosts = activePosts.filter(post => post.user_id !== userId);
+  const selectedPlace = useRef(placeId);
+  selectedPlace.current = placeId;
+  const actionLock = useRef(false);
+  const [busy, setBusy] = useState(false);
+  const [showSpots, setShowSpots] = useState(false);
+  useEffect(() => { setShowSpots(false); }, [placeId]);
+
+  const claim = async (post: ParkingPost) => {
+    if (!userId || post.place_id !== selectedPlace.current) return;
+    const { conversation } = await getOrCreateConversation(post.id, userId);
+    router.push(getMawqifiPostHref(post.id, conversation.id));
+  };
+
+  const needSpot = async (post?: ParkingPost) => {
+    if (!placeId) {
+      const selector = document.getElementById('place-selector');
+      selector?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      selector?.focus();
+      return;
+    }
+    if (!userId || actionLock.current) return;
+    actionLock.current = true;
+    setBusy(true);
+    setError(null);
+    try {
+      if (post) {
+        await claim(post);
+      } else {
+        // Fetch again at the tap, rather than auto-claiming from a stale feed.
+        const selected = placeId;
+        const latest = filterActivePosts(await fetchParkingPosts(selected)).filter(item => item.place_id === selected);
+        if (selected !== selectedPlace.current) return;
+        setPosts(latest);
+        const choices = latest.filter(item => item.user_id !== userId);
+        setShowSpots(true);
+        if (choices.length === 1) await claim(choices[0]);
+      }
+    } catch (failure) {
+      setError(t(safetyErrorKey(failure)));
+      void refresh();
+    } finally {
+      actionLock.current = false;
+      setBusy(false);
+    }
+  };
+
   return (
-    <main className="page-with-chrome min-h-screen px-4 pt-5">
+    <main className="page-with-chrome min-h-screen px-4 pt-5" dir={dir}>
       <div className="container">
         <header className="mb-5">
           <div className="flex items-center justify-between gap-2.5 sm:gap-3">
@@ -127,52 +180,37 @@ export default function Home() {
         )}
 
         <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <button type="button" className="btn btn-primary min-h-20 text-lg" onClick={()=>{
-            if(!place){const selector=document.getElementById('place-selector');selector?.scrollIntoView({behavior:'smooth',block:'start'});selector?.focus();return;}
-            document.querySelector('[data-tutorial-target="feed"]')?.scrollIntoView({behavior:'smooth',block:'start'});
-          }}>{t('handoff.need')}</button>
+          <button type="button" className="btn btn-primary min-h-20 text-lg" disabled={busy || isLoading} onClick={() => void needSpot()}>
+            {busy ? t('common.loading') : t('handoff.need')}
+          </button>
           <Link href="/create" data-tutorial-target="publish" className="btn btn-secondary flex min-h-20 items-center justify-center gap-2 text-lg">
             <PlusCircle className="h-6 w-6"/>{t('handoff.leave')}
           </Link>
         </div>
         {!place&&<p className="glass-card mb-5 p-5 text-center text-sm leading-7">{t('place.empty')}</p>}
-        <Link href="/conversations" data-tutorial-target="chat" className="mb-5 flex items-center gap-2 p-3 font-bold"><MessageCircle className="h-5 w-5"/>{t('home.chat')}</Link>
 
+
+        {place && showSpots && (
+          <section data-tutorial-target="feed" className="mb-5 space-y-3" aria-live="polite">
+            {availablePosts.length === 0 ? (
+              <p className="glass-card p-6 text-center font-bold">{t('handoff.noSpots')}</p>
+            ) : (
+              <>
+                <h2 className="text-lg font-bold">{t('handoff.chooseSpot')}</h2>
+                {availablePosts.map(post => (
+                  <ParkingCard key={post.id} compact post={post} currentUserId={userId!} busy={busy}
+                    onClaim={() => void needSpot(post)} onExpire={handlePostExpired} />
+                ))}
+              </>
+            )}
+          </section>
+        )}
+        {activePosts.filter(post => post.user_id === userId).map(post => (
+          <ParkingCard key={post.id} compact post={post} currentUserId={userId!}
+            onChanged={refresh} onExpire={handlePostExpired} />
+        ))}
         <WhatsAppChannelCta />
 
-        <div data-tutorial-target="feed">
-          {!place ? null : isLoading ? (
-            <div className="py-12 text-center">
-              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-cyan-500 border-t-transparent" />
-              <p className="mt-4 text-white/60">{t('common.loading')}</p>
-            </div>
-          ) : activePosts.length === 0 ? (
-            <div className="glass-card py-12 text-center">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-cyan-500/10">
-                <Car size={32} className="text-cyan-300" />
-              </div>
-              <h3 className="mb-2 text-lg font-extrabold text-white">{t('place.emptyPosts')}</h3>
-              <p className="text-sm leading-6 text-white/60">{t('place.emptyPostsHint')}</p>
-            </div>
-          ) : (
-            <div className="mb-6">
-              <h2 className="mb-4 text-lg font-extrabold text-white">
-                {t('home.availablePosts', { count: formatNumber(activePosts.length) })}
-              </h2>
-              <div className="space-y-4">
-                {activePosts.map((post) => (
-                  <ParkingCard
-                    key={post.id}
-                    post={post}
-                    currentUserId={userId!}
-                    onChanged={refresh}
-                    onExpire={handlePostExpired}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
       </div>
       <BottomNav />
     </main>

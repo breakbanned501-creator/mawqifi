@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, X, Check } from 'lucide-react';
 import { useLocale } from '@/components/LocaleProvider';
 import type { TranslationKey } from '@/lib/i18n';
@@ -36,7 +37,7 @@ export default function ReportModal({ isOpen, onClose, onSubmit, targetType }: R
         ? 'report.messageTarget'
         : 'safety.user';
 
-  if (!isOpen) return null;
+  if (!isOpen || typeof document === 'undefined') return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,15 +76,15 @@ export default function ReportModal({ isOpen, onClose, onSubmit, targetType }: R
     }
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+      className="fixed inset-0 z-[55] flex items-center justify-center bg-black/80 p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="report-title"
       dir={dir}
     >
-      <div className="glass-card w-full max-w-md p-6 animate-fade-up">
+      <div className="glass-card max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain p-6 animate-fade-up">
         <div className="mb-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/15">
@@ -177,6 +178,7 @@ export default function ReportModal({ isOpen, onClose, onSubmit, targetType }: R
           </form>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

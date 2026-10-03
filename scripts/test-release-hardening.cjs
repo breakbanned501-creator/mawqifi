@@ -69,12 +69,15 @@ async function main() {
     const React = require('react');
     const { renderToStaticMarkup } = require('react-dom/server');
     const i18n = load('lib/i18n/index.ts');
+    const previousDocument = global.document;
+    global.document = { body: {} };
     for (const locale of ['ar', 'en']) {
         const dir = i18n.getTextDirection(locale);
         check(dir === (locale === 'ar' ? 'rtl' : 'ltr'), 'Locale direction ' + locale);
         const localeModule = { useLocale: () => ({ dir, t: (key, values) => i18n.translate(locale, key, values) }) };
         const modal = load('components/ReportModal.tsx', {
             'react': React, 'react/jsx-runtime': require('react/jsx-runtime'),
+            'react-dom': { createPortal: (node, target) => { check(target === global.document.body, 'Report dialog escapes card stacking context'); return node; } },
             'lucide-react': require('lucide-react'), '@/components/LocaleProvider': localeModule,
             '@/lib/security': { sanitizeInput: value => value },
         }).default;
@@ -86,6 +89,10 @@ async function main() {
             check(html.includes(i18n.translate(locale, 'report.reasonSpam')), 'Localized report reasons ' + locale + ' ' + targetType);
         }
         check(renderToStaticMarkup(React.createElement(modal, { isOpen: false, targetType: 'user' })) === '', 'Closed report modal is hidden ' + locale);
+        const clientDocument = global.document;
+        delete global.document;
+        check(renderToStaticMarkup(React.createElement(modal, { isOpen: true, targetType: 'post' })) === '', 'SSR safely defers portal ' + locale);
+        global.document = clientDocument;
         const actions = load('components/UserSafetyActions.tsx', {
             'react': React, 'react/jsx-runtime': require('react/jsx-runtime'),
             './ReportModal': { default: modal }, './LocaleProvider': localeModule,
@@ -94,6 +101,7 @@ async function main() {
         const html = renderToStaticMarkup(React.createElement(actions, { userId: 'disposable-ui-fixture' }));
         check(html.includes(i18n.translate(locale, 'safety.block')) && html.includes(i18n.translate(locale, 'safety.reportUser')), 'Report/block controls render ' + locale);
     }
+    if (previousDocument === undefined) delete global.document; else global.document = previousDocument;
     check(fs.readFileSync(path.join(root, 'app/settings/page.tsx'), 'utf8').includes('href="/settings/blocked"'), 'Blocked users screen reachable from Settings');
     check(fs.readFileSync(path.join(root, 'app/settings/blocked/page.tsx'), 'utf8').includes('setUserBlocked(id, false)'), 'Unblock action connected to safety helper');
     console.log('Release hardening checks passed (' + tests + ' assertions).');

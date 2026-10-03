@@ -30,7 +30,7 @@ async function main(){
  const [a,b,c]=clients,[A,B,C]=context.users;
  const save=()=>fs.writeFileSync(contextFile,JSON.stringify(context));
  const publish=async(client,place='gust')=>{
-  const id=await data(client.rpc('publish_parking_handoff',{payload:{place_id:place,location_description:'Test parking by entrance',college:null,zone:null,gate:null,departure_minutes:60},latitude:29.3,longitude:47.9,accuracy_meters:5}));
+  const id=await data(client.rpc('publish_parking_handoff',{payload:{place_id:place,departure_minutes:60},latitude:29.3,longitude:47.9,accuracy_meters:5}));
   context.posts.push(id);save();return id;
  };
  const send=async(client,uid,cid,text)=>{
@@ -48,6 +48,14 @@ async function main(){
  }else{
   check('Three real anonymous sessions and profiles',context.users.length===3);
   console.log('Staging-only identities: '+JSON.stringify(context.users.map((u,i)=>({label:'ABC'[i],id:u.id}))));
+  for(const place of ['kuwait_university','paaet','gust']){
+   await deny('Direct metadata-free insert denied '+place,a.from('parking_posts').insert({user_id:A.id,place_id:place,handoff:true,departure_minutes:10,expires_at:new Date(Date.now()+600000).toISOString()}),place==='kuwait_university'?'PLACE_INVALID_KU_LOCATION':'PLACE_LOCATION_REQUIRED');
+  }
+  await deny('Ordinary client cannot fabricate private GPS',a.from('parking_post_locations').insert({post_id:'11111111-1111-4111-8111-111111111111',owner_id:A.id,latitude:29.3,longitude:47.9}),'permission denied');
+  const kuPost=await publish(a,'kuwait_university');
+  const ku=await data(a.from('parking_posts').select('place_id,college,zone,gate,location_description').eq('id',kuPost).single());
+  check('KU GPS-only publication stores no fabricated fields',ku.place_id==='kuwait_university'&&ku.college===null&&ku.zone===null&&ku.gate===null&&ku.location_description===null);
+  await data(a.from('parking_posts').update({status:'cancelled'}).eq('id',kuPost));
   const pid=await publish(a);
   for(const client of [b,c])check('Preclaim precise location denied',(await data(client.from('parking_post_locations').select('*').eq('post_id',pid))).length===0);
   const feed=await data(b.from('parking_posts').select('*').eq('place_id','gust').eq('status','active'));

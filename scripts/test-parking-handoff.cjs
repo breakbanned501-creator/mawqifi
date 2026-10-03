@@ -58,6 +58,45 @@ async function main() {
     await db.exec('reset role');
     for(const name of fs.readdirSync(path.join(root,'supabase/migrations')).filter(n=>n.startsWith('20261002')).sort()) await db.exec(fs.readFileSync(path.join(root,'supabase/migrations',name),'utf8'));
 
+
+    // Roll back successful boundary fixtures so they don't consume post-rate capacity.
+    await login(A);
+    for(const place of ['kuwait_university','paaet','gust']){
+      await db.exec('begin');
+      const gps=(await db.query("select public.publish_parking_handoff($1::jsonb,29.3,47.9,5) id",[JSON.stringify({place_id:place,departure_minutes:10})])).rows[0].id;
+      const row=(await db.query('select * from public.parking_posts where id=$1',[gps])).rows[0];
+      check(row.place_id===place&&row.college===null&&row.zone===null&&row.gate===null&&row.location_description===null,'GPS-only publish without fabricated metadata '+place);
+      check((await db.query('select post_id from public.parking_post_locations where post_id=$1',[gps])).rows.length===1,'Private GPS created atomically '+place);
+      await db.exec('rollback');
+      await reject(db.query("insert into public.parking_posts(user_id,place_id,handoff,departure_minutes,expires_at) values($1,$2,true,10,now()+interval '10 minutes')",[A,place]),place==='kuwait_university'?'PLACE_INVALID_KU_LOCATION':'PLACE_LOCATION_REQUIRED');
+    }
+    await reject(db.query("insert into public.parking_post_locations(post_id,owner_id,latitude,longitude) values(gen_random_uuid(),$1,29.3,47.9)",[A]),'permission denied');
+    for(const coordinates of [[null,47.9],[91,47.9],[29.3,181],[NaN,47.9]]){
+      await reject(db.query("select public.publish_parking_handoff($1::jsonb,$2,$3,5)",[JSON.stringify({place_id:'gust',departure_minutes:10}),...coordinates]),'HANDOFF_LOCATION_REQUIRED');
+    }
+    await reject(db.query("select public.publish_parking_handoff($1::jsonb,29.3,47.9,5)",[JSON.stringify({departure_minutes:10})]),'PLACE_REQUIRED');
+    await reject(db.query("select public.publish_parking_handoff($1::jsonb,29.3,47.9,5)",[JSON.stringify({place_id:'unknown',departure_minutes:10})]),'PLACE_UNAVAILABLE');
+    check((await db.query('select count(*)::int n from public.parking_post_locations')).rows[0].n===0,'Failed RPCs leave no orphan locations');
+    await db.exec('reset role');
+    const snapshot=async()=>JSON.stringify((await db.query('select (select jsonb_agg(p order by id) from public.parking_posts p) posts,(select jsonb_agg(m order by id) from public.messages m) messages')).rows);
+    const rollbackUser='44444444-4444-4444-8444-444444444444';
+    await db.query('insert into auth.users(id,is_anonymous) values($1,true)',[rollbackUser]);
+    await login(rollbackUser);
+    const rollbackGps=(await db.query("select public.publish_parking_handoff($1::jsonb,29.3,47.9,5) id",[JSON.stringify({place_id:'kuwait_university',departure_minutes:10})])).rows[0].id;
+    await db.exec('reset role');
+    const beforeRollback=await snapshot();
+    await db.exec(fs.readFileSync(path.join(root,'supabase/rollback/revert_gps_minimal_publish.sql'),'utf8'));
+    check(await snapshot()===beforeRollback,'Rollback preserves all existing data');
+    await login(A);
+    await reject(db.query("select public.publish_parking_handoff($1::jsonb,29.3,47.9,5)",[JSON.stringify({place_id:'gust',departure_minutes:10})]),'PLACE_LOCATION_REQUIRED');
+    await db.exec('reset role');
+    await db.exec(fs.readFileSync(path.join(root,'supabase/migrations/20261002220823_gps_handoff_minimal_publish.sql'),'utf8'));
+    check(await snapshot()===beforeRollback,'Reapplication preserves all existing data');
+    check((await db.query('select post_id from public.parking_post_locations where post_id=$1',[rollbackGps])).rows.length===1,'Rollback retains GPS-only location');
+    await db.exec("select set_config('request.jwt.claim.sub','',false)");
+    await db.query('delete from public.parking_posts where id=$1',[rollbackGps]);
+    await db.query('delete from auth.users where id=$1',[rollbackUser]);
+
     await login(B);
     check((await db.query('select * from public.messages where conversation_id=$1',[existingChat])).rows.length===1,'Migration preserves existing history');
     check((await db.query('select * from public.parking_claims where post_id=$1',[existing])).rows.length===0,'Migration does not invent historical claimants');

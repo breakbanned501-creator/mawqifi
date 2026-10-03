@@ -188,10 +188,10 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
     composer.style.height = `${Math.min(composer.scrollHeight, 128)}px`;
   }, [text]);
 
-  const sendText = async () => {
-    if (!text.trim() || blocked || expired || !conversationId || !userId) return;
-    const value = text;
-    setText('');
+  const sendText = async (quickReply?: string) => {
+    const value = quickReply ?? text;
+    if (!value.trim() || blocked || expired || !conversationId || !userId) return;
+    if (!quickReply) setText('');
     setError(null);
     try {
       await sendMessage({
@@ -203,7 +203,7 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
       void triggerNativeLightHaptic();
     } catch (error) {
       setError({ key: safetyErrorKey(error) });
-      setText(value);
+      if (!quickReply) setText(value);
     }
   };
 
@@ -496,6 +496,12 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
         </div>
       ) : (
         <footer className="chat-composer safe-bottom sticky bottom-0 border-t border-white/10 bg-navy-900/95 px-3 sm:px-4 py-2.5 sm:py-3 backdrop-blur-xl">
+          <div className="mx-auto mb-2 flex max-w-md gap-2 overflow-x-auto md:max-w-xl lg:max-w-2xl" aria-label={t('chat.quickReplies')}>
+            {(['chat.quick.where', 'chat.quick.car', 'chat.quick.near', 'chat.quick.arrived', 'chat.quick.minute', 'chat.quick.seen'] as const).map(key => (
+              <button key={key} type="button" disabled={uploading} onClick={() => void sendText(t(key))}
+                className="min-h-11 shrink-0 rounded-2xl bg-white/10 px-3 text-sm disabled:opacity-40">{t(key)}</button>
+            ))}
+          </div>
           <div className="mx-auto flex max-w-md md:max-w-xl lg:max-w-2xl items-center gap-1.5 sm:gap-2">
             {nativeRuntime ? (
               <button

@@ -12,6 +12,19 @@ export const localeMetadata: Record<Locale, { dir: TextDirection; tag: string }>
 };
 
 const arabicTranslations = {
+  "handoff.confirmPublish": "نشر موقع موقفك الحالي؟",
+  "handoff.publish": "انشر موقفي",
+  "handoff.published": "تم نشر موقفك",
+  "handoff.noSpots": "ما في موقف متاح حالياً",
+  "handoff.chooseSpot": "اختر موقفاً",
+  "handoff.yourSpot": "موقفك متاح",
+  "chat.quick.where": "وين سيارتك؟",
+  "chat.quick.car": "شنو نوع السيارة؟",
+  "chat.quick.near": "أنا قريب",
+  "chat.quick.arrived": "وصلت",
+  "chat.quick.minute": "دقيقة وأوصل",
+  "chat.quick.seen": "شفتك",
+  "chat.quickReplies": "ردود سريعة",
   'handoff.cancelled': 'ألغى صاحب الموقف التسليم — تبقى المحادثة محفوظة',
   "handoff.need": "أبي موقف",
   "handoff.leave": "بطلع من موقفي",
@@ -422,6 +435,19 @@ const arabicTranslations = {
 } as const;
 
 const englishTranslations: Record<keyof typeof arabicTranslations, string> = {
+  "handoff.confirmPublish": "Publish your current parking location?",
+  "handoff.publish": "Publish my spot",
+  "handoff.published": "Your spot is now available",
+  "handoff.noSpots": "No parking spot is available right now",
+  "handoff.chooseSpot": "Choose a spot",
+  "handoff.yourSpot": "Your spot is available",
+  "chat.quick.where": "Where is your car?",
+  "chat.quick.car": "What kind of car?",
+  "chat.quick.near": "I'm nearby",
+  "chat.quick.arrived": "I've arrived",
+  "chat.quick.minute": "I'll be there in a minute",
+  "chat.quick.seen": "I see you",
+  "chat.quickReplies": "Quick replies",
   'handoff.cancelled': 'The driver cancelled this handoff — chat history remains available',
   "handoff.need": "I need a spot",
   "handoff.leave": "I'm leaving my spot",

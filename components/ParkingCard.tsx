@@ -18,9 +18,12 @@ interface ParkingCardProps {
   currentUserId: string;
   onChanged?: () => void;
   onExpire?: (postId: string) => void;
+  compact?: boolean;
+  busy?: boolean;
+  onClaim?: () => void;
 }
 
-function ParkingCard({ post, currentUserId, onChanged, onExpire }: ParkingCardProps) {
+function ParkingCard({ post, currentUserId, onChanged, onExpire, compact = false, busy = false, onClaim }: ParkingCardProps) {
   const { dir, formatNumber, locale, t } = useLocale();
   const active = isPostActive(post);
   const isOwner = post.user_id === currentUserId;
@@ -45,6 +48,34 @@ function ParkingCard({ post, currentUserId, onChanged, onExpire }: ParkingCardPr
   }, [post.id]);
 
   if (!active) return null;
+
+  if (compact) return (
+    <article className="glass-card mb-3 flex min-h-16 items-center gap-2 p-3" dir={dir}>
+      {isOwner ? (
+        <>
+          <span className="min-w-0 flex-1 font-bold">{t('handoff.yourSpot')}</span>
+          <CountdownTimer expiresAt={new Date(post.expires_at).getTime()} onComplete={() => onExpire?.(post.id)} />
+          <button type="button" onClick={() => void handleDelete()} disabled={deleting || busy}
+            className="min-h-11 rounded-xl px-3 text-red-200 disabled:opacity-40">{t('common.cancel')}</button>
+        </>
+      ) : (
+        <>
+          <button type="button" onClick={onClaim} disabled={busy}
+            className="flex min-h-12 min-w-0 flex-1 items-center justify-between gap-3 rounded-xl px-2 text-start disabled:opacity-40">
+            <span className="truncate font-bold">{post.username}</span>
+            <span className="shrink-0 text-sm font-bold text-cyan-300">{t('handoff.claim')}</span>
+          </button>
+          <button type="button" onClick={() => setShowReportModal(true)}
+            className="min-h-11 min-w-11 rounded-xl p-3 text-white/50" aria-label={t('parking.report')}>
+            <Flag className="h-4 w-4" />
+          </button>
+        </>
+      )}
+      <ReportModal isOpen={showReportModal} onClose={() => setShowReportModal(false)}
+        onSubmit={handleReport} targetType="post" />
+    </article>
+  );
+
 
   return (
     <article

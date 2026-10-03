@@ -6,6 +6,9 @@
   --primary: #00d4ff;
   --secondary: #33ddff;
   --danger: #f87171;
+  --app-safe-top: env(safe-area-inset-top, 0px);
+  --app-safe-left: env(safe-area-inset-left, 0px);
+  --app-safe-right: env(safe-area-inset-right, 0px);
   color-scheme: dark;
 }
 
@@ -130,8 +133,18 @@ html.capacitor-native body {
 
 /* Space for fixed footer + bottom nav (~7.5rem + safe area) */
 .page-with-chrome {
+  --page-top-space: 1.5rem;
+  /* One CSS owner for the remaining WebView inset; native status-bar framing
+     stays unchanged. Normal page spacing replaces, rather than stacks on, pt-*. */
+  padding-top: calc(var(--app-safe-top) + var(--page-top-space));
+  padding-left: max(1rem, var(--app-safe-left));
+  padding-right: max(1rem, var(--app-safe-right));
   padding-bottom: calc(7.75rem + env(safe-area-inset-bottom, 0px));
 }
+
+.page-with-chrome.pt-5 { --page-top-space: 1.25rem; }
+.page-with-chrome.pt-8 { --page-top-space: 2rem; }
+.app-toast { top: calc(var(--app-safe-top) + 1.25rem); }
 
 /* Keep the active tutorial target visible above its dimmed backdrop without
    allowing accidental navigation while the dialog is open. */

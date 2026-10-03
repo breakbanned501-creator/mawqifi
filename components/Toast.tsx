@@ -26,7 +26,7 @@ export default function Toast({ message, visible, onHide, duration = 2800, reset
   const Icon = variant === 'info' ? Info : CheckCircle2;
   return (
     <div
-      className="pointer-events-none fixed inset-x-4 top-5 z-[70] mx-auto max-w-sm animate-fade-up rounded-2xl border border-cyan-400/30 bg-navy-800/95 p-4 text-white shadow-glow backdrop-blur-xl"
+      className="app-toast pointer-events-none fixed inset-x-4 z-[70] mx-auto max-w-sm animate-fade-up rounded-2xl border border-cyan-400/30 bg-navy-800/95 p-4 text-white shadow-glow backdrop-blur-xl"
       dir={dir}
       role="status"
       aria-live="polite"

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, Car, PlusCircle, RefreshCw } from 'lucide-react';
+import { PlusCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getOrCreateConversation } from '@/lib/conversations';
@@ -22,6 +22,7 @@ import { getSupabase } from '@/lib/supabase';
 import { takePublishedPost, clearPublishedPost } from '@/lib/published-post';
 import { publishTiming } from '@/lib/publish-timing';
 import Toast from '@/components/Toast';
+import HomeHeader from '@/components/HomeHeader';
 import type { ParkingPost } from '@/lib/types';
 
 export default function Home() {
@@ -30,7 +31,7 @@ export default function Home() {
   const { place, subPlaceId, ready } = usePlace();
   const placeId = place?.id ?? null;
   const refreshVersion = useRef(0);
-  const { t, dir, formatNumber } = useLocale();
+  const { t, dir } = useLocale();
   const { unreadCount } = useNotifications();
   const [posts, setPosts] = useState<ParkingPost[]>(()=>{const post=takePublishedPost(userId,placeId,subPlaceId);return post?[post]:[];});
   const [recentPublish,setRecentPublish]=useState(()=>Boolean(takePublishedPost(userId,placeId,subPlaceId)));
@@ -159,45 +160,7 @@ export default function Home() {
   return (
     <main className="page-with-chrome min-h-screen px-4 pt-5" dir={dir}>
       <div className="container">
-        <header className="mb-5">
-          <div className="flex items-center justify-between gap-2.5 sm:gap-3">
-            <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
-              <div className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-2xl bg-cyan-500 shadow-glow">
-                <Car size={22} className="text-navy-900" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <h1 className="text-xl sm:text-2xl font-black leading-tight text-white truncate">{t('home.title')}</h1>
-                <p className="text-xs sm:text-sm leading-5 sm:leading-6 text-white/60 truncate">{t('home.subtitle')}</p>
-              </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-              <Link
-                href="/notifications"
-                data-tutorial-target="notifications"
-                className="relative rounded-2xl p-2.5 sm:p-3 text-white/60 transition-colors hover:bg-white/10 hover:text-cyan-300"
-                aria-label={t('home.notifications')}
-              >
-                <Bell size={20} />
-                {unreadCount > 0 && (
-                  <span className="absolute end-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-cyan-500 px-1 text-[10px] font-black text-navy-900">
-                    {formatNumber(unreadCount)}
-                  </span>
-                )}
-              </Link>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsLoading(true);
-                  void refresh();
-                }}
-                className="rounded-2xl p-2.5 sm:p-3 text-white/60 transition-colors hover:bg-white/10 hover:text-cyan-300"
-                aria-label={t('common.refresh')}
-              >
-                <RefreshCw size={20} />
-              </button>
-            </div>
-          </div>
-        </header>
+        <HomeHeader unreadCount={unreadCount} onRefresh={() => { setIsLoading(true); void refresh(); }} />
 
         <Toast message={t('handoff.published')} visible={recentPublish && noSpotToast === 0} onHide={hidePublishedToast} />
         <Toast message={t('handoff.noSpots')} visible={noSpotToast > 0} onHide={hideNoSpotToast}

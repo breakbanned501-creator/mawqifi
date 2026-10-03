@@ -12,6 +12,28 @@ const kuIds: Record<string, string> = {
 export const kuSubPlaces: SubPlace[] = kuColleges.map((college) => ({
   id: kuIds[college.nameEn], nameAr: college.nameAr, nameEn: college.nameEn,
 }));
+// User-confirmed parking sides for each existing KU college. Never infer a
+// side from legacy A/B zones, gate numbers or coordinates.
+export const kuParkingSides: SubPlace[] = [
+  { id: 'north', nameAr: 'المصفط الشمالي', nameEn: 'North Parking' },
+  { id: 'south', nameAr: 'المصفط الجنوبي', nameEn: 'South Parking' },
+];
+export function kuCollegeId(scope: string | null): string | null {
+  return kuSubPlaces.find(college => college.id === scope ||
+    kuParkingSides.some(side => `${college.id}_${side.id}` === scope))?.id ?? null;
+}
+export function kuParkingSide(scope: string | null): string | null {
+  const college = kuCollegeId(scope);
+  return college ? kuParkingSides.find(side => `${college}_${side.id}` === scope)?.id ?? null : null;
+}
+export function kuParkingScope(college: string | null, side: string | null): string | null {
+  if (!kuSubPlaces.some(item => item.id === college)) return null;
+  return kuParkingSides.some(item => item.id === side) ? `${college}_${side}` : college;
+}
+export const kuParkingScopes = kuSubPlaces.flatMap(college => kuParkingSides.map(side => ({
+  id: `${college.id}_${side.id}`, nameAr: `${college.nameAr} · ${side.nameAr}`,
+  nameEn: `${college.nameEn} · ${side.nameEn}`,
+})));
 export type PaaetInstitution = SubPlace & { campuses: SubPlace[] };
 // Official contact directory, checked 2026-10-03. Existing scope IDs stay stable.
 // Shared directory entries (e.g. Health Sciences boys/girls) are not split by inference.
@@ -68,9 +90,11 @@ export function requiresSubPlace(placeId: string | null): boolean {
   return placeId === 'kuwait_university' || placeId === 'paaet';
 }
 export function validSubPlace(placeId: string | null, id: string | null): boolean {
+  if (placeId === 'kuwait_university') return kuCollegeId(id) !== null;
   return subPlacesFor(placeId).some(item => item.id === id);
 }
 export function scopeReady(placeId: string | null, id: string | null): boolean {
+  if (placeId === 'kuwait_university') return kuParkingSide(id) !== null;
   return Boolean(placeId) && (!requiresSubPlace(placeId) || validSubPlace(placeId, id));
 }
 export function subPlaceName(item: SubPlace, locale: Locale): string {

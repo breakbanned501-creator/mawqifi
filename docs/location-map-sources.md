@@ -159,3 +159,7 @@ Health Sciences is one combined boys/girls directory entry: no fabricated separa
 KU: https://oovpp.ku.edu.kw/ar/node/35526 records north/south **buildings** and campus-wide surface/multistorey parking, not a verified north/south parking choice per college. The existing 11 college scopes remain unchanged; every college uses the General parking-area fallback. No parking-side IDs are fabricated, persisted as gate values or used as filters. Additional reviewed evidence is required before enabling a split. GUST remains the single Mishref campus.
 
 Guidance maps remain removed from the handoff UI. Private matched GPS/system-map navigation is unchanged.
+
+## User-confirmed KU parking sides (2026-10-03)
+
+The user explicitly confirmed North / الشمالي and South / الجنوبي for every college in the existing 11-college list. This supersedes the General fallback in the previous compact selector. Provenance is the user's confirmed local parking structure, not an inferred official map claim. No college labels or legacy zone/gate metadata changed; no guidance-map UI returned. Existing unclassified rows are not assigned a side.

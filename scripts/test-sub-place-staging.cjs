@@ -38,17 +38,21 @@ async function main(){
  for(const c of clients){const s=await data(c.auth.signInAnonymously());ctx.users.push({id:s.user.id,session:{access_token:s.session.access_token,refresh_token:s.session.refresh_token}});save();await data(c.from('users').upsert({id:s.user.id,username:'Sub-place staging test',is_guest:true},{onConflict:'id'}));}
  const [a,b,c]=clients,[A,B,C]=ctx.users;check('Three real anonymous Auth sessions and profiles',ctx.users.length===3);
  const publish=async(cl,place,scope)=>{const id=await data(cl.rpc('publish_parking_handoff',{payload:{place_id:place,sub_place_id:scope,departure_minutes:60},latitude:29.3,longitude:47.9,accuracy_meters:5}));ctx.posts.push(id);save();const p=await data(cl.from('parking_posts').select('*').eq('id',id).single());check('Secure GPS scope saved '+place+'/'+scope,p.sub_place_id===scope&&p.college===null&&p.zone===null&&p.gate===null&&p.location_description===null);return id;};
- const edu=await publish(a,'kuwait_university','education'),arts=await publish(a,'kuwait_university','arts');
+ const edu=await publish(a,'kuwait_university','education_north'),arts=await publish(a,'kuwait_university','arts_north');
  const ardiya=await publish(a,'paaet','basic_education_ardiya'),jahra=await publish(a,'paaet','basic_education_jahra');
  const gust=await publish(a,'gust',null),nursing=await publish(c,'paaet','nursing_shuwaikh');
+ const south=await publish(c,'kuwait_university','education_south');
  current=b;
- for(const [place,scope,pid] of [['kuwait_university','education',edu],['kuwait_university','arts',arts],['paaet','basic_education_ardiya',ardiya],['paaet','basic_education_jahra',jahra],['paaet','nursing_shuwaikh',nursing],['gust',null,gust]]){
+ for(const [place,scope,pid] of [['kuwait_university','education_north',edu],['kuwait_university','arts_north',arts],['paaet','basic_education_ardiya',ardiya],['paaet','basic_education_jahra',jahra],['paaet','nursing_shuwaikh',nursing],['gust',null,gust],['kuwait_university','education_south',south]]){
   const feed=await fetchParkingPosts(place,scope);check('Actual app scoped discovery '+place+'/'+scope,feed.some(p=>p.id===pid)&&feed.every(p=>p.place_id===place&&(place==='gust'||p.sub_place_id===scope)));
   check('No exact coordinates in feed '+place+'/'+scope,feed.every(p=>!('latitude' in p)&&!('longitude'in p)));
  }
- check('Switch KU college hides previous posts',!(await fetchParkingPosts('kuwait_university','arts')).some(p=>p.id===edu));
+ check('Switch KU college hides previous posts',!(await fetchParkingPosts('kuwait_university','arts_north')).some(p=>p.id===edu));
  const before=requests;for(const place of [null,'kuwait_university','paaet'])check('Missing selection returns zero '+place,(await fetchParkingPosts(place)).length===0);check('Missing selection makes no post requests',before===requests);
- const unscoped=await publish(b,'kuwait_university',null);check('Legacy GPS still accepted but excluded from new feed',!(await fetchParkingPosts('kuwait_university','education')).some(p=>p.id===unscoped));
+ check('North excludes South',!(await fetchParkingPosts('kuwait_university','education_north')).some(p=>p.id===south));
+ check('South excludes North',!(await fetchParkingPosts('kuwait_university','education_south')).some(p=>p.id===edu));
+ check('College-only legacy scope has zero discovery',(await fetchParkingPosts('kuwait_university','education')).length===0);
+ const unscoped=await publish(b,'kuwait_university',null);check('Legacy GPS still accepted but excluded from new feed',!(await fetchParkingPosts('kuwait_university','education_north')).some(p=>p.id===unscoped));
  const college=kuColleges[0];const cached=await data(b.from('parking_posts').insert({user_id:B.id,college:college.nameAr,zone:college.zone,gate:college.gates[0],departure_minutes:60,expires_at:new Date(Date.now()+3600000).toISOString()}).select('id,place_id,sub_place_id').single());ctx.posts.push(cached.id);save();check('Cached KU insert remains compatible and proven',cached.place_id==='kuwait_university'&&cached.sub_place_id==='education');
  for(const [place,scope] of [['kuwait_university','basic_education_ardiya'],['paaet','education'],['gust','education'],['paaet','invented_branch']])await deny('Institution rejects invalid scope '+place+'/'+scope,b.rpc('publish_parking_handoff',{payload:{place_id:place,sub_place_id:scope,departure_minutes:60},latitude:29.3,longitude:47.9,accuracy_meters:5}),'parking_posts_valid_sub_place');
  await deny('Scoped arbitrary non-GPS KU insert remains rejected',b.from('parking_posts').insert({user_id:B.id,place_id:'kuwait_university',sub_place_id:'education',handoff:true,departure_minutes:60,expires_at:new Date(Date.now()+3600000).toISOString()}),'PLACE_INVALID_KU_LOCATION');

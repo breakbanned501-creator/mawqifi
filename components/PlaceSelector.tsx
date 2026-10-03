@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useLocale } from './LocaleProvider';
 import { usePlace } from './PlaceProvider';
 import { placeName } from '@/lib/places';
-import { paaetInstitutions, subPlacesFor, subPlaceName } from '@/lib/sub-places';
+import { paaetInstitutions, subPlacesFor, subPlaceName, kuCollegeId, kuParkingSide, kuParkingScope, kuParkingSides } from '@/lib/sub-places';
 
 const selectClass = 'min-h-12 w-full min-w-0 rounded-xl border border-white/15 bg-navy-950 px-3 py-2 text-sm text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300';
 
@@ -49,8 +49,11 @@ export default function PlaceSelector() {
   const { places, place, loading, error, selectPlace, retry, subPlaceId, selectSubPlace } = usePlace();
   const isKU = place?.id === 'kuwait_university';
   const subPlaces = subPlacesFor(place?.id ?? null);
-  const selectedSubPlace = subPlaces.find(item => item.id === subPlaceId);
-  const summary = place ? [placeName(place, locale), selectedSubPlace && subPlaceName(selectedSubPlace, locale)].filter(Boolean).join(' · ') : '';
+  const collegeId = isKU ? kuCollegeId(subPlaceId) : null;
+  const parkingSide = isKU ? kuParkingSide(subPlaceId) : null;
+  const selectedSubPlace = subPlaces.find(item => item.id === (isKU ? collegeId : subPlaceId));
+  const selectedSide = isKU ? kuParkingSides.find(item => item.id === parkingSide) : null;
+  const summary = place ? [placeName(place, locale), selectedSubPlace && subPlaceName(selectedSubPlace, locale), selectedSide && subPlaceName(selectedSide, locale)].filter(Boolean).join(' · ') : '';
   return (
     <section id="place-selector" tabIndex={-1} className="glass-card mb-4 space-y-3 border-cyan-400/20 p-4" dir={dir} aria-label={t('place.title')}>
       <h2 className="text-base font-extrabold text-white">{t('place.title')}</h2>
@@ -68,16 +71,25 @@ export default function PlaceSelector() {
       {isKU && (
         <label className="block space-y-1 text-sm font-semibold">
           <span>{t('subPlace.kuTitle')}</span>
-          <select className={selectClass} value={selectedSubPlace?.id ?? ''} onChange={event => selectSubPlace(event.target.value || null)}>
+          <select className={selectClass} value={selectedSubPlace?.id ?? ''} onChange={event => selectSubPlace(kuParkingScope(event.target.value || null, parkingSide))}>
             <option value="">{t('subPlace.choose')}</option>
             {subPlaces.map(item => <option key={item.id} value={item.id}>{subPlaceName(item, locale)}</option>)}
+          </select>
+        </label>
+      )}
+      {isKU && selectedSubPlace && (
+        <label className="block space-y-1 text-sm font-semibold">
+          <span>{t('subPlace.kuParkingTitle')}</span>
+          <select className={selectClass} value={parkingSide ?? ''} onChange={event => selectSubPlace(kuParkingScope(collegeId, event.target.value || null))}>
+            <option value="">{t('subPlace.choose')}</option>
+            {kuParkingSides.map(item => <option key={item.id} value={item.id}>{subPlaceName(item, locale)}</option>)}
           </select>
         </label>
       )}
       {place?.id === 'paaet' && <PaaetSelection key={place.id} />}
       <div className="rounded-xl bg-white/5 px-3 py-2 text-sm" aria-live="polite">
         {summary ? <p className="break-words font-semibold text-cyan-200">{summary}</p> : <p className="text-white/60">{t('place.helper')}</p>}
-        {isKU && selectedSubPlace && <p className="mt-1 text-xs text-white/60">{t('subPlace.parkingArea')}: {t('subPlace.general')}</p>}
+        {isKU && selectedSubPlace && !selectedSide && <p className="mt-1 text-xs text-white/60">{t('subPlace.kuParkingHelper')}</p>}
         {place && !selectedSubPlace && place.id !== 'gust' && <p className="mt-1 text-xs text-white/60">{t(isKU ? 'subPlace.kuHelper' : 'subPlace.paaetHelper')}</p>}
       </div>
     </section>

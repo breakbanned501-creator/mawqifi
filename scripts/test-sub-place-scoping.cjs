@@ -69,6 +69,7 @@ async function main() {
     await db.exec(migration);
     const preservedBefore=(await db.query("select to_jsonb(p) r from public.parking_posts p order by id")).rows;
     await db.exec(fs.readFileSync(path.join(root,"supabase/migrations/20261003113052_expand_verified_paaet_scopes.sql"),"utf8"));
+    await db.exec(fs.readFileSync(path.join(root,"supabase/migrations/20261003120418_add_ku_parking_side_scopes.sql"),"utf8"));
     check(JSON.stringify(preservedBefore)===JSON.stringify((await db.query("select to_jsonb(p) r from public.parking_posts p order by id")).rows),"Catalogue migration preserves all rows");
     const after=(await db.query("select (to_jsonb(p)-'updated_at'-'sub_place_id') r from public.parking_posts p order by id")).rows;
     check(JSON.stringify(before)===JSON.stringify(after),'All original post fields preserved');
@@ -77,13 +78,13 @@ async function main() {
     check((await db.query('select sub_place_id from public.parking_posts where id=$1',[unknown])).rows[0].sub_place_id===null,'Unclassified GPS row remains NULL');
     check((await db.query("select column_default,is_nullable from information_schema.columns where table_name='parking_posts' and column_name='sub_place_id'")).rows.every(r=>r.column_default===null&&r.is_nullable==='YES'),'Nullable scope without default');
     await login(C);
-    for(const [place,scope] of [['kuwait_university','education'],['kuwait_university','arts'],['paaet','basic_education_ardiya'],['paaet','basic_education_jahra'],['paaet','nursing_shuwaikh'],['gust',null], ...['health_sciences_shuwaikh','technological_studies_shuwaikh','business_studies_ardiya','communications_navigation_shuwaikh','energy_shuwaikh','industrial_shuwaikh','industrial_sabah_al_salem','nursing_institute_shuwaikh','administrative_services_hawally_girls','administrative_services_hawally_boys','construction_south_sabahiya','vocational_sharq'].map(id=>['paaet',id])]){
+    for(const [place,scope] of [['kuwait_university','education'],['kuwait_university','arts'],['paaet','basic_education_ardiya'],['paaet','basic_education_jahra'],['paaet','nursing_shuwaikh'],['gust',null], ...['education','arts','science','administrative_sciences','life_sciences','engineering_petroleum','law','sharia','social_sciences','medicine','pharmacy'].flatMap(college=>['north','south'].map(side=>['kuwait_university',college+'_'+side])), ...['health_sciences_shuwaikh','technological_studies_shuwaikh','business_studies_ardiya','communications_navigation_shuwaikh','energy_shuwaikh','industrial_shuwaikh','industrial_sabah_al_salem','nursing_institute_shuwaikh','administrative_services_hawally_girls','administrative_services_hawally_boys','construction_south_sabahiya','vocational_sharq'].map(id=>['paaet',id])]){
       await db.exec('begin');const pid=await publish(place,scope);
       check((await db.query('select sub_place_id from public.parking_posts where id=$1',[pid])).rows[0].sub_place_id===scope,'GPS scope persisted '+place+'/'+scope);
       check((await db.query('select post_id from public.parking_post_locations where post_id=$1',[pid])).rows.length===1,'GPS private row atomic '+place+'/'+scope);
       await db.exec('rollback');
     }
-    for(const [place,scope] of [['kuwait_university','basic_education_ardiya'],['paaet','education'],['gust','education'],['paaet','invented_branch'],['kuwait_university','']]){
+    for(const [place,scope] of [['kuwait_university','basic_education_ardiya'],['paaet','education'],['gust','education'],['paaet','invented_branch'],['kuwait_university',''],['kuwait_university','education_east'],['paaet','education_north'],['gust','education_south']]){
       await reject(publish(place,scope),'parking_posts_valid_sub_place');
     }
     await db.exec('reset role');

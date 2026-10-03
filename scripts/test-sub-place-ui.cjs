@@ -5,7 +5,9 @@ function load(file,modules={}){const code=ts.transpileModule(fs.readFileSync(fil
 const uni=load('lib/university.ts'),scope=load('lib/sub-places.ts',{'./university':uni}),i18n=load('lib/i18n/index.ts');
 check('Exactly existing 11 KU colleges',scope.kuSubPlaces.length===11&&scope.kuSubPlaces.every((p,i)=>p.nameAr===uni.kuColleges[i].nameAr&&p.nameEn===uni.kuColleges[i].nameEn));
 check('Stable IDs are distinct',new Set(scope.kuSubPlaces.map(p=>p.id)).size===11&&scope.kuSubPlaces.every(p=>p.id));
-check('Only three documented PAAET branches',scope.paaetSubPlaces.map(p=>p.id).join(',')==='basic_education_ardiya,basic_education_jahra,nursing_shuwaikh');
+check('Full official contact-directory educational set',scope.paaetInstitutions.length===12&&scope.paaetSubPlaces.length===15);
+check('Existing PAAET IDs preserved', ['basic_education_ardiya','basic_education_jahra','nursing_shuwaikh'].every(id=>scope.validSubPlace('paaet',id)));
+check('Every PAAET leaf belongs to one institution', new Set(scope.paaetSubPlaces.map(p=>p.id)).size===15&&scope.paaetInstitutions.every(p=>p.campuses.length));
 check('GUST has no sub-place',scope.subPlacesFor('gust').length===0&&scope.scopeReady('gust',null));
 for(const place of [null,'kuwait_university','paaet'])check('Missing scope gated '+place,!scope.scopeReady(place,null));
 check('KU rejects PAAET scope',!scope.scopeReady('kuwait_university','basic_education_ardiya'));
@@ -26,10 +28,11 @@ for(const locale of ['ar','en'])for(const place of places){
  const html=renderToStaticMarkup(React.createElement(component));
  check('Selector direction '+locale+'/'+place.id,html.includes('dir="'+(locale==='ar'?'rtl':'ltr')+'"'));
  check('Selectors do not invoke keyboard '+locale+'/'+place.id,!/<input|<textarea/.test(html));
+ check('Compact progressive controls '+locale+'/'+place.id,(html.match(/<select/g)||[]).length <= 3 && !html.includes('aria-pressed'));
  const prefix=place.id==='kuwait_university'?'ku':place.id==='paaet'?'paaet':null;
  check('Correct second-level selector '+locale+'/'+place.id,prefix?html.includes(i18n.translate(locale,'subPlace.'+prefix+'Title')):!html.includes(i18n.translate(locale,'subPlace.kuTitle'))&&!html.includes(i18n.translate(locale,'subPlace.paaetTitle')));
  if(prefix){chosen=scope.subPlacesFor(place.id)[0].id;const selected=renderToStaticMarkup(React.createElement(component));check('Selected scope label interpolates '+locale+'/'+place.id,!selected.includes('{name}')&&selected.includes(scope.subPlaceName(scope.subPlacesFor(place.id)[0],locale)));}
 }
-const migration=fs.readFileSync('supabase/migrations/20261003004823_add_parking_sub_place_scope.sql','utf8');
+const migration=fs.readFileSync('supabase/migrations/20261003113052_expand_verified_paaet_scopes.sql','utf8');
 check('UI IDs match migration validation',scope.kuSubPlaces.concat(scope.paaetSubPlaces).every(p=>migration.includes("'"+p.id+"'")));
 console.log('Sub-place UI/persistence assertions: '+assertions);

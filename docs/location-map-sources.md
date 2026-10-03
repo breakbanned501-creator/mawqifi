@@ -132,3 +132,30 @@ Jahra/Shuwaikh destination-fetch limitations remain documented above.
 GUST remains the single documented Mishref campus, with no sub-place selector.
 These selections scope discovery, not precise GPS or institution membership.
 Guidance-map UI remains removed; no new maps, imagery, gates or zones were added.
+
+## Compact selector and verified catalogue update (2026-10-03)
+
+This supersedes the earlier three-site PAAET subset. The complete **educational-location list in the official contact directory** is now represented: 5 college groups and 7 institute groups, 15 location entries. The two industrial institutes are grouped for selection, with their explicitly named sites retained. Headquarters and future projects are excluded. This does not assert that every possible PAAET facility is listed by the directory.
+
+Source: https://www.paaet.edu.kw/ar/call/ (retrieved 2026-10-03), entries from Basic Education through Vocational Training. Cross-check: https://www.paaet.edu.kw/ar/الكليات-والمعاهد/. Labels and locations are metadata only; no imagery, copied maps or invented gates.
+
+| College / institute | Officially named sites |
+|---|---|
+| كلية التربية الأساسية / Basic Education | العارضية / Ardiya; الجهراء / Jahra |
+| كلية التمريض / Nursing College | الشويخ التعليمية / Shuwaikh Educational |
+| كلية العلوم الصحية / Health Sciences | الشويخ التعليمية — بنات وبنين / Shuwaikh Educational — girls and boys |
+| كلية الدراسات التكنولوجية / Technological Studies | الشويخ التعليمية / Shuwaikh Educational |
+| كلية الدراسات التجارية / Business Studies | العارضية / Ardiya |
+| المعهد العالي للاتصالات والملاحة / Higher Institute of Communications and Navigation | الشويخ التعليمية / Shuwaikh Educational |
+| المعهد العالي للطاقة / Higher Institute of Energy | الشويخ التعليمية / Shuwaikh Educational |
+| المعهد الصناعي / Industrial Training Institute | الشويخ التعليمية / Shuwaikh Educational; صباح السالم / Sabah Al-Salem |
+| معهد التمريض / Nursing Institute | الشويخ التعليمية — شارع الجاحظ / Shuwaikh Educational — Al-Jahiz Street |
+| المعهد العالي للخدمات الإدارية / Higher Institute of Administrative Services | حولي — بنات — شارع 133 / Hawally — girls — Street 133; حولي — بنين — شارع بيروت / Hawally — boys — Beirut Street |
+| معهد التدريب الإنشائي / Construction Training Institute | جنوب الصباحية / South Sabahiya |
+| معهد التدريب المهني / Vocational Training Institute | شرق / Sharq |
+
+Health Sciences is one combined boys/girls directory entry: no fabricated separate branches. Administrative Services has two separately addressed entries and remains two scopes. Existing Basic Education and Nursing IDs are unchanged.
+
+KU: https://oovpp.ku.edu.kw/ar/node/35526 records north/south **buildings** and campus-wide surface/multistorey parking, not a verified north/south parking choice per college. The existing 11 college scopes remain unchanged; every college uses the General parking-area fallback. No parking-side IDs are fabricated, persisted as gate values or used as filters. Additional reviewed evidence is required before enabling a split. GUST remains the single Mishref campus.
+
+Guidance maps remain removed from the handoff UI. Private matched GPS/system-map navigation is unchanged.

@@ -119,3 +119,16 @@ the physical iPhone during manual TestFlight validation.
 
 ## Parking handoff redesign (2026-10-02)
 Guidance-map cards and galleries were removed from publishing and public navigation. Sources remain provenance documentation. Real matched parking locations use private system-map navigation; institution maps are not used to infer a parking stall.
+
+## College/branch scoping (2026-10-03)
+
+The no-typing GPS handoff now uses a tap-only sub-place selector. KU reuses all
+11 labels in lib/university.ts; no gates/zones are inferred during GPS publishing.
+PAAET supports only the three directory-confirmed locations recorded above:
+Basic Education — Ardiya, Basic Education — Jahra, and Nursing — Shuwaikh
+Educational. This is an incomplete subset; other PAAET colleges/institutes/sites
+remain unsupported until their labels and locations are reviewed. Existing
+Jahra/Shuwaikh destination-fetch limitations remain documented above.
+GUST remains the single documented Mishref campus, with no sub-place selector.
+These selections scope discovery, not precise GPS or institution membership.
+Guidance-map UI remains removed; no new maps, imagery, gates or zones were added.

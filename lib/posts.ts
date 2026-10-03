@@ -2,6 +2,7 @@ import { getSupabase } from './supabase';
 import { parseBadgeKeys } from './badges';
 import type { ParkingPost } from './types';
 import { fetchBlockedUsers } from './safety';
+import { requiresSubPlace, scopeReady } from './sub-places';
 
 type UserRow = {
   username: string;
@@ -12,6 +13,7 @@ type ParkingPostRow = {
   id: string;
   user_id: string;
   place_id: string | null;
+  sub_place_id: string | null;
   location_description: string | null;
   place?: { name_ar: string; name_en: string } | { name_ar: string; name_en: string }[] | null;
   college: string | null;
@@ -31,6 +33,7 @@ function mapRow(row: ParkingPostRow): ParkingPost {
     id: row.id,
     user_id: row.user_id,
     place_id: row.place_id,
+    sub_place_id: row.sub_place_id,
     location_description: row.location_description,
     place: Array.isArray(row.place) ? row.place[0] ?? null : row.place ?? null,
     college: row.college,
@@ -55,18 +58,19 @@ export function filterActivePosts(posts: ParkingPost[]): ParkingPost[] {
   return posts.filter(isPostActive);
 }
 
-export async function fetchParkingPosts(placeId: string | null): Promise<ParkingPost[]> {
+export async function fetchParkingPosts(placeId: string | null, subPlaceId: string | null = null): Promise<ParkingPost[]> {
   const supabase = getSupabase();
 
-  if (!placeId) return [];
+  if (!scopeReady(placeId, subPlaceId)) return [];
   const now = new Date().toISOString();
-  const { data, error } = await supabase
+  let query = supabase
     .from('parking_posts')
     .select(
       `
       id,
       user_id,
       place_id,
+      sub_place_id,
       location_description,
       place:places(name_ar,name_en),
       college,
@@ -84,6 +88,8 @@ export async function fetchParkingPosts(placeId: string | null): Promise<Parking
     .eq('status', 'active')
     .gt('expires_at', now)
     .order('created_at', { ascending: false });
+  if (requiresSubPlace(placeId)) query = query.eq('sub_place_id', subPlaceId!);
+  const { data, error } = await query;
 
   if (error) throw error;
   const blocked = new Set((await fetchBlockedUsers()).map(row => row.blocked_id));
@@ -124,6 +130,7 @@ export async function createParkingPost(input: CreateParkingPostInput): Promise<
       id,
       user_id,
       place_id,
+      sub_place_id,
       location_description,
       place:places(name_ar,name_en),
       college,
@@ -152,6 +159,7 @@ export async function fetchParkingPostById(postId: string): Promise<ParkingPost 
       id,
       user_id,
       place_id,
+      sub_place_id,
       location_description,
       place:places(name_ar,name_en),
       college,

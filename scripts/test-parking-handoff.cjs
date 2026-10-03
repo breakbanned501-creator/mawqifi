@@ -56,7 +56,7 @@ async function main() {
     const existingChat=(await db.query('insert into public.conversations(post_id,owner_id,requester_id) values($1,$2,$3) returning id',[existing,A,B])).rows[0].id;
     await db.query("insert into public.messages(conversation_id,sender_id,type,text) values($1,$2,'text','Existing history')",[existingChat,B]);
     await db.exec('reset role');
-    for(const name of fs.readdirSync(path.join(root,'supabase/migrations')).filter(n=>n.startsWith('20261002')).sort()) await db.exec(fs.readFileSync(path.join(root,'supabase/migrations',name),'utf8'));
+    for(const name of fs.readdirSync(path.join(root,'supabase/migrations')).filter(n=>/^2026100[23]/.test(n)).sort()) await db.exec(fs.readFileSync(path.join(root,'supabase/migrations',name),'utf8'));
 
 
     // Roll back successful boundary fixtures so they don't consume post-rate capacity.

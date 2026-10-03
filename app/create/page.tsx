@@ -18,7 +18,7 @@ import { safetyErrorKey } from '@/lib/safety';
 export default function CreatePage() {
   const router = useRouter();
   const { userId } = useAuth();
-  const { place } = usePlace();
+  const { place, subPlaceId, ready } = usePlace();
   const placeId = place?.id ?? null;
   const { dir, t } = useLocale();
   const [location, setLocation] = useState<ParkingLocation | null>(null);
@@ -34,7 +34,8 @@ export default function CreatePage() {
     const version = ++request.current;
     setLocation(null);
     setLocationError(false);
-    if (!placeId || !userId) return;
+    setLocating(false);
+    if (!ready || !placeId || !userId) return;
     setLocating(true);
     try {
       const next = await currentParkingLocation();
@@ -44,14 +45,14 @@ export default function CreatePage() {
     } finally {
       if (version === request.current) setLocating(false);
     }
-  }, [placeId, userId]);
+  }, [placeId, ready, userId]);
 
   useEffect(() => {
     setError(null);
     void locate();
     const invalidate = () => { request.current++; };
     return invalidate;
-  }, [locate]);
+  }, [locate, subPlaceId]);
 
   useEffect(() => {
     if (!published) return;
@@ -60,14 +61,14 @@ export default function CreatePage() {
   }, [published, router]);
 
   const publish = async () => {
-    if (publishLock.current || !userId || !placeId || !location) return;
+    if (publishLock.current || !ready || !userId || !placeId || !location) return;
     publishLock.current = true;
     setLoading(true);
     setError(null);
     try {
       // Same atomic private-GPS RPC. No invented college, gate, or description.
       const { data: postId, error: publishError } = await getSupabase().rpc('publish_parking_handoff', {
-        payload: { place_id: placeId, departure_minutes: 10 },
+        payload: { place_id: placeId, sub_place_id: subPlaceId, departure_minutes: 10 },
         latitude: location.latitude,
         longitude: location.longitude,
         accuracy_meters: location.accuracy_meters,
@@ -106,7 +107,7 @@ export default function CreatePage() {
         {!loading && !published && <PlaceSelector />}
         {error && <ErrorBanner message={error} />}
         {locationError && <ErrorBanner message={t('handoff.locationRequired')} onRetry={() => void locate()} />}
-        {!place ? <p className="glass-card p-5 text-center text-sm">{t('place.empty')}</p> : (
+        {!ready ? <p className="glass-card p-5 text-center text-sm">{t(!place ? 'place.empty' : placeId === 'kuwait_university' ? 'subPlace.kuHelper' : 'subPlace.paaetHelper')}</p> : (
           <section className="glass-card space-y-4 p-5 text-center" aria-live="polite">
             <MapPin className="mx-auto h-8 w-8 text-cyan-300" aria-hidden="true" />
             {locating ? <p role="status">{t('common.loading')}</p> : location ? (

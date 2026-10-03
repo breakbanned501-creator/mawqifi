@@ -13,6 +13,7 @@ import { useLocale } from '@/components/LocaleProvider';
 import { useNotifications } from '@/components/NotificationProvider';
 import PlaceSelector from '@/components/PlaceSelector';
 import { usePlace } from '@/components/PlaceProvider';
+import { requiresSubPlace } from '@/lib/sub-places';
 import ParkingCard from '@/components/ParkingCard';
 import WhatsAppChannelCta from '@/components/WhatsAppChannelCta';
 import { useAuth } from '@/components/AuthProvider';
@@ -23,7 +24,7 @@ import type { ParkingPost } from '@/lib/types';
 export default function Home() {
   const router = useRouter();
   const { userId } = useAuth();
-  const { place } = usePlace();
+  const { place, subPlaceId, ready } = usePlace();
   const placeId = place?.id ?? null;
   const refreshVersion = useRef(0);
   const { t, dir, formatNumber } = useLocale();
@@ -34,28 +35,28 @@ export default function Home() {
 
   const refresh = useCallback(async () => {
     const version = ++refreshVersion.current;
-    if (!userId || !placeId) { setPosts([]); setIsLoading(false); return; }
+    if (!userId || !placeId || !ready) { setPosts([]); setIsLoading(false); return; }
     setError(null);
     try {
-      const nextPosts = await fetchParkingPosts(placeId);
+      const nextPosts = await fetchParkingPosts(placeId, subPlaceId);
       if (version === refreshVersion.current) setPosts(filterActivePosts(nextPosts));
     } catch {
       if (version === refreshVersion.current) setError(t('home.loadError'));
     } finally {
       if (version === refreshVersion.current) setIsLoading(false);
     }
-  }, [t, userId, placeId]);
+  }, [t, userId, placeId, subPlaceId, ready]);
 
   useEffect(() => {
     setPosts([]);
-    setIsLoading(Boolean(placeId));
+    setIsLoading(ready);
     void refresh();
     const invalidate = () => { refreshVersion.current++; };
     return invalidate;
-  }, [refresh, placeId]);
+  }, [refresh, placeId, subPlaceId, ready]);
 
   useEffect(() => {
-    if (!userId || !placeId) return;
+    if (!userId || !placeId || !ready) return;
 
     const supabase = getSupabase();
     const channel = supabase
@@ -71,32 +72,33 @@ export default function Home() {
       clearInterval(interval);
       void supabase.removeChannel(channel);
     };
-  }, [userId, refresh, placeId]);
+  }, [userId, refresh, placeId, ready]);
 
   const handlePostExpired = useCallback((postId: string) => {
     setPosts((current) => current.filter((post) => post.id !== postId));
     void expireStalePosts().catch(() => {});
   }, []);
 
-  const activePosts = useMemo(() => filterActivePosts(posts).filter(post => post.place_id === placeId), [posts, placeId]);
+  const activePosts = useMemo(() => filterActivePosts(posts).filter(post => ready && post.place_id === placeId && (!requiresSubPlace(placeId) || post.sub_place_id === subPlaceId)), [posts, placeId, subPlaceId, ready]);
 
 
   const availablePosts = activePosts.filter(post => post.user_id !== userId);
-  const selectedPlace = useRef(placeId);
-  selectedPlace.current = placeId;
+  const scopeKey = JSON.stringify([placeId, subPlaceId]);
+  const selectedScope = useRef(scopeKey);
+  selectedScope.current = scopeKey;
   const actionLock = useRef(false);
   const [busy, setBusy] = useState(false);
   const [showSpots, setShowSpots] = useState(false);
-  useEffect(() => { setShowSpots(false); }, [placeId]);
+  useEffect(() => { setShowSpots(false); }, [placeId, subPlaceId]);
 
   const claim = async (post: ParkingPost) => {
-    if (!userId || post.place_id !== selectedPlace.current) return;
+    if (!userId || !ready || JSON.stringify([post.place_id, requiresSubPlace(placeId) ? post.sub_place_id : null]) !== selectedScope.current) return;
     const { conversation } = await getOrCreateConversation(post.id, userId);
     router.push(getMawqifiPostHref(post.id, conversation.id));
   };
 
   const needSpot = async (post?: ParkingPost) => {
-    if (!placeId) {
+    if (!ready || !placeId) {
       const selector = document.getElementById('place-selector');
       selector?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       selector?.focus();
@@ -112,8 +114,9 @@ export default function Home() {
       } else {
         // Fetch again at the tap, rather than auto-claiming from a stale feed.
         const selected = placeId;
-        const latest = filterActivePosts(await fetchParkingPosts(selected)).filter(item => item.place_id === selected);
-        if (selected !== selectedPlace.current) return;
+        const selectedKey = scopeKey;
+        const latest = filterActivePosts(await fetchParkingPosts(selected, subPlaceId)).filter(item => item.place_id === selected);
+        if (selectedKey !== selectedScope.current) return;
         setPosts(latest);
         const choices = latest.filter(item => item.user_id !== userId);
         setShowSpots(true);
@@ -187,10 +190,10 @@ export default function Home() {
             <PlusCircle className="h-6 w-6"/>{t('handoff.leave')}
           </Link>
         </div>
-        {!place&&<p className="glass-card mb-5 p-5 text-center text-sm leading-7">{t('place.empty')}</p>}
+        {!ready&&<p className="glass-card mb-5 p-5 text-center text-sm leading-7">{t(!place ? 'place.empty' : placeId === 'kuwait_university' ? 'subPlace.kuHelper' : 'subPlace.paaetHelper')}</p>}
 
 
-        {place && showSpots && (
+        {ready && showSpots && (
           <section data-tutorial-target="feed" className="mb-5 space-y-3" aria-live="polite">
             {availablePosts.length === 0 ? (
               <p className="glass-card p-6 text-center font-bold">{t('handoff.noSpots')}</p>

@@ -11,6 +11,7 @@ export type ParkingPost = {
   id: string;
   user_id: string;
   place_id: string | null;
+  sub_place_id?: string | null;
   location_description: string | null;
   place?: { name_ar: string; name_en: string } | null;
   college: string | null;

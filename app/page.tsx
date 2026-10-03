@@ -104,7 +104,10 @@ export default function Home() {
   const actionLock = useRef(false);
   const [busy, setBusy] = useState(false);
   const [showSpots, setShowSpots] = useState(false);
-  useEffect(() => { setShowSpots(false); }, [placeId, subPlaceId]);
+  const [noSpotToast, setNoSpotToast] = useState(0);
+  const hideNoSpotToast = useCallback(() => setNoSpotToast(0), []);
+  const hidePublishedToast = useCallback(() => setRecentPublish(false), []);
+  useEffect(() => { setShowSpots(false); setNoSpotToast(0); }, [placeId, subPlaceId]);
 
   const claim = async (post: ParkingPost) => {
     if (!userId || !ready || JSON.stringify([post.place_id, requiresSubPlace(placeId) ? post.sub_place_id : null]) !== selectedScope.current) return;
@@ -125,6 +128,7 @@ export default function Home() {
     setError(null);
     try {
       if (post) {
+        setNoSpotToast(0);
         await claim(post);
       } else {
         // Fetch again at the tap, rather than auto-claiming from a stale feed.
@@ -134,8 +138,14 @@ export default function Home() {
         if (selectedKey !== selectedScope.current) return;
         setPosts(latest);
         const choices = latest.filter(item => item.user_id !== userId);
-        setShowSpots(true);
-        if (choices.length === 1) await claim(choices[0]);
+        setShowSpots(choices.length > 0);
+        if (choices.length === 0) {
+          setRecentPublish(false);
+          setNoSpotToast(current => current + 1);
+        } else {
+          setNoSpotToast(0);
+          if (choices.length === 1) await claim(choices[0]);
+        }
       }
     } catch (failure) {
       setError(t(safetyErrorKey(failure)));
@@ -189,7 +199,9 @@ export default function Home() {
           </div>
         </header>
 
-        <Toast message={t('handoff.published')} visible={recentPublish} onHide={()=>setRecentPublish(false)} />
+        <Toast message={t('handoff.published')} visible={recentPublish && noSpotToast === 0} onHide={hidePublishedToast} />
+        <Toast message={t('handoff.noSpots')} visible={noSpotToast > 0} onHide={hideNoSpotToast}
+          duration={3000} resetKey={noSpotToast} variant="info" />
         <PlaceSelector />
 
         {error && place && (
@@ -209,19 +221,13 @@ export default function Home() {
         {!ready&&<p className="glass-card mb-5 p-5 text-center text-sm leading-7">{t(!place ? 'place.empty' : placeId === 'kuwait_university' ? 'subPlace.kuHelper' : 'subPlace.paaetHelper')}</p>}
 
 
-        {ready && showSpots && (
+        {ready && showSpots && availablePosts.length > 0 && (
           <section data-tutorial-target="feed" className="mb-5 space-y-3" aria-live="polite">
-            {availablePosts.length === 0 ? (
-              <p className="glass-card p-6 text-center font-bold">{t('handoff.noSpots')}</p>
-            ) : (
-              <>
-                <h2 className="text-lg font-bold">{t('handoff.chooseSpot')}</h2>
-                {availablePosts.map(post => (
-                  <ParkingCard key={post.id} compact post={post} currentUserId={userId!} busy={busy}
-                    onClaim={() => void needSpot(post)} onExpire={handlePostExpired} />
-                ))}
-              </>
-            )}
+            <h2 className="text-lg font-bold">{t('handoff.chooseSpot')}</h2>
+            {availablePosts.map(post => (
+              <ParkingCard key={post.id} compact post={post} currentUserId={userId!} busy={busy}
+                onClaim={() => void needSpot(post)} onExpire={handlePostExpired} />
+            ))}
           </section>
         )}
         {activePosts.filter(post => post.user_id === userId).map(post => (

@@ -20,9 +20,9 @@ const cairo = Cairo({
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://mawqifi.com'),
-  title: 'موقفي - Mawqifi | مشاركة مواقف جامعة الكويت',
-  description: 'تطبيق مجتمعي لمشاركة المواقف المتاحة في جامعة الكويت — الشدادية. ساعد زملاءك الطلاب في العثور على مواقف وتنسيق الوصول بسهولة.',
-  keywords: ['موقفي', 'جامعة الكويت', 'مواقف', 'شدادية', 'طلاب', 'مشاركة مواقف', 'Kuwait University', 'parking'],
+  title: 'موقفي - Mawqifi | مشاركة المواقف بين المستخدمين',
+  description: 'تطبيق مجتمعي لتنسيق مشاركة المواقف بين المستخدمين في جهات وأماكن متعددة.',
+  keywords: ['موقفي', 'مواقف', 'مشاركة مواقف', 'تنسيق مجتمعي', 'Mawqifi', 'community parking', 'parking'],
   authors: [{ name: 'Eid Althaydi' }],
   creator: 'Eid Althaydi',
   publisher: 'Mawqifi',
@@ -66,22 +66,22 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'ar_KW',
     url: 'https://mawqifi.com',
-    title: 'موقفي - Mawqifi | مشاركة مواقف جامعة الكويت',
-    description: 'تطبيق مجتمعي لمشاركة المواقف المتاحة في جامعة الكويت — الشدادية',
+    title: 'موقفي - Mawqifi | مشاركة المواقف بين المستخدمين',
+    description: 'تطبيق مجتمعي لتنسيق مشاركة المواقف بين المستخدمين في جهات وأماكن متعددة.',
     siteName: 'موقفي',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'موقفي - تطبيق مشاركة مواقف جامعة الكويت',
+        alt: 'موقفي - تطبيق مجتمعي لمشاركة المواقف',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'موقفي - Mawqifi | مشاركة مواقف جامعة الكويت',
-    description: 'تطبيق مجتمعي لمشاركة المواقف المتاحة في جامعة الكويت — الشدادية',
+    title: 'موقفي - Mawqifi | مشاركة المواقف بين المستخدمين',
+    description: 'تطبيق مجتمعي لتنسيق مشاركة المواقف بين المستخدمين في جهات وأماكن متعددة.',
     images: ['/og-image.png'],
   },
   robots: {

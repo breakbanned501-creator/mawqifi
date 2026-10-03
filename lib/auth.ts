@@ -39,7 +39,7 @@ export async function ensureUserProfile(userId: string, isGuest: boolean): Promi
 
   const { data: inserted, error: insertError } = await supabase
     .from('users')
-    .insert({ id: userId, username: 'طالب', is_guest: isGuest })
+    .insert({ id: userId, username: 'مستخدم', is_guest: isGuest })
     .select('id, username, avatar_url')
     .single();
 

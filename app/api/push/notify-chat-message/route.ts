@@ -117,7 +117,7 @@ export async function POST(request: Request) {
       excludeUserId: user.id,
       notificationType: 'chat_message',
       payloadForLocale: (locale) => {
-        const senderName = sender?.username?.trim() || (locale === 'ar' ? 'طالب' : 'Student');
+        const senderName = sender?.username?.trim() || (locale === 'ar' ? 'مستخدم' : 'User');
         return {
           title: locale === 'ar' ? 'رسالة جديدة 💬' : 'New message 💬',
           body: getNotificationBody(message, senderName, locale),

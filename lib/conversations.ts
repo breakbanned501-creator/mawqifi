@@ -57,7 +57,7 @@ function mapPost(row: ParkingPostRow): ParkingPost {
     departure_minutes: row.departure_minutes,
     expires_at: row.expires_at,
     status: row.status,
-    username: user?.username ?? 'طالب',
+    username: user?.username ?? 'مستخدم',
     badges: parseBadgeKeys(user?.user_badges),
     created_at: row.created_at,
   };

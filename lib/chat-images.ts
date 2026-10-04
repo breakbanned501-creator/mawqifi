@@ -23,7 +23,9 @@ export function authenticatedChatImageReference(path: string): string {
 /** Authenticated download, never a bearer-less public/signed URL. Blob stays in memory. */
 export async function downloadChatImage(reference: string, conversationId: string): Promise<Blob> {
   const path = chatImagePath(reference, conversationId);
-  const { data, error } = await getSupabase().storage.from(BUCKET).download(path);
+  // Force a fresh permission check rather than reusing a previously authorized
+  // CDN response after account deletion or another access change.
+  const { data, error } = await getSupabase().storage.from(BUCKET).download(path, { cacheNonce: crypto.randomUUID() }, { cache: 'no-store' });
   if (error || !data) throw error ?? new Error('Image unavailable');
   return data;
 }

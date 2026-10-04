@@ -56,6 +56,7 @@ export async function getRequestAuthentication(request: Request): Promise<Reques
   }
 
   const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
     auth: { autoRefreshToken: false, persistSession: false },
   });
   const { data, error } = await supabase.auth.getUser(token);
@@ -67,6 +68,13 @@ export async function getRequestAuthentication(request: Request): Promise<Reques
     };
   }
 
+  // Auth deletion does not invalidate every outstanding JWT. Also reject a
+  // disabled profile while server-side Storage/Auth cleanup is being retried.
+  const { data: profile, error: profileError } = await supabase.from('users')
+    .select('id, deleted_at').eq('id', data.user.id).maybeSingle();
+  if (profileError || !profile || profile.deleted_at) {
+    return { user: null, state: 'rejected_bearer', errorCode: 'ACCOUNT_UNAVAILABLE' };
+  }
   return { user: data.user, state: 'authenticated' };
 }
 

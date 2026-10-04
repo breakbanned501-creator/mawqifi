@@ -19,6 +19,7 @@ export default function TermsPage() {
     <main className="page-with-chrome min-h-screen px-4 pt-6">
       <div className="mx-auto max-w-md space-y-6">
         <PageHeader title={t('terms.title')} subtitle={t('terms.subtitle')} backHref="/" />
+        <section className="glass-card space-y-3 p-5"><h2 className="text-lg font-extrabold">{t('deletion.policyTitle')}</h2><p className="text-sm leading-7 text-white/70">{t('deletion.policyBody')}</p></section>
 
         <div className="space-y-4">
           <section className="glass-card space-y-3 p-5"><h2 className="font-bold">{t("handoff.location")}</h2><p className="text-sm leading-7 text-white/70">{t("privacy.locationBody")}</p><p className="text-sm leading-7 text-white/70">{t("privacy.messagesBody")}</p></section>

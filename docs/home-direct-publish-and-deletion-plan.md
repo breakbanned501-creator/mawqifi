@@ -27,7 +27,9 @@ The request explicitly requires a retention plan before destructive changes if t
 
 Calling Auth admin deletion directly is therefore not safe: it can fail on retained claim/post references or destroy another participant's history through profile cascades. No delete-account endpoint, button, destructive migration, Auth deletion or storage cleanup has been applied. No claim that deletion is available has been added to Privacy/Terms.
 
-## Proposed minimal retention plan — awaiting user decision
+## Approved minimal retention plan
+
+The user approved this plan on 2026-10-04. Its implementation, live staging tests, retention details and later production rollout requirements are recorded in [account-deletion-retention.md](account-deletion-retention.md). The original pre-approval inspection and Home verification below remain as historical context.
 
 1. A discoverable destructive Settings action with Arabic/English permanent-deletion confirmation. Anonymous users use the same flow; no email linking requirement.
 2. An exact-origin/Bearer-authenticated server API verifies the current user through Supabase Auth. It accepts no target user ID. Service credentials remain server-only. Native uses the configured staging API origin.
@@ -39,11 +41,11 @@ Calling Auth admin deletion directly is therefore not safe: it can fail on retai
 8. Make deletion retryable across DB, Storage and Auth phases. Block access before cleanup, and only show completed deletion after credential removal succeeds. Supabase Storage ownership may prevent Auth deletion until owned objects are handled; test this against the staging API, not a database-only approximation.
 9. Validate the migration and reverse/forward recovery approach in disposable PostgreSQL, then staging only. Test real A/B/C JWTs, old-token rejection, self-only deletion, anonymous deletion, push/GPS cleanup, closed retained history and unrelated-data preservation before claiming success.
 
-No destructive implementation proceeds until the retention decision is answered. After approval, application Privacy/Terms must describe the actual deletion/retention behavior. Production would later require a separately approved migration, server-only credential configuration and coordinated client/API rollout; none is authorized or applied here.
+The approved implementation updates Privacy/Terms to describe actual deletion/retention behavior. Production still requires a separately approved migration, server-only credential configuration and coordinated client/API rollout; none is authorized or applied here.
 
 References: [Supabase deleteUser](https://supabase.com/docs/reference/javascript/auth-admin-deleteuser), [Supabase user management](https://supabase.com/docs/guides/auth/managing-user-data), [Apple account deletion requirement](https://developer.apple.com/support/offering-account-deletion-in-your-app).
 
-## Verification
+## Previous Home verification, before deletion approval
 
 The actual Home handler suite passes 35 controlled async assertions: scope gating, KU North/South and PAAET/GUST payloads, rapid taps, progress lock, success without waiting for canonical data, coordinate-free optimistic owner card, retryable GPS/RPC errors, scope cancellation and stale-read rejection. Fresh canonical data can remove an unavailable optimistic post immediately. Existing foreground GPS checks retain improving samples, <=25m accuracy, bounded acquisition, no cached fixes and foreground session validation.
 
@@ -69,4 +71,4 @@ Staging owner `42f7a3da-abd1-475d-a585-dd3a8f6a0ab3`; unrelated observer `d09689
 
 A physical iPhone remains necessary to verify actual GPS timing/permission sheets. No schema, RLS or Auth deletion change was applied in this task. Existing untracked staging/temp files remain untouched. Generated worker and line-ending-only Capacitor build outputs are excluded from this UI change.
 
-**B. NOT READY — FIXES REQUIRED** — Account deletion is still unimplemented pending the required retention decision.
+**Previous task conclusion: B. NOT READY — FIXES REQUIRED** — The retention decision was pending then; see the implementation report linked above for the current deletion status.

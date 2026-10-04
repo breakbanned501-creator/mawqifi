@@ -12,6 +12,15 @@ export const localeMetadata: Record<Locale, { dir: TextDirection; tag: string }>
 };
 
 const arabicTranslations = {
+  'deletion.title': 'حذف الحساب',
+  'deletion.confirm': 'هل أنت متأكد من حذف حسابك؟\nسيتم حذف حسابك والبيانات الشخصية المرتبطة به، ولا يمكن التراجع عن هذه العملية.',
+  'deletion.summary': 'الحذف نهائي ويشمل حساب الضيف. تبقى المحادثات للطرف الآخر للقراءة فقط، مع إخفاء هويتك وإزالة محتواك الشخصي.',
+  'deletion.progress': 'جاري حذف حسابك وبياناتك الشخصية…',
+  'deletion.retryBody': 'تعذر إكمال الحذف. لن نعيد فتح بياناتك الخاصة. حاول إكمال الحذف مرة أخرى.',
+  'deletion.user': 'مستخدم محذوف',
+  'deletion.message': 'تمت إزالة هذه الرسالة بعد حذف الحساب',
+  'deletion.policyTitle': 'حذف الحساب والاحتفاظ المحدود',
+  'deletion.policyBody': 'يمكنك حذف حسابك، بما فيه حساب الضيف، من الإعدادات. نوقف وصول الحساب ونحذف هوية الدخول والملف الشخصي وموقع الموقف الدقيق ورموز الإشعارات والصور المملوكة له. نستبدل الرسائل والنصوص والصور والمواقع التي أرسلتها بعناصر محذوفة. تبقى المحادثة مغلقة وقابلة للقراءة للطرف الآخر، مع رسائله وصوره وهوية محذوفة محايدة بدلاً من هويتك. نحتفظ بسجلات بلاغات مختصرة دون تفاصيل نصية مرتبطة بالحساب، وأسباب البلاغات وحالتها وتواريخها ومعرفات غير مرتبطة بتسجيل الدخول، للمراجعة والسلامة ومنع إساءة الاستخدام؛ وتخضع للحذف عندما لا تعود لازمة أو عند طلب قانوني واجب. نحذف علاقات الحظر ونقلل أسباب القيود. تبقى طلبات الدعم المقدمة بشكل منفصل لمعالجتها؛ تواصل معنا لحذف بيانات الاتصال منها. لا يمكن استرجاع حسابك أو محتواك بعد الحذف.',
   "handoff.confirmPublish": "نشر موقع موقفك الحالي؟",
   "handoff.publish": "انشر موقفي",
   "handoff.published": "تم نشر موقفك",
@@ -455,6 +464,15 @@ const arabicTranslations = {
 } as const;
 
 const englishTranslations: Record<keyof typeof arabicTranslations, string> = {
+  'deletion.title': 'Delete Account',
+  'deletion.confirm': 'Are you sure you want to delete your account?\nYour account and associated personal data will be deleted. This cannot be undone.',
+  'deletion.summary': 'Deletion is permanent and includes guest accounts. The other participant keeps read-only history, with your identity anonymized and your personal content removed.',
+  'deletion.progress': 'Deleting your account and personal data…',
+  'deletion.retryBody': 'Deletion could not finish. Your private screens will remain closed. Please retry to complete deletion.',
+  'deletion.user': 'Deleted User',
+  'deletion.message': 'This message was removed after account deletion',
+  'deletion.policyTitle': 'Account deletion and limited retention',
+  'deletion.policyBody': 'You can delete your account, including a guest account, in Settings. We disable access and remove the login identity, personal profile details, precise parking location, push tokens and owned images. Messages, text, images and locations you sent are replaced with deletion placeholders. The other participant keeps the closed, read-only conversation, their own messages and images, and a neutral deleted identity in place of yours. We retain minimized report records without account-related free-text details, report reasons, status, dates and identifiers detached from login, for moderation, safety and abuse prevention; these are subject to deletion when no longer needed or when legally required. We remove block relationships and minimize restriction reasons. Separately submitted support requests remain for processing; contact us to remove their contact details. Your account and content cannot be restored after deletion.',
   "handoff.confirmPublish": "Publish your current parking location?",
   "handoff.publish": "Publish my spot",
   "handoff.published": "Your spot is now available",

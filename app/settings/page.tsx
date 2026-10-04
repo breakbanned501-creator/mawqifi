@@ -1,8 +1,8 @@
 'use client';
 
-import { type MouseEvent, useEffect, useState } from 'react';
+import { type MouseEvent, useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { Bell, CircleHelp, Languages, LogOut, MessageCircle, ShieldCheck, User } from 'lucide-react';
+import { Bell, CircleHelp, Languages, LogOut, MessageCircle, ShieldCheck, User, Trash2 } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
 import ErrorBanner from '@/components/ErrorBanner';
 import PageHeader from '@/components/PageHeader';
@@ -67,7 +67,7 @@ function PreferenceToggle({
 }
 
 export default function SettingsPage() {
-  const { profile, isGuest, refreshProfile, userId } = useAuth();
+  const { profile, isGuest, refreshProfile, userId, deleteAccount } = useAuth();
   const { locale, setLocale, t } = useLocale();
   const { replayTutorial } = useTutorial();
   const [activePosts, setActivePosts] = useState(0);
@@ -77,6 +77,7 @@ export default function SettingsPage() {
   const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
   const [preferenceLoading, setPreferenceLoading] = useState<PreferenceKey | null>(null);
   const [preferencesError, setPreferencesError] = useState(false);
+  const deletionDialog = useRef<HTMLDialogElement>(null);
 
   const handleChannelClick = (event: MouseEvent<HTMLAnchorElement>) => {
     if (!isNativeCapacitor()) return;
@@ -343,6 +344,23 @@ export default function SettingsPage() {
         <div className="text-center">
           <p className="text-[10px] font-semibold text-white/30">{t('settings.version')}</p>
         </div>
+
+        <section className="glass-card space-y-3 p-5">
+          <p className="text-sm leading-7 text-white/65">{t('deletion.summary')}</p>
+          <button type="button" className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-400/30 bg-red-500/10 p-4 font-bold text-red-200"
+            onClick={() => deletionDialog.current?.showModal()}>
+            <Trash2 className="h-5 w-5" aria-hidden="true" />{t('deletion.title')}
+          </button>
+        </section>
+        <dialog ref={deletionDialog} aria-labelledby="delete-account-title" aria-describedby="delete-account-description"
+          className="w-[calc(100%_-_2rem)] max-w-md rounded-3xl border border-white/15 bg-navy-900 p-5 text-white backdrop:bg-black/70">
+          <h2 id="delete-account-title" className="font-extrabold text-red-200">{t('deletion.title')}</h2>
+          <p id="delete-account-description" className="my-4 whitespace-pre-line text-sm leading-7">{t('deletion.confirm')}</p>
+          <div className="flex flex-wrap gap-3">
+            <button type="button" autoFocus className="btn btn-secondary flex-1" onClick={() => deletionDialog.current?.close()}>{t('common.cancel')}</button>
+            <button type="button" className="flex-1 rounded-2xl bg-red-600 p-3 font-bold" onClick={() => { deletionDialog.current?.close(); void deleteAccount(); }}>{t('deletion.title')}</button>
+          </div>
+        </dialog>
 
         {!isGuest ? (
           <button

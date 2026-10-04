@@ -104,7 +104,7 @@ export default function ConversationsPage() {
                         )}
                         <span aria-hidden="true"> — </span>
                         {conversation.last_message ? (
-                          <bdi dir="auto">{conversation.last_message}</bdi>
+                          <bdi dir="auto">{conversation.last_message === '[deleted message]' ? t('deletion.message') : conversation.last_message}</bdi>
                         ) : (
                           t('conversations.noMessages')
                         )}

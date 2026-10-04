@@ -120,6 +120,17 @@ async function removeNativePushDevice(): Promise<void> {
   await Preferences.remove({ key: NATIVE_PUSH_DEVICE_PREFERENCE_KEY });
 }
 
+/** Local-only cleanup after server account deletion; no backend/push delivery. */
+export async function clearDeletedAccountNativePush(): Promise<void> {
+  if (!isNativeCapacitor()) return;
+  await removeNativePushDevice();
+  const { PushNotifications } = await import('@capacitor/push-notifications');
+  await withNativePushTimeout('subscription-remove', () => Promise.allSettled([
+    PushNotifications.unregister(),
+    PushNotifications.removeAllDeliveredNotifications(),
+  ]));
+}
+
 async function requestNativeToken(accessToken: string): Promise<string> {
   const { PushNotifications } = await import('@capacitor/push-notifications');
   let resolveToken: ((token: string) => void) | null = null;

@@ -58,6 +58,7 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
   const [showReportModal, setShowReportModal] = useState(false);
   const [messageToReport, setMessageToReport] = useState<string | null>(null);
   const [blocked, setBlocked] = useState(true);
+  const [otherDeleted, setOtherDeleted] = useState(false);
   const otherUserId = conversation ? (conversation.owner_id === userId ? conversation.requester_id : conversation.owner_id) : null;
   const endRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -72,10 +73,16 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
   useEffect(() => {
     if (!otherUserId) return;
     let cancelled = false;
-    const check = () => { void isUserBlocked(otherUserId).then(value => { if (!cancelled) setBlocked(value); }).catch(() => { if (!cancelled) setBlocked(true); }); };
+    const check = () => {
+      void getSupabase().from('users').select('deleted_at').eq('id', otherUserId).maybeSingle()
+        .then(({ data }) => { if (!cancelled) setOtherDeleted(Boolean(data?.deleted_at)); });
+      void isUserBlocked(otherUserId).then(value => { if (!cancelled) setBlocked(value); }).catch(() => { if (!cancelled) setBlocked(true); });
+    };
     check();
     window.addEventListener('focus', check);
-    return () => { cancelled = true; window.removeEventListener('focus', check); };
+    const supabase = getSupabase();
+    const channel = supabase.channel(`chat-profile:${otherUserId}`).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users', filter: `id=eq.${otherUserId}` }, check).subscribe();
+    return () => { cancelled = true; window.removeEventListener('focus', check); void supabase.removeChannel(channel); };
   }, [otherUserId]);
 
   useEffect(() => {
@@ -157,15 +164,17 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'messages',
           filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
           const row = payload.new as ChatMessage;
+          if (row.text === '[deleted message]') { setSelectedImage(null); setSelectedImageUser(null); }
           setMessages((current) => {
-            if (current.some((m) => m.id === row.id)) return current;
+            if (payload.eventType === 'DELETE') return current.filter(m => m.id !== payload.old.id);
+            if (current.some((m) => m.id === row.id)) return current.map(m => m.id === row.id ? row : m);
             return [...current, row];
           });
           if (userId) void markConversationRead(conversationId, userId);
@@ -372,7 +381,7 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
               {postLocationTitle(post, locale)} — {postLocationDetails(post, locale)}
             </p>
             <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
-              <p dir="auto" className="min-w-0 max-w-full truncate font-bold text-white/70">{post.username}</p>
+              <p dir="auto" className="min-w-0 max-w-full truncate font-bold text-white/70">{otherDeleted || post.username === 'Deleted User' ? t('deletion.user') : post.username}</p>
               <UserBadge badges={post.badges} />
             </div>
             {typing && <p className="mt-1 animate-pulse-soft text-xs text-cyan-300">{t('chat.typing')}</p>}
@@ -414,7 +423,7 @@ export default function PostChatScreen({ postId, requestedConversationId }: Post
                       dir="auto"
                       className="whitespace-pre-wrap text-start text-sm leading-7 break-normal [overflow-wrap:anywhere]"
                     >
-                      {message.text}
+                      {message.text === '[deleted message]' ? t('deletion.message') : message.text}
                     </p>
                   )}
                   {hasImage && message.image_url && (

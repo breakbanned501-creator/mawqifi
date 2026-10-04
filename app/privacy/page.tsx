@@ -13,6 +13,7 @@ export default function PrivacyPage() {
     <main className="page-with-chrome min-h-screen px-4 pt-6">
       <div className="mx-auto max-w-md space-y-6">
         <PageHeader title={t('privacy.title')} subtitle={t('privacy.subtitle')} backHref="/" />
+        <section className="glass-card space-y-3 p-5"><h2 className="text-lg font-extrabold">{t('deletion.policyTitle')}</h2><p className="text-sm leading-7 text-white/70">{t('deletion.policyBody')}</p></section>
 
         <div className="space-y-4">
           <section className="glass-card p-5">

@@ -1,26 +1,37 @@
-# Mawqifi native and web branding
+# Mawqifi approved panel assets
 
-Source: existing `public/icon.svg`, the repository's scalable cyan/navy Mawqifi artwork. The drawing, Arabic title, gradients and proportions are preserved. No new logo was commissioned or generated. The older blue P/car image under `mawqifi-main/artifacts/mobile/assets/images/icon.png` is an unused legacy artifact and was left untouched.
+## Source and extraction
 
-The audit found Capacitor's default blue mark on the selected native AppIcon and three native launch PNGs. The five public files named PNG were actually green placeholder SVG text. Those selected placeholders are now replaced.
+The user approved extraction from the supplied 2048×683 raster on 2026-10-04. Its unchanged source is committed as `resources/branding/approved-concept.png`. No logo was generated or redrawn. The previous car-shaped SVG is superseded by this approved parking-pin identity.
+
+`node scripts/generate-brand-assets.cjs` reproducibly extracts source pixels:
+
+- App icon: pin/road and yellow accents from the left panel, using silhouette masks to discard the rounded cyan tile, surrounding white area and outer tile shadow. The retained artwork is centered on solid `#00cfea`, with safe padding. Export: `resources/branding/app-icon.png`, opaque RGB 1024×1024, no text or outer corner mask.
+- Splash: central panel at x=676, width=663, height=683, without phone frame, presentation labels or controls. Export: `resources/branding/splash-artwork.png` at 1326×1366. It preserves the approved pin, Arabic/English name, both subtitles and skyline.
+- Profile/share: right panel's white circle and complete Arabic/English logo; black outer panel removed with an alpha mask. Export: `public/mawqifi-profile.png` at 1024×1024. Only profile/share contexts use the circular full-text composition.
+
+The supplied source is raster, roughly 650px per panel. Higher-resolution exports are upscaled; no additional vector detail is claimed. The script and original are retained so future original-resolution exports can replace this source reproducibly.
 
 ## Native assets
 
-- `AppIcon.appiconset/AppIcon-512@2x.png`: real 1024×1024 RGB PNG, fully opaque. The original outer background's rounded clipping is removed; the artwork's inner decorative outline remains. iOS applies the outer icon mask. Existing catalog filename and AppIcon build selection are preserved.
-- `Splash.imageset/mawqifi-mark-{1,2,3}x.png`: transparent mark at 240/480/720 pixels, extracted from the same SVG by omitting only its background and decorative outline. All three former default Capacitor splash files are removed.
-- `LaunchScreen.storyboard`: solid `#0a1128` root view, mark centered relative to the safe-area guide with aspect-fit. Preferred width is 45% of safe width, capped at 240 points and 60% of safe height. These constraints adapt to narrow phones, notches, Dynamic Island, landscape and larger screens without top offsets or artwork cropping. No buttons or loading UI.
-- Display name remains the approved existing `Mawqifi`; bundle ID remains `com.mawqifi.app`. Both Debug and Release select `AppIcon`; the asset catalog and LaunchScreen are already included in Resources. The existing Capacitor SplashScreen plugin loads this storyboard; hide timing and app logic are unchanged.
+The existing `AppIcon.appiconset/AppIcon-512@2x.png` is now the approved opaque 1024px icon. Both Debug and Release already select `AppIcon`; its catalog and Resources membership remain unchanged.
 
-## Web/PWA assets
+The three `Splash.imageset/mawqifi-mark-{1,2,3}x.png` files now contain approved splash artwork at 330×340, 660×680 and 990×1020. The existing LaunchScreen uses aspect-fit and safe-area centering; width is preferably 95% of the safe width, capped at 420pt, with height capped at 85% of the safe height. Aspect ratio is 33:34. The navy root surrounds the artwork. No screenshots, buttons or loading bar are added. Plugin hide timing is unchanged.
 
-Real opaque PNGs replace `icon-192.png`, `icon-512.png`, `apple-touch-icon.png` (180×180), `splash-iphone.png` (1170×2532), and `splash-android.png` (1080×1920). The new `splash-iphone-large.png` (1284×2778) matches the existing 428×926 @3x startup media entry. The previously referenced but missing `og-image.png` now contains the same mark on navy at 1200×630. Manifest/icon URLs, native/PWA separation, favicon SVG and service-worker behavior remain unchanged.
+Display name remains the approved existing `Mawqifi`; bundle ID remains `com.mawqifi.app`. There is no selected Capacitor default graphic.
 
-Reproduce the committed artwork with `node scripts/generate-brand-assets.cjs` using the existing installed Sharp dependency. SVG text rendering requires an installed font supporting Arabic (the source requests Arial); inspect the output if regenerating on a different machine. Raster assets are committed, so CI need not regenerate them. The local font-cache warning did not prevent rendering; Arabic shaping was visually inspected.
+## Web/PWA consistency
+
+The approved no-text icon replaces 192px/512px manifest icons and the 180px apple-touch icon. `public/icon.svg` wraps the same 512px raster for the existing favicon URL; it is a container, not a new vector drawing. Install URLs and manifest behavior are unchanged.
+
+Approved splash artwork replaces the 1170×2532 and 1284×2778 iPhone startup images and 1080×1920 startup asset, centered on navy. The 1200×630 social preview uses the approved full logo on its white circle. Profile branding is available as an asset, without replacing personal account avatars.
 
 ## Verification
 
-2026-10-04: verified PNG signatures, dimensions and alpha metadata for eleven native/web assets (48 checks including the selected AppIcon and bundle ID); parsed storyboard XML and verified safe-area/aspect-fit constraints. Visually inspected the 1024px icon, launch mark and 60px Home Screen approximation. No selected native asset retains the default Capacitor mark. Runtime Capacitor code and dependencies remain intact.
+Source panels and exported icon/splash/profile were visually inspected. Verify real PNG signatures/dimensions, opaque marketing icon and uniform corner pixels, all referenced catalog files, XML safe-area/aspect-fit constraints, selected AppIcon and native copied assets.
 
-Typecheck, lint, web build, native static archive preparation and standalone iOS sync passed; release-hardening (65) and account-deletion client (33) regression assertions passed. Native verification confirms local assets, no remote `server.url`, no native service worker and no private secrets. SHA-256 comparisons confirm six repaired web branding files were copied unchanged into the native bundle. Staging backend configuration is preserved. Windows validates static native archive preparation; signed Xcode asset compilation and physical-device launch appearance remain the final TestFlight checks. No Codemagic build, production operation or database change is part of this task.
+Passed: typecheck, lint, web build, native static archive preparation, standalone iOS sync and staging/no-secret verification. Release-hardening (65) and deletion-client (33) regression assertions passed. SHA-256 checks confirmed five branding files copied unchanged into the native bundle. The 60px icon preview was inspected for readability. Physical iPhone launch appearance and signed Xcode asset compilation remain final TestFlight checks; Windows archive preparation is not a signed IPA.
 
-References: [Apple icon asset catalogs](https://developer.apple.com/documentation/xcode/configuring-your-app-icon), [Apple icon masking guidance](https://developer.apple.com/design/human-interface-guidelines/app-icons), [Apple launch-screen asset catalog guidance](https://developer.apple.com/documentation/technotes/tn3118-debugging-your-apps-launch-screen).
+No database, GPS, claim/chat, deletion, arrival/timer, push, place-scoping or environment changes. No main, production or Codemagic operation.
+
+References: [Apple icon asset catalogs](https://developer.apple.com/documentation/xcode/configuring-your-app-icon), [Apple icon masking](https://developer.apple.com/design/human-interface-guidelines/app-icons), [Apple launch-screen asset guidance](https://developer.apple.com/documentation/technotes/tn3118-debugging-your-apps-launch-screen).

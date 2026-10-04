@@ -19,8 +19,8 @@
                             <imageView userInteractionEnabled="NO" contentMode="scaleAspectFit" image="Splash" translatesAutoresizingMaskIntoConstraints="NO" id="maw-qif-logo">
                                 <rect key="frame" x="108" y="350" width="177" height="177"/>
                                 <constraints>
-                                    <constraint firstAttribute="width" relation="lessThanOrEqual" constant="240" id="logo-max-width"/>
-                                    <constraint firstAttribute="height" secondItem="maw-qif-logo" secondAttribute="width" multiplier="1:1" id="logo-aspect"/>
+                                    <constraint firstAttribute="width" relation="lessThanOrEqual" constant="420" id="logo-max-width"/>
+                                    <constraint firstAttribute="height" secondItem="maw-qif-logo" secondAttribute="width" multiplier="34:33" id="logo-aspect"/>
                                 </constraints>
                             </imageView>
                         </subviews>
@@ -29,8 +29,8 @@
                         <constraints>
                             <constraint firstItem="maw-qif-logo" firstAttribute="centerX" secondItem="maw-safe-area" secondAttribute="centerX" id="logo-center-x"/>
                             <constraint firstItem="maw-qif-logo" firstAttribute="centerY" secondItem="maw-safe-area" secondAttribute="centerY" id="logo-center-y"/>
-                            <constraint firstItem="maw-qif-logo" firstAttribute="width" secondItem="maw-safe-area" secondAttribute="width" multiplier="0.45" priority="750" id="logo-responsive-width"/>
-                            <constraint firstItem="maw-qif-logo" firstAttribute="height" relation="lessThanOrEqual" secondItem="maw-safe-area" secondAttribute="height" multiplier="0.6" id="logo-max-height"/>
+                            <constraint firstItem="maw-qif-logo" firstAttribute="width" secondItem="maw-safe-area" secondAttribute="width" multiplier="0.95" priority="750" id="logo-responsive-width"/>
+                            <constraint firstItem="maw-qif-logo" firstAttribute="height" relation="lessThanOrEqual" secondItem="maw-safe-area" secondAttribute="height" multiplier="0.85" id="logo-max-height"/>
                         </constraints>
                     </view>
                 </viewController>
@@ -40,6 +40,6 @@
         </scene>
     </scenes>
     <resources>
-        <image name="Splash" width="240" height="240"/>
+        <image name="Splash" width="330" height="340"/>
     </resources>
 </document>

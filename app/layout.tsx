@@ -39,7 +39,7 @@ export const metadata: Metadata = {
           '(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)',
       },
       {
-        url: '/splash-iphone.png',
+        url: '/splash-iphone-large.png',
         media:
           '(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)',
       },

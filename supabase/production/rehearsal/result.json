@@ -1,0 +1,71 @@
+{
+  "assertions": 71,
+  "engine": "PGlite PostgreSQL; one session, no multi-session contention test",
+  "migrations": [
+    {
+      "file": "20261001031918_app_store_safety.sql",
+      "sha256": "4465bb9c3c9173b861b57c8d475e2f72b50f859c23751fad48f85cc02d36ca26"
+    },
+    {
+      "file": "20261002094805_add_extensible_places.sql",
+      "sha256": "7ba8c4dc3fd189ed9c1a2bb87c7265b50b74f17cbb5e74875f950411be1b5c5f"
+    },
+    {
+      "file": "20261002100839_repair_place_catalogue_unicode.sql",
+      "sha256": "2d4dbabb9980fb3c7de5111e6cde8cd8b1ec6dca038b724d85b256f2351dd661"
+    },
+    {
+      "file": "20261002102714_make_place_location_filter_transport_safe.sql",
+      "sha256": "e65eea99358075fff4ab49652e76c880a3632e35147cf20056d734cab2a8bc25"
+    },
+    {
+      "file": "20261002112650_preserve_place_feed_realtime.sql",
+      "sha256": "189f2035f39dd30d1b092335e0cc7edf9dff85a57d7ecb805ce5abd81a8572e1"
+    },
+    {
+      "file": "20261002200925_parking_handoff.sql",
+      "sha256": "21890927dcab58ab3d40951e07edfe8100124bff38f56229f436e38e3bc79950"
+    },
+    {
+      "file": "20261002204010_handoff_cached_cancel.sql",
+      "sha256": "6f6a0b33444b36bb48a1c8130fc65659124bd5745897e7db8550c4842521a1dd"
+    },
+    {
+      "file": "20261002220823_gps_handoff_minimal_publish.sql",
+      "sha256": "82e0e52b82e596d5f5333819763636366f4d9aabad6f7cb6753778b9399c7946"
+    },
+    {
+      "file": "20261003004823_add_parking_sub_place_scope.sql",
+      "sha256": "16873192f591cf4944c2c84358188962840804adb83abf597151ad0ad5b353e0"
+    },
+    {
+      "file": "20261003113052_expand_verified_paaet_scopes.sql",
+      "sha256": "cd8c5d52e948236ea36736547cbc96326b438e2ff37326693a6349ba4ab31f15"
+    },
+    {
+      "file": "20261003120418_add_ku_parking_side_scopes.sql",
+      "sha256": "3dab3120138dca918a3c5f0820c531f6677d9482d3fce5197b294768bf1e7d74"
+    },
+    {
+      "file": "20261003181232_secure_chat_image_storage.sql",
+      "sha256": "b4936ee242e645223746975db1ae00e3de627b987ac448b9a527e7be506fbce5"
+    },
+    {
+      "file": "20261003224300_account_deletion_retention.sql",
+      "sha256": "3c83831c935f784c22ce04576c111d2f13c9eae8c6ae1187c2787f0bd1a2d6c3"
+    },
+    {
+      "file": "20261003230230_account_deletion_storage_revocation.sql",
+      "sha256": "a072aec7715ab0ad58ba1b0920cd15cfe943c58b0c6791c7909e8d29347777cf"
+    }
+  ],
+  "syntheticShape": {
+    "profiles": 975,
+    "posts": 23,
+    "conversations": 16,
+    "messages": 23,
+    "images": 4,
+    "webSubscriptions": 18
+  },
+  "productionWrites": 0
+}

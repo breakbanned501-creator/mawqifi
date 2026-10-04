@@ -1,5 +1,7 @@
 const fs=require('fs'),ts=require('typescript'),assert=require('node:assert/strict');
-const source=fs.readFileSync('supabase/functions/delete-account/index.ts','utf8');
+const production=process.argv.includes('--production');
+const source=fs.readFileSync(production?'supabase/production/functions/delete-account/index.ts':'supabase/functions/delete-account/index.ts','utf8');
+const approvedUrl=production?'https://opsyvdsivxoqphkfdsbb.supabase.co':'https://jrmiwmsgnztqwbigumlw.supabase.co';
 const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
 const own={bucket_id:'chat-images',name:'chat/conversation/deleting-user.png'},peer={bucket_id:'chat-images',name:'chat/conversation/peer.png'};
 let count=0;const check=(name,v)=>{assert(v,name);count++;console.log('PASS '+name);};
@@ -11,7 +13,7 @@ async function setup({authFailure=false,purgeFailure=false,storageFailure=false,
    check('Cache probes use server role only',key==='server-fixture'&&args.account_id==='verified-self');return scopeFailure?{data:null,error:{}}:{data:[own,peer],error:null};},
   storage:{from:bucket=>({remove:async names=>{removed.push({bucket,names});return{error:storageFailure?{}:null};}})},
  });
- const env={SUPABASE_URL:staging?'https://jrmiwmsgnztqwbigumlw.supabase.co':'https://unapproved.example',SUPABASE_ANON_KEY:'public-fixture',SUPABASE_SERVICE_ROLE_KEY:'server-fixture'};
+ const env={SUPABASE_URL:staging?approvedUrl:'https://unapproved.example',SUPABASE_ANON_KEY:'public-fixture',SUPABASE_SERVICE_ROLE_KEY:'server-fixture'};
  new Function('require','exports','Deno','fetch','setTimeout',code)(()=>({createClient}),{}, {env:{get:key=>env[key]},serve:h=>{handler=h;}},async(url,options)=>{requests.push({url,method:options.method??'GET'});return new Response(null,{status:options.method==='DELETE'?(purgeFailure?403:200):400});},(fn,ms)=>{delays.push(ms);fn();});
  const invoke=(body={},bearer=true,origin='capacitor://localhost')=>handler(new Request('https://staging.example/delete-account',{method:'POST',headers:{'Content-Type':'application/json',...(bearer?{Authorization:'Bearer real-session-token'}:{}),Origin:origin},body:JSON.stringify(body)}));
  return{invoke,removed,requests,delays,authDeletes,rpcCalls};
@@ -32,5 +34,11 @@ async function setup({authFailure=false,purgeFailure=false,storageFailure=false,
  check('No authorization denied',(await test.invoke({},false)).status===401);
  check('Unapproved origin denied',(await test.invoke({},true,'https://evil.example')).status===403);
  test=await setup({staging:false});check('Unapproved project configuration denied',(await test.invoke()).status===503&&test.rpcCalls.length===0);
+ test=await setup();check('Approved web origin permitted',(await test.invoke({},true,production?'https://mawqifiapp.vercel.app':'https://mawqifi-testflight-staging.vercel.app')).status===200);
+ check('Other environment web origin denied',(await test.invoke({},true,production?'https://mawqifi-testflight-staging.vercel.app':'https://mawqifiapp.vercel.app')).status===403);
+ if(production){
+  const expected=fs.readFileSync('supabase/functions/delete-account/index.ts','utf8').replace('jrmiwmsgnztqwbigumlw','opsyvdsivxoqphkfdsbb').replace('https://mawqifi-testflight-staging.vercel.app','https://mawqifiapp.vercel.app');
+  check('Production behavior identical apart from reviewed guard/origin/comments',source.slice(source.indexOf('const url'))===expected.slice(expected.indexOf('const url')));
+ }
  console.log('Account deletion endpoint assertions: '+count);
 })().catch(e=>{console.error(e.message);process.exitCode=1;});

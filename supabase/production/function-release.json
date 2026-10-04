@@ -1,0 +1,9 @@
+{
+  "status": "prepared-not-deployed",
+  "project_ref": "opsyvdsivxoqphkfdsbb",
+  "function_name": "delete-account",
+  "entrypoint": "supabase/production/functions/delete-account/index.ts",
+  "verify_jwt": false,
+  "authentication": "Mandatory handler auth.getUser(bearer), followed by self-only JWT-scoped SQL",
+  "deployment_requires_separate_approval": true
+}

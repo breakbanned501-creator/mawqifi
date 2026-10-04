@@ -140,3 +140,122 @@ workflows:
         # Upload for internal TestFlight; this switch means EXTERNAL beta review.
         submit_to_testflight: false
         submit_to_app_store: false
+
+  # Manual only. Final approval must supply APPROVED_RELEASE_COMMIT and APPROVED_RELEASE_TAG.
+  # Dedicated public build group: mawqifi_app_store_production. No server/APNs secrets.
+  ios-app-store-production:
+    name: Mawqifi iOS Production App Store (Manual Approval)
+    instance_type: mac_mini_m2
+    max_build_duration: 120
+    integrations:
+      app_store_connect: Mawqifi Codemagic
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.mawqifi.app
+      groups:
+        - mawqifi_app_store_production
+      vars:
+        XCODE_WORKSPACE: ios/App/App.xcworkspace
+        XCODE_SCHEME: App
+      node: 22
+      xcode: latest
+    scripts:
+      - name: Verify final approved production commit/tag and public configuration
+        script: |-
+          #!/usr/bin/env bash
+          set -euo pipefail
+          [[ "${APPROVED_RELEASE_TAG:-}" =~ ^mawqifi-production-[A-Za-z0-9._-]+$ ]]
+          git fetch --no-tags origin "refs/tags/$APPROVED_RELEASE_TAG:refs/tags/$APPROVED_RELEASE_TAG"
+          node scripts/verify-production-build-env.cjs
+          # Read-only public key check, no user creation or configuration mutation.
+          node <<'NODE'
+          (async()=>{
+           const r=await fetch(process.env.NEXT_PUBLIC_SUPABASE_URL+'/auth/v1/settings',{headers:{apikey:process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY},signal:AbortSignal.timeout(15000)});
+           if(r.status!==200)throw Error('validation failed');
+           console.log('Production public key accepted by approved Auth endpoint.');
+          })().catch(()=>{console.error('Production public key validation failed.');process.exitCode=1;});
+          NODE
+      - name: Install locked dependencies
+        script: npm ci
+      - name: Typecheck
+        script: npm run typecheck
+      - name: Lint
+        script: npm run lint
+      - name: Build and verify local Capacitor assets
+        script: npm run cap:ios:archive
+      - name: Prepare the Swift Package Manager workspace
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          # Capacitor 8 uses SPM here, so there is no CocoaPods-generated workspace.
+          if [ ! -d "$XCODE_WORKSPACE" ]; then
+            mkdir -p "$XCODE_WORKSPACE"
+            cat > "$XCODE_WORKSPACE/contents.xcworkspacedata" <<'XML'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <Workspace version="1.0">
+            <FileRef location="group:App.xcodeproj"/>
+          </Workspace>
+          XML
+          fi
+          # Share the existing App target's scheme for headless workspace archives.
+          ruby <<'RUBY'
+          require 'xcodeproj'
+          project_path = 'ios/App/App.xcodeproj'
+          project = Xcodeproj::Project.open(project_path)
+          target = project.targets.find { |item| item.name == 'App' }
+          abort 'Missing App target' unless target
+          scheme = Xcodeproj::XCScheme.new
+          scheme.configure_with_targets(target, nil, launch_target: true)
+          scheme.save_as(project_path, 'App', true)
+          RUBY
+      - name: Apply existing App Store provisioning profiles
+        script: xcode-project use-profiles
+      - name: Select an incrementing App Store build number
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          # Fail on API/auth errors; only a successful empty result means no prior build.
+          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-build-number "$APP_STORE_APPLE_ID")
+          if [ -z "$LATEST_BUILD_NUMBER" ]; then LATEST_BUILD_NUMBER=0; fi
+          CI_BUILD_NUMBER="$PROJECT_BUILD_NUMBER"
+          [[ "$LATEST_BUILD_NUMBER" =~ ^[0-9]+$ ]]
+          [[ "$CI_BUILD_NUMBER" =~ ^[0-9]+$ ]]
+          IOS_BUILD_NUMBER=$((LATEST_BUILD_NUMBER + 1))
+          if (( CI_BUILD_NUMBER > IOS_BUILD_NUMBER )); then
+            IOS_BUILD_NUMBER="$CI_BUILD_NUMBER"
+          fi
+          echo "IOS_BUILD_NUMBER=$IOS_BUILD_NUMBER" >> "$CM_ENV"
+          echo "Using iOS build number $IOS_BUILD_NUMBER; marketing version remains 1.0."
+      - name: Build signed App Store IPA
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          xcode-project build-ipa \
+            --workspace "$CM_BUILD_DIR/$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME" \
+            --config Release \
+            --no-show-build-settings \
+            --archive-xcargs "COMPILER_INDEX_STORE_ENABLE=NO CURRENT_PROJECT_VERSION=$IOS_BUILD_NUMBER" \
+            --ipa-directory "$CM_BUILD_DIR/build/ios/ipa"
+      - name: Scan expanded signed IPA and local assets before upload
+        script: |-
+          #!/usr/bin/env bash
+          set -euo pipefail
+          shopt -s nullglob
+          IPAS=("$CM_BUILD_DIR"/build/ios/ipa/*.ipa)
+          test "${#IPAS[@]}" -eq 1
+          mkdir -p "$CM_BUILD_DIR/build/production-ipa-scan"
+          unzip -q "${IPAS[0]}" -d "$CM_BUILD_DIR/build/production-ipa-scan"
+          APPS=("$CM_BUILD_DIR"/build/production-ipa-scan/Payload/*.app)
+          test "${#APPS[@]}" -eq 1
+          node scripts/scan-production-archive.cjs "${APPS[0]}" "$CM_BUILD_DIR/out"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - build/ios/xcarchive/**/*.dSYM
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: false
+        submit_to_app_store: false

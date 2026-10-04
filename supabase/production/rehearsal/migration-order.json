@@ -1,0 +1,16 @@
+[
+  "20261001031918_app_store_safety.sql",
+  "20261002094805_add_extensible_places.sql",
+  "20261002100839_repair_place_catalogue_unicode.sql",
+  "20261002102714_make_place_location_filter_transport_safe.sql",
+  "20261002112650_preserve_place_feed_realtime.sql",
+  "20261002200925_parking_handoff.sql",
+  "20261002204010_handoff_cached_cancel.sql",
+  "20261002220823_gps_handoff_minimal_publish.sql",
+  "20261003004823_add_parking_sub_place_scope.sql",
+  "20261003113052_expand_verified_paaet_scopes.sql",
+  "20261003120418_add_ku_parking_side_scopes.sql",
+  "20261003181232_secure_chat_image_storage.sql",
+  "20261003224300_account_deletion_retention.sql",
+  "20261003230230_account_deletion_storage_revocation.sql"
+]

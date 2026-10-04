@@ -1,5 +1,10 @@
 # Production cutover preparation — 2026-10-04
 
+**Free-plan update:** Follow [the four-image private-copy cutover](free-plan-chat-image-cutover.md)
+for image ownership, reference migration, cleanup and cache limitations. CDN purge is
+not required or attempted. The rehearsal/build evidence below describes the earlier
+baseline; the focused Free-plan patch does not rerun those large suites.
+
 Prepared on `ios-release-hardening`, from baseline `8d56560eb3edd043662d6cb18dec6541b38b2e66`.
 This document approves nothing: execution, secrets, deployment, submission and release
 remain separate human decisions. No production write, purge, notification, deployment,
@@ -50,8 +55,9 @@ The variant changes only the exact project URL guard and web origin. It accepts 
 `https://mawqifiapp.vercel.app` and `capacitor://localhost`. It preserves real Auth
 verification, no client target ID, JWT-derived self-only SQL, server-only admin access,
 old-JWT revocation, retained/tombstoned history, owned-object-only removal, narrowly
-scoped cache probes/purge and Auth deletion last. Storage/cache failures remain retryable
-with the anonymous Auth identity retained. Staging function source is unchanged.
+scoped fresh authenticated denial probes and Auth deletion last. Storage failures remain
+retryable with the anonymous Auth identity retained. Both prepared handlers now support
+Free-plan deletion without purge or a fixed CDN wait; neither was deployed in this patch.
 The Next.js tsconfig excludes this Deno entrypoint, as it already excludes staging Edge
 functions; endpoint tests transpile and execute both handlers with offline API mocks.
 
@@ -188,11 +194,13 @@ when exact audit versions remained unchanged. Reverse requires separate approval
 aborts if claims/new messages/lifecycle drift make reopening unsafe. It restores the
 open flag, not the original updated_at. Do not use it to undo subsequent activity.
 
-## Private-image transition and cache invalidation
+## Private-image transition and Free-plan cache limitation
 
 The image migration changes `chat-images` to private and replaces public access with
-participant policies and restrictive guards. It does not move/delete/rewrite objects
-or historical message locators. Rehearsal verified both participants read all four
+participant policies and restrictive guards. That baseline migration alone does not
+move/delete/rewrite objects or historical message locators. The separate Free-plan
+supplement/helper now prepares fresh private copies with verified ownership and atomic
+reference updates; follow the linked execution plan above. Rehearsal verified both participants read all four
 historical image metadata records; unrelated and unauthenticated roles read none.
 The actual upgraded `lib/chat-images.ts` parses an old public locator into the original
 object path and downloads through authenticated SDK access with a unique cacheNonce and
@@ -200,25 +208,21 @@ object path and downloads through authenticated SDK access with a unique cacheNo
 
 Before a later approved cutover: release/refresh the upgraded web/PWA client in coordination
 with the private-bucket change. Old cached clients using bearer-less public image URLs
-will stop loading historical images once invalidation completes; do not temporarily
+will stop loading historical images after the private transition/cache expiry; do not temporarily
 make the bucket public again to restore those clients. Shared history remains stored.
 
-The required future invalidation is **one exact object at a time**, using the server-only
-production Storage credential: authenticated `DELETE` to
-`https://opsyvdsivxoqphkfdsbb.supabase.co/storage/v1/cdn/chat-images/<encoded-original-object-path>`.
-Percent-encode path segments individually, preserving path separators. Build the reviewed
-manifest from current `storage.objects` for this bucket and match historical message
-locators; never substitute a wildcard, whole bucket, move, or object deletion. Preserve
-owner/content metadata. Record path/status audit without tokens, wait at least 65 seconds
-after the last accepted purge, then verify the former public URLs deny access and fresh
-authenticated participant reads succeed while unrelated/anonymous reads deny. A failed
-purge or still-public response stops rollout rather than claiming privacy completion.
+The approved Free-plan design backs up/hashes all four originals, creates fresh private
+paths without overwrite, verifies participant reads and unrelated/anonymous denial,
+stores authoritative original ownership, and changes message references transactionally.
+Only after verification may the four originals be removed through the Storage API.
+No old path/URL is reused. No purge endpoint or paid capability is required.
 
-[Supabase CDN purge](https://supabase.com/docs/guides/storage/cdn/purge-cdn-cache)
-requires supported project plan/cache capability; verify it before approval. CDN
-invalidation cannot revoke copies already cached on another user's device. The upgraded
-client clears old app caches and does not persist private blobs, but no claim of erasing
-previously downloaded images is made. No production purge was performed.
+Fresh origin denial is distinct from revoking every previously cached public response.
+**Unknown / cannot guarantee immediate revocation of previously cached copies.**
+Current upload cache-control is not proof of the four old objects' TTL. Browser/device
+copies cannot be remotely erased; old CDN copies may remain until their cache expiry.
+Do not claim full revocation until the relevant cache window is established and passed.
+No production copy, removal, cache test or purge was performed by this patch.
 
 ## Environment checklist (names/classification only)
 
@@ -264,7 +268,8 @@ be advertised as working. Foreground/realtime chat and in-app notifications are 
 Before any eventual production write, approve the exact final SHA/tag, live metadata
 drift check, migration hashes/order, refreshed candidate IDs/count, current image/cache
 manifest, backup/restore checkpoint, maintenance window and production-only environment
-verification. Validate plan capability for CDN purge and resolve whether native remote
+verification. Approve the Free-plan four-image manifest/ownership checkpoints and cache
+limitation, and resolve whether native remote
 push absence is acceptable. Signed production IPA scanning remains a future Codemagic
 step; no signed production artifact or submission was created here.
 
@@ -278,6 +283,6 @@ An operational database restore requires separate approval, a write freeze and a
 lost-write reconciliation plan. The private-image transition has no permissive rollback.
 
 The cutover reverse script is narrowly audited exception recovery, not a global schema
-rollback. Keep the completed migration ledger, before/after manifests and purge audit.
-Production deployment, function packaging, cache purge, environment updates, CI run,
+rollback. Keep the completed migration ledger, before/after manifests and copy/removal audit.
+Production deployment, function packaging, image cutover, environment updates, CI run,
 App Store submission and release remain unperformed and individually approval-gated.

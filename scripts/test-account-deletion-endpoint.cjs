@@ -5,7 +5,7 @@ const approvedUrl=production?'https://opsyvdsivxoqphkfdsbb.supabase.co':'https:/
 const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
 const own={bucket_id:'chat-images',name:'chat/conversation/deleting-user.png'},peer={bucket_id:'chat-images',name:'chat/conversation/peer.png'};
 let count=0;const check=(name,v)=>{assert(v,name);count++;console.log('PASS '+name);};
-async function setup({authFailure=false,purgeFailure=false,storageFailure=false,scopeFailure=false,staging=true}={}){
+async function setup({authFailure=false,purgeFailure=false,storageFailure=false,scopeFailure=false,staging=true,probeStatus=403}={}){
  let handler;const removed=[],requests=[],delays=[],authDeletes=[],rpcCalls=[];
  const createClient=(url,key,options)=>({
   auth:{getUser:async token=>{check('Actual bearer passed to Auth verifier',token==='real-session-token');return authFailure?{data:{user:null},error:{}}:{data:{user:{id:'verified-self'}},error:null};},admin:{signOut:async()=>({error:null}),deleteUser:async uid=>{authDeletes.push(uid);return{error:null};}}},
@@ -14,7 +14,7 @@ async function setup({authFailure=false,purgeFailure=false,storageFailure=false,
   storage:{from:bucket=>({remove:async names=>{removed.push({bucket,names});return{error:storageFailure?{}:null};}})},
  });
  const env={SUPABASE_URL:staging?approvedUrl:'https://unapproved.example',SUPABASE_ANON_KEY:'public-fixture',SUPABASE_SERVICE_ROLE_KEY:'server-fixture'};
- new Function('require','exports','Deno','fetch','setTimeout',code)(()=>({createClient}),{}, {env:{get:key=>env[key]},serve:h=>{handler=h;}},async(url,options)=>{requests.push({url,method:options.method??'GET'});return new Response(null,{status:options.method==='DELETE'?(purgeFailure?403:200):400});},(fn,ms)=>{delays.push(ms);fn();});
+ new Function('require','exports','Deno','fetch','setTimeout',code)(()=>({createClient}),{}, {env:{get:key=>env[key]},serve:h=>{handler=h;}},async(url,options)=>{requests.push({url,method:options.method??'GET',options});return new Response(probeStatus===400?JSON.stringify({code:'NoSuchKey'}):null,{status:options.method==='DELETE'?(purgeFailure?403:200):probeStatus});},(fn,ms)=>{delays.push(ms);fn();});
  const invoke=(body={},bearer=true,origin='capacitor://localhost')=>handler(new Request('https://staging.example/delete-account',{method:'POST',headers:{'Content-Type':'application/json',...(bearer?{Authorization:'Bearer real-session-token'}:{}),Origin:origin},body:JSON.stringify(body)}));
  return{invoke,removed,requests,delays,authDeletes,rpcCalls};
 }
@@ -22,12 +22,15 @@ async function setup({authFailure=false,purgeFailure=false,storageFailure=false,
  let test=await setup();const response=await test.invoke();check('Self deletion succeeds',response.status===200);
  check('Only owned objects are deleted',test.removed.length===1&&test.removed[0].names.length===1&&test.removed[0].names[0]===own.name);
  check('Peer image NEVER deleted',!test.removed.some(r=>r.names.includes(peer.name)));
- check('No whole-bucket cache invalidation',test.requests.filter(r=>r.method==='DELETE').every(r=>r.url.includes('/cdn/chat-images/chat/conversation/')));
+ check('No paid purge calls',!test.requests.some(r=>r.url.includes('/cdn/')||r.method==='DELETE'));
  check('Revocation probes do not alter peer content',test.requests.filter(r=>r.method==='GET').length===2);
- check('CDN propagation precedes Auth deletion',test.delays[0]===65000&&test.authDeletes[0]==='verified-self');
+ check('Fresh denied probes precede Auth deletion without paid wait',test.delays.length===0&&test.authDeletes[0]==='verified-self'&&test.requests.every(r=>r.url.includes('?cacheNonce=')&&r.options.cache==='no-store'));
  check('Native exact CORS',response.headers.get('access-control-allow-origin')==='capacitor://localhost');
  check('SDK place-aware header permitted by exact-origin CORS',response.headers.get('access-control-allow-headers').includes('x-mawqifi-place-aware'));
- test=await setup({purgeFailure:true});check('Unsupported revocation stops completion',(await test.invoke()).status===503&&test.authDeletes.length===0);
+ test=await setup({purgeFailure:true});check('Free plan unavailable purge does not block deletion',(await test.invoke()).status===200&&test.authDeletes.length===1&&!test.requests.some(r=>r.url.includes('/cdn/')));
+ for(const probeStatus of [200,500,429]){test=await setup({probeStatus});check('Unsafe/unverified access keeps Auth retryable '+probeStatus,(await test.invoke()).status===503&&test.authDeletes.length===0);}
+ test=await setup({probeStatus:400});check('Storage NoSuchKey denial accepted',(await test.invoke()).status===200);
+ test=await setup({scopeFailure:true});check('Missing trusted probe scope stops deletion',(await test.invoke()).status===503&&test.authDeletes.length===0);
  test=await setup({storageFailure:true});check('Storage failure is retryable, Auth retained',(await test.invoke()).status===503&&test.authDeletes.length===0);
  test=await setup({authFailure:true});check('Deleted/invalid token denied',(await test.invoke()).status===401&&test.rpcCalls.length===0);
  test=await setup();check('Spoofed target denied',(await test.invoke({user_id:'peer'})).status===400&&test.rpcCalls.length===0);

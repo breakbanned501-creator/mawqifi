@@ -52,28 +52,21 @@ Deno.serve(async (request: Request) => {
       if (storageError) return reply(503, 'DELETION_RETRY_REQUIRED');
     }
   }
-  // Private Storage CDN responses can outlive an RLS change. Purge only each
-  // known object's cached responses (NEVER peer objects or an entire bucket). Hosted
-  // purge propagation can take 60s; never announce Auth deletion before it ends.
+  // Free-plan revocation: origin access must deny the tombstoned account.
+  // A unique nonce avoids reusing a previously authorized CDN response. This
+  // cannot revoke copies already cached outside Mawqifi; no purge is attempted.
   for (const object of accessibleObjects) {
+    if (typeof object.bucket_id !== 'string' || typeof object.name !== 'string') return reply(503, 'DELETION_RETRY_REQUIRED');
     const path = object.name.split('/').map(encodeURIComponent).join('/');
-    const purge = await fetch(`${url}/storage/v1/cdn/${encodeURIComponent(object.bucket_id)}/${path}`, {
-      method: 'DELETE', headers: { Authorization: `Bearer ${serverKey}`, apikey: serverKey },
+    const probe = await fetch(`${url}/storage/v1/object/${encodeURIComponent(object.bucket_id)}/${path}?cacheNonce=${crypto.randomUUID()}`, {
+      headers: { Authorization: `Bearer ${token}`, apikey: publicKey }, cache: 'no-store',
     });
-    if (!purge.ok) return reply(503, 'STORAGE_REVOCATION_REQUIRED');
-  }
-  if (accessibleObjects.length) {
-    await new Promise(resolve => setTimeout(resolve, 65000));
-    for (const object of accessibleObjects) {
-      // Probe the old canonical URL, not a nonce: it must no longer serve the
-      // deleting account, including images still owned by the other participant.
-      const path = object.name.split('/').map(encodeURIComponent).join('/');
-      const probe = await fetch(`${url}/storage/v1/object/${encodeURIComponent(object.bucket_id)}/${path}`, {
-        headers: { Authorization: `Bearer ${token}`, apikey: publicKey }, cache: 'no-store',
-      });
-      if (probe.ok || probe.status >= 500) return reply(503, 'STORAGE_REVOCATION_REQUIRED');
-      await probe.body?.cancel();
-    }
+    let denied = [401, 403, 404, 410].includes(probe.status);
+    if (probe.status === 400) {
+      const body = await probe.json().catch(() => null);
+      denied = ['not_found', 'NoSuchKey', 'AccessDenied'].includes(body?.code) || body?.message === 'Object not found';
+    } else await probe.body?.cancel();
+    if (!denied) return reply(503, 'STORAGE_REVOCATION_REQUIRED');
   }
   // Auth deletion removes the user's refresh sessions. Do not revoke refresh
   // sessions before this succeeds: a transient admin failure must stay retryable

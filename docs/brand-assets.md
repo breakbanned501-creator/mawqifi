@@ -14,7 +14,7 @@ The supplied source is raster, roughly 650px per panel. Higher-resolution export
 
 ## Native assets
 
-The existing `AppIcon.appiconset/AppIcon-512@2x.png` is now the approved opaque 1024px icon. Both Debug and Release already select `AppIcon`; its catalog and Resources membership remain unchanged.
+The `AppIcon.appiconset/Mawqifi-AppIcon-1024.png` file is the approved opaque 1024px icon. The catalog contains only this universal iOS icon entry, which prevents an older variant from being selected. Both Debug and Release select the `AppIcon` catalog.
 
 The three `Splash.imageset/mawqifi-mark-{1,2,3}x.png` files now contain approved splash artwork at 330×340, 660×680 and 990×1020. The existing LaunchScreen uses aspect-fit and safe-area centering; width is preferably 95% of the safe width, capped at 420pt, with height capped at 85% of the safe height. Aspect ratio is 33:34. The navy root surrounds the artwork. No screenshots, buttons or loading bar are added. Plugin hide timing is unchanged.
 

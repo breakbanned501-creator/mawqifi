@@ -9,7 +9,7 @@ const panel=await sharp(source).extract({left:0,top:0,width:676,height:683}).ens
 const mark=await sharp(panel).extract({left:96,top:128,width:448,height:480}).resize(768,822).png().toBuffer();
 const icon=await sharp({create:{width:1024,height:1024,channels:3,background:cyan}}).composite([{input:mark,gravity:'centre'}]).removeAlpha().png().toBuffer();
 await png(icon,1024,1024,'resources/branding/app-icon.png');
-await png(icon,1024,1024,'ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png');
+await png(icon,1024,1024,'ios/App/App/Assets.xcassets/AppIcon.appiconset/Mawqifi-AppIcon-1024.png');
 for(const s of [192,512])await png(icon,s,s,'public/icon-'+s+'.png');
 fs.writeFileSync(file('public/icon.svg'),'<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><image width="512" height="512" href="data:image/png;base64,'+fs.readFileSync(file('public/icon-512.png')).toString('base64')+'"/></svg>');
 await png(icon,180,180,'public/apple-touch-icon.png');

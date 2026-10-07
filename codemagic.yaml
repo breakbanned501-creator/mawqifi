@@ -166,7 +166,14 @@ workflows:
           #!/usr/bin/env bash
           set -euo pipefail
           [[ "${APPROVED_RELEASE_TAG:-}" =~ ^mawqifi-production-[A-Za-z0-9._-]+$ ]]
-          git fetch --no-tags origin "refs/tags/$APPROVED_RELEASE_TAG:refs/tags/$APPROVED_RELEASE_TAG"
+          # Codemagic may omit unrelated tags from a branch checkout. Prefer the
+          # local ref and, only when absent, fetch this public tag anonymously.
+          # Disabling every credential path prevents macOS Keychain prompts in CI.
+          if ! git show-ref --verify --quiet "refs/tags/$APPROVED_RELEASE_TAG"; then
+            GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c core.askPass= fetch --no-tags \
+              https://github.com/breakbanned501-creator/mawqifi.git \
+              "refs/tags/$APPROVED_RELEASE_TAG:refs/tags/$APPROVED_RELEASE_TAG"
+          fi
           node scripts/verify-production-build-env.cjs
           # Read-only public key check, no user creation or configuration mutation.
           node <<'NODE'

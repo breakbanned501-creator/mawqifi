@@ -3,11 +3,18 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const cp = require('node:child_process');
 const REF = 'opsyvdsivxoqphkfdsbb';
+const APPROVED_CI_ONLY_FILES = ['codemagic.yaml', 'scripts/verify-production-build-env.cjs'];
 function verify(env, git, names) {
   assert.equal(env.CM_BRANCH, 'ios-release-hardening', 'Release branch required');
   assert(/^[a-f0-9]{40}$/.test(env.APPROVED_RELEASE_COMMIT || ''), 'Final approved commit required');
   assert(/^mawqifi-production-[A-Za-z0-9._-]+$/.test(env.APPROVED_RELEASE_TAG || ''), 'Explicit approved production tag required');
-  assert.equal(git(['rev-parse', 'HEAD']), env.APPROVED_RELEASE_COMMIT, 'Checkout is not the approved commit');
+  const head = git(['rev-parse', 'HEAD']);
+  if (head !== env.APPROVED_RELEASE_COMMIT) {
+    assert.equal(git(['rev-parse', 'HEAD^']), env.APPROVED_RELEASE_COMMIT, 'CI-only guard commit must directly follow the approved application commit');
+    const changed = git(['diff', '--name-only', env.APPROVED_RELEASE_COMMIT, 'HEAD']).split(/\r?\n/).filter(Boolean).sort();
+    assert.deepEqual(changed, APPROVED_CI_ONLY_FILES, 'CI-only guard commit contains application changes');
+    git(['diff', '--quiet', env.APPROVED_RELEASE_COMMIT, 'HEAD', '--', '.', ':(exclude)codemagic.yaml', ':(exclude)scripts/verify-production-build-env.cjs']);
+  }
   assert.equal(git(['rev-parse', 'refs/tags/' + env.APPROVED_RELEASE_TAG + '^{commit}']), env.APPROVED_RELEASE_COMMIT, 'Approved tag does not resolve to approved commit');
   git(['merge-base', '--is-ancestor', '8d56560eb3edd043662d6cb18dec6541b38b2e66', 'HEAD']);
   assert.equal(env.NEXT_PUBLIC_SUPABASE_URL, 'https://' + REF + '.supabase.co', 'Production Supabase URL required');

@@ -279,6 +279,18 @@ export default function SettingsPage() {
         <PushNotificationControl />
 
         <Link
+          href="/review-demo"
+          className="block rounded-2xl border border-amber-300/25 bg-amber-300/10 px-4 py-3 text-center transition-colors hover:bg-amber-300/15"
+        >
+          <span className="block text-sm font-extrabold text-amber-100">
+            {locale === 'ar' ? 'وضع مراجعة App Store' : 'App Review Demo'}
+          </span>
+          <span className="mt-1 block text-xs text-white/60">
+            {locale === 'ar' ? 'تجربة مستقلة ببيانات تجريبية فقط' : 'An isolated experience using synthetic data only'}
+          </span>
+        </Link>
+
+        <Link
           href="/notifications"
           className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-bold text-white/80 transition-colors hover:bg-white/10"
         >

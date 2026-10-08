@@ -20,6 +20,8 @@ const PUSH_STAGE_TIMEOUTS = {
   'subscription-lookup': 12_000,
   'subscription-create': 30_000,
   'subscription-remove': 12_000,
+  'native-entitlement': 30_000,
+  'native-registration': 30_000,
   session: 15_000,
   'server-save': 15_000,
 } as const;
@@ -36,6 +38,8 @@ const PUSH_STAGE_MESSAGES: Record<PushStage, string> = {
   'subscription-create':
     'توقفت العملية عند تسجيل اشتراك الإشعارات على هذا الجهاز. تأكد من فتح موقفي من الشاشة الرئيسية ثم حاول مرة أخرى.',
   'subscription-remove': 'تعذر تحديث اشتراك الإشعارات لهذا الجهاز. حاول مرة أخرى.',
+  'native-entitlement': 'تعذر تسجيل الجهاز لدى Apple. يلزم إصدار موقّع يدعم إشعارات Push.',
+  'native-registration': 'تعذر تسجيل الجهاز لدى Apple. تحقق من الاتصال ثم حاول مرة أخرى.',
   session: 'تعذر التحقق من جلسة الحساب. أغلق موقفي وافتحه مجدداً ثم حاول مرة أخرى.',
   'server-save': 'تم السماح بالإشعارات، لكن تعذر حفظ هذا الجهاز. حاول مرة أخرى.',
 };

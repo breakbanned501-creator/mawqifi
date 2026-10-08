@@ -34,6 +34,8 @@ function getDisplayedPushMessage(
     'subscription-lookup': 'push.stage.subscriptionLookup',
     'subscription-create': 'push.stage.subscriptionCreate',
     'subscription-remove': 'push.stage.subscriptionRemove',
+    'native-entitlement': 'push.stage.nativeEntitlement',
+    'native-registration': 'push.stage.nativeRegistration',
     session: 'push.stage.session',
     'server-save': 'push.stage.serverSave',
   };

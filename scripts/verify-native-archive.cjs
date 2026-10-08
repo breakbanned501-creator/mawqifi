@@ -5,6 +5,8 @@ const { requireServerApiOrigin } = require('../lib/server-api-origin');
 const root = path.resolve(__dirname, '..');
 const outputDir = path.join(root, 'out');
 const iosConfigPath = path.join(root, 'ios', 'App', 'App', 'capacitor.config.json');
+const iosEntitlementsPath = path.join(root, 'ios', 'App', 'App', 'App.entitlements');
+const iosProjectPath = path.join(root, 'ios', 'App', 'App.xcodeproj', 'project.pbxproj');
 const forbiddenText = [
   'SUPABASE_SERVICE_ROLE_KEY',
   'VAPID_PRIVATE_KEY',
@@ -78,10 +80,26 @@ function verifyGeneratedCapacitorConfig() {
   }
 }
 
+function verifyPushEntitlementConfiguration() {
+  if (!fs.existsSync(iosEntitlementsPath)) fail('Missing iOS App.entitlements.');
+  const entitlements = fs.readFileSync(iosEntitlementsPath, 'utf8');
+  if (!entitlements.includes('<key>aps-environment</key>') || !entitlements.includes('$(APS_ENVIRONMENT)')) {
+    fail('iOS push entitlement is missing or is not configuration-specific.');
+  }
+  const project = fs.readFileSync(iosProjectPath, 'utf8');
+  if ((project.match(/CODE_SIGN_ENTITLEMENTS = App\/App\.entitlements;/g) || []).length !== 2) {
+    fail('Debug and Release must both use App.entitlements.');
+  }
+  if (!project.includes('APS_ENVIRONMENT = development;') || !project.includes('APS_ENVIRONMENT = production;')) {
+    fail('Debug/Release APNs environments are incomplete.');
+  }
+}
+
 try {
   verifyNativeWebOutput();
   verifyGeneratedCapacitorConfig();
-  console.log('[native-verify] Local bundle, iOS configuration, and secret scan passed.');
+  verifyPushEntitlementConfiguration();
+  console.log('[native-verify] Local bundle, iOS configuration, push entitlement, and secret scan passed.');
 } catch (error) {
   console.error(error instanceof Error ? error.message : '[native-verify] Unknown failure.');
   process.exitCode = 1;

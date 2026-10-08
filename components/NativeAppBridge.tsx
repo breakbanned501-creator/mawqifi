@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getMawqifiInternalPath, isNativeCapacitor } from '@/lib/capacitor';
 import { publishAppState } from '@/lib/publish-location';
 import { getSupabase } from '@/lib/supabase';
+import { refreshNativePushRegistration } from '@/lib/native-push';
 
 type NativeListener = { remove: () => Promise<void> };
 
@@ -98,7 +99,10 @@ export default function NativeAppBridge() {
           publishAppState(isActive);
           try {
             const supabase = getSupabase();
-            if (isActive) reconnectRealtime();
+            if (isActive) {
+              reconnectRealtime();
+              void refreshNativePushRegistration();
+            }
             else supabase.auth.stopAutoRefresh();
           } catch {
             // See reconnectRealtime: account recovery is intentionally isolated.
@@ -107,7 +111,10 @@ export default function NativeAppBridge() {
         listeners.push(appStateListener);
 
         const networkListener = await Network.addListener('networkStatusChange', ({ connected }) => {
-          if (connected) reconnectRealtime();
+          if (connected) {
+            reconnectRealtime();
+            void refreshNativePushRegistration();
+          }
         });
         listeners.push(networkListener);
 
@@ -124,6 +131,7 @@ export default function NativeAppBridge() {
         if (launchUrl) navigate(launchUrl.url);
 
         reconnectRealtime();
+        void refreshNativePushRegistration();
       } catch (error) {
         // Safe lifecycle diagnostics only; never include URLs, tokens, payloads,
         // user IDs, or session data.

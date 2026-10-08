@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { nativeApiOptions, withNativeApiCorsHandler } from '@/lib/native-api-cors';
 import {
-  configureWebPush,
+  configurePushDelivery,
   deliverPushNotifications,
   PushConfigurationError,
 } from '@/lib/push-server';
@@ -92,7 +92,7 @@ export async function POST(request: Request) {
 
     // Validate configuration before claiming an event, so a transient missing
     // deployment setting does not permanently suppress this message notification.
-    configureWebPush();
+    configurePushDelivery();
 
     const { error: eventError } = await supabase.from('push_notification_events').insert({
       message_id: message.id,

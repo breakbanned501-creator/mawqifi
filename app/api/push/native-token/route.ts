@@ -8,6 +8,7 @@ type NativeTokenPayload = {
   action?: unknown;
   platform?: unknown;
   token?: unknown;
+  previousToken?: unknown;
 };
 
 type StoredNativeToken = {
@@ -119,6 +120,17 @@ export async function POST(request: Request) {
       writeError = (await getSupabaseServiceRole().from('native_push_tokens').update(tokenRecord).eq('id', existing.id)).error;
     }
     if (writeError) throw writeError;
+
+    const previousToken = isValidToken(payload.previousToken) ? payload.previousToken.trim() : null;
+    if (previousToken && previousToken !== token) {
+      const { error: disablePreviousError } = await getSupabaseServiceRole()
+        .from('native_push_tokens')
+        .update({ enabled: false, updated_at: now })
+        .eq('user_id', user.id)
+        .eq('platform', NATIVE_PLATFORM)
+        .eq('device_token', previousToken);
+      if (disablePreviousError) throw disablePreviousError;
+    }
 
     console.info('[native-push] token saved', { action: existing ? 'updated' : 'created' });
     return NextResponse.json({ success: true, enabled: true });

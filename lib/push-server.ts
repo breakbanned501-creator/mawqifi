@@ -4,6 +4,7 @@ import webPush from 'web-push';
 import type { Locale } from '@/lib/i18n';
 import { getSupabaseServiceRole } from '@/lib/supabase-server';
 import { blockedRecipientIds } from '@/lib/push-safety';
+import { getApnsConfiguration, sendApnsNotification } from '@/lib/apns-server';
 
 type StoredSubscription = {
   id: string;
@@ -19,6 +20,8 @@ type StoredNotificationPreferences = {
   parking_push_enabled: boolean;
   chat_push_enabled: boolean;
 };
+
+type StoredNativeToken = { id: string; user_id: string; device_token: string };
 
 export type PushNotificationType = 'parking_post' | 'chat_message';
 
@@ -50,13 +53,20 @@ export type PushDeliveryResult = {
   subscriptionCount: number;
   sentCount: number;
   staleCount: number;
+  nativeTokenCount: number;
+  nativeSentCount: number;
 };
 
 export class PushConfigurationError extends Error {
   constructor() {
-    super('VAPID environment variables are incomplete.');
+    super('Push delivery environment variables are incomplete.');
     this.name = 'PushConfigurationError';
   }
+}
+
+export function configurePushDelivery(): void {
+  configureWebPush();
+  if (!getApnsConfiguration()) throw new PushConfigurationError();
 }
 
 /**
@@ -111,6 +121,16 @@ export async function deliverPushNotifications({
   if (subscriptionsError) throw subscriptionsError;
 
   const activeSubscriptions = (subscriptions ?? []) as StoredSubscription[];
+  let nativeTokensQuery = supabase
+    .from('native_push_tokens')
+    .select('id, user_id, device_token')
+    .eq('platform', 'ios')
+    .eq('enabled', true);
+  if (recipientUserId) nativeTokensQuery = nativeTokensQuery.eq('user_id', recipientUserId);
+  if (excludeUserId) nativeTokensQuery = nativeTokensQuery.neq('user_id', excludeUserId);
+  const { data: rawNativeTokens, error: nativeTokensError } = await nativeTokensQuery;
+  if (nativeTokensError) throw nativeTokensError;
+  const nativeTokens = (rawNativeTokens ?? []) as StoredNativeToken[];
   let blockedRecipients = new Set<string>();
   if (excludeUserId) {
     const { data: blocks, error: blockError } = await supabase.from('user_blocks')
@@ -118,7 +138,7 @@ export async function deliverPushNotifications({
     if (blockError) throw blockError;
     blockedRecipients = blockedRecipientIds(excludeUserId, blocks ?? []);
   }
-  const userIds = [...new Set(activeSubscriptions.map((subscription) => subscription.user_id))];
+  const userIds = [...new Set([...activeSubscriptions, ...nativeTokens].map((subscription) => subscription.user_id))];
   const preferencesByUser = new Map<string, StoredNotificationPreferences>();
 
   if (userIds.length) {
@@ -142,6 +162,9 @@ export async function deliverPushNotifications({
 
   const eligibleSubscriptions = activeSubscriptions.filter((subscription) =>
     !blockedRecipients.has(subscription.user_id) && isAllowedForType(preferencesByUser.get(subscription.user_id)),
+  );
+  const eligibleNativeTokens = nativeTokens.filter((token) =>
+    !blockedRecipients.has(token.user_id) && isAllowedForType(preferencesByUser.get(token.user_id)),
   );
   const serializedPayloads = new Map<Locale, string>();
   const payloadForSubscription = (subscription: StoredSubscription) => {
@@ -182,6 +205,26 @@ export async function deliverPushNotifications({
   const staleSubscriptionIds = deliveries.flatMap(({ staleSubscriptionId }) =>
     staleSubscriptionId ? [staleSubscriptionId] : [],
   );
+
+  const apnsConfiguration = getApnsConfiguration();
+  const nativeDeliveries = apnsConfiguration
+    ? await Promise.all(eligibleNativeTokens.map(async (token) => {
+        const locale = preferencesByUser.get(token.user_id)?.locale === 'en' ? 'en' : 'ar';
+        try {
+          const result = await sendApnsNotification(apnsConfiguration, token.device_token, payloadForLocale(locale));
+          if (!result.accepted) console.warn('APNs delivery rejected.', { notificationType, status: result.status, reason: result.reason });
+          return { sent: result.accepted, staleTokenId: result.stale ? token.id : null };
+        } catch (error) {
+          console.warn('APNs delivery failed.', { notificationType, errorName: error instanceof Error ? error.name : 'unknown' });
+          return { sent: false, staleTokenId: null };
+        }
+      }))
+    : [];
+  const staleNativeTokenIds = nativeDeliveries.flatMap(({ staleTokenId }) => staleTokenId ? [staleTokenId] : []);
+  if (staleNativeTokenIds.length) {
+    const { error } = await supabase.from('native_push_tokens').update({ enabled: false }).in('id', staleNativeTokenIds);
+    if (error) console.error('Unable to deactivate stale native push tokens.', { notificationType, staleCount: staleNativeTokenIds.length });
+  }
   if (staleSubscriptionIds.length) {
     const { error: deactivateError } = await supabase
       .from('push_subscriptions')
@@ -195,18 +238,22 @@ export async function deliverPushNotifications({
     }
   }
 
-  const sentCount = deliveries.filter(({ sent }) => sent).length;
+  const webSentCount = deliveries.filter(({ sent }) => sent).length;
+  const nativeSentCount = nativeDeliveries.filter(({ sent }) => sent).length;
   console.info('Web push delivery completed.', {
     notificationType,
     subscriptionCount: activeSubscriptions.length,
     eligibleSubscriptionCount: eligibleSubscriptions.length,
-    sentCount,
+    sentCount: webSentCount,
+    nativeSentCount,
     staleCount: staleSubscriptionIds.length,
   });
 
   return {
     subscriptionCount: activeSubscriptions.length,
-    sentCount,
-    staleCount: staleSubscriptionIds.length,
+    sentCount: webSentCount + nativeSentCount,
+    staleCount: staleSubscriptionIds.length + staleNativeTokenIds.length,
+    nativeTokenCount: nativeTokens.length,
+    nativeSentCount,
   };
 }

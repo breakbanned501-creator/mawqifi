@@ -256,6 +256,15 @@ workflows:
           unzip -q "${IPAS[0]}" -d "$CM_BUILD_DIR/build/production-ipa-scan"
           APPS=("$CM_BUILD_DIR"/build/production-ipa-scan/Payload/*.app)
           test "${#APPS[@]}" -eq 1
+          SIGNED_ENTITLEMENTS="$CM_BUILD_DIR/build/production-ipa-scan/signed-entitlements.plist"
+          PROFILE_PLIST="$CM_BUILD_DIR/build/production-ipa-scan/profile.plist"
+          codesign -d --entitlements :- "${APPS[0]}" > "$SIGNED_ENTITLEMENTS" 2>/dev/null
+          security cms -D -i "${APPS[0]}/embedded.mobileprovision" > "$PROFILE_PLIST"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :aps-environment' "$SIGNED_ENTITLEMENTS")" = "production"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:aps-environment' "$PROFILE_PLIST")" = "production"
+          APP_IDENTIFIER=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$PROFILE_PLIST")
+          [[ "$APP_IDENTIFIER" = *.com.mawqifi.app ]]
+          echo "Signed archive and provisioning profile contain production APNs entitlement."
           test "$(/usr/libexec/PlistBuddy -c 'Print :UIDeviceFamily:0' "${APPS[0]}/Info.plist")" = "1"
           if /usr/libexec/PlistBuddy -c 'Print :UIDeviceFamily:1' "${APPS[0]}/Info.plist" >/dev/null 2>&1; then
             echo "Signed archive unexpectedly declares a second device family." >&2

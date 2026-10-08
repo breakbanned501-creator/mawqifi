@@ -5,7 +5,8 @@ import { fetchMawqifiServerApi } from './server-api';
 import { getSupabase } from './supabase';
 
 const NATIVE_PUSH_DEVICE_PREFERENCE_KEY = 'mawqifi.native-push-device.v1';
-const NATIVE_PUSH_TIMEOUT_MS = 15_000;
+const NATIVE_PUSH_TIMEOUT_MS = 30_000;
+let nativeRegistrationInFlight: Promise<PushActionResult> | null = null;
 
 type NativePushDeviceRecord = {
   userId: string;
@@ -131,7 +132,20 @@ export async function clearDeletedAccountNativePush(): Promise<void> {
   ]));
 }
 
-async function requestNativeToken(accessToken: string): Promise<string> {
+function registrationFailure(message: string): NativePushError {
+  const normalized = message.toLowerCase();
+  const entitlementFailure = normalized.includes('aps-environment')
+    || normalized.includes('entitlement')
+    || normalized.includes('code signing');
+  return new NativePushError(
+    entitlementFailure ? 'native-entitlement' : 'native-registration',
+    entitlementFailure
+      ? 'تعذر تسجيل الجهاز لدى Apple. يلزم تثبيت إصدار موقّع يدعم إشعارات Push.'
+      : 'تعذر تسجيل الجهاز لدى Apple. تحقق من الاتصال ثم حاول مرة أخرى.',
+  );
+}
+
+async function requestNativeToken(): Promise<string> {
   const { PushNotifications } = await import('@capacitor/push-notifications');
   let resolveToken: ((token: string) => void) | null = null;
   let rejectToken: ((error: unknown) => void) | null = null;
@@ -148,23 +162,23 @@ async function requestNativeToken(accessToken: string): Promise<string> {
     if (timeoutId) globalThis.clearTimeout(timeoutId);
     timeoutId = undefined;
     if (resolveWith) resolveToken?.(resolveWith);
-    else rejectToken?.(rejectWith ?? new NativePushError('subscription-create', 'تعذر تسجيل هذا الجهاز للإشعارات.'));
+    else rejectToken?.(rejectWith ?? new NativePushError('native-registration', 'تعذر تسجيل هذا الجهاز لدى Apple.'));
   };
 
   const registrationListener = await PushNotifications.addListener('registration', ({ value }) => {
     const token = value.trim();
     finish(token || undefined);
   });
-  const errorListener = await PushNotifications.addListener('registrationError', () => {
-    finish(undefined, new NativePushError('subscription-create', 'تعذر تسجيل هذا الجهاز للإشعارات.'));
+  const errorListener = await PushNotifications.addListener('registrationError', ({ error }) => {
+    finish(undefined, registrationFailure(error));
   });
 
   try {
     timeoutId = globalThis.setTimeout(
-      () => finish(undefined, new NativePushError('subscription-create', 'انتهت مهلة تسجيل هذا الجهاز للإشعارات. حاول مرة أخرى.')),
+      () => finish(undefined, new NativePushError('native-registration', 'انتهت مهلة تسجيل الجهاز لدى Apple. تحقق من الاتصال ثم حاول مرة أخرى.')),
       NATIVE_PUSH_TIMEOUT_MS,
     );
-    safeNativePushDiagnostic('registration.start', { hasAuthenticatedSession: Boolean(accessToken) });
+    safeNativePushDiagnostic('registration.start');
     await PushNotifications.register();
     return await tokenPromise;
   } finally {
@@ -261,7 +275,7 @@ export async function getNativePushDeviceState(): Promise<PushDeviceState> {
   }
 }
 
-export async function subscribeToNativePushNotifications(): Promise<PushActionResult> {
+async function registerNativePush(): Promise<PushActionResult> {
   if (!isNativeCapacitor() || !isNativeIOS()) {
     return { success: false, state: 'unsupported', message: 'الإشعارات الأصلية غير متاحة على هذا الجهاز.' };
   }
@@ -287,10 +301,12 @@ export async function subscribeToNativePushNotifications(): Promise<PushActionRe
     }
 
     const auth = await getNativeAuth();
-    const token = await requestNativeToken(auth.accessToken);
+    const previousDevice = await readNativePushDevice();
+    const token = await requestNativeToken();
     const response = await sendNativePushRequest('POST', auth.accessToken, {
       platform: 'ios',
       token,
+      previousToken: previousDevice?.userId === auth.userId ? previousDevice.token : undefined,
     });
     if (!response.ok) {
       throw new NativePushError('server-save', await readError(response, 'تعذر حفظ إشعارات هذا الجهاز. حاول مرة أخرى.'));
@@ -318,6 +334,30 @@ export async function subscribeToNativePushNotifications(): Promise<PushActionRe
             : 'تعذر إكمال إعداد الإشعارات. حاول مرة أخرى.',
       stage: error instanceof NativePushError ? error.stage : undefined,
     };
+  }
+}
+
+export async function subscribeToNativePushNotifications(): Promise<PushActionResult> {
+  if (nativeRegistrationInFlight) return nativeRegistrationInFlight;
+  nativeRegistrationInFlight = registerNativePush();
+  try {
+    return await nativeRegistrationInFlight;
+  } finally {
+    nativeRegistrationInFlight = null;
+  }
+}
+
+/** Refreshes APNs' token on launch/resume only after this device was explicitly enabled. */
+export async function refreshNativePushRegistration(): Promise<boolean> {
+  if (!isNativeCapacitor() || !isNativeIOS() || nativeRegistrationInFlight) return false;
+  try {
+    const storedDevice = await readNativePushDevice();
+    if (!storedDevice || await nativePermission() !== 'granted') return false;
+    const result = await subscribeToNativePushNotifications();
+    return result.success;
+  } catch {
+    safeNativePushDiagnostic('refresh.deferred');
+    return false;
   }
 }
 

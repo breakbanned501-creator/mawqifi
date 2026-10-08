@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { nativeApiOptions, withNativeApiCorsHandler } from '@/lib/native-api-cors';
 import {
-  configureWebPush,
+  configurePushDelivery,
   deliverPushNotifications,
   PushConfigurationError,
 } from '@/lib/push-server';
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
 
     // Validate configuration before recording an idempotency event. That keeps a
     // post eligible for delivery once a missing production configuration is fixed.
-    configureWebPush();
+    configurePushDelivery();
 
     const { error: eventError } = await supabase
       .from('push_notification_events')

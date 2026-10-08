@@ -25,6 +25,7 @@ const demo = loadTypeScriptModule('lib/review-demo.ts');
 const page = read('app/review-demo/page.tsx');
 const home = read('app/page.tsx');
 const settings = read('app/settings/page.tsx');
+const about = read('app/about/page.tsx');
 const documentation = read('docs/app-review-demo.md');
 const project = read('ios/App/App.xcodeproj/project.pbxproj');
 
@@ -70,8 +71,12 @@ for (const forbiddenIntegration of [
   assert.ok(!page.includes(forbiddenIntegration), `Demo route must not use ${forbiddenIntegration}`);
 }
 
-assert.ok(home.includes('href="/review-demo"'), 'Home must expose the demo entry');
-assert.ok(settings.includes('href="/review-demo"'), 'Settings must expose the demo entry');
+assert.ok(!home.includes('/review-demo'), 'Home must not expose the demo entry');
+assert.ok(!settings.includes('/review-demo'), 'Settings must not expose the demo entry');
+assert.ok(settings.includes('href="/about"'), 'Account must expose the About screen');
+assert.ok(about.includes('REVIEW_TAPS_REQUIRED = 5'), 'About must require five version taps');
+assert.ok(about.includes("router.push('/review-demo')"), 'About must retain reviewer access');
+assert.ok(documentation.includes('version label **five times**'));
 assert.ok(page.includes("setReportTarget('user')"), 'Demo must expose user reporting');
 assert.ok(page.includes("setReportTarget('message')"), 'Demo must expose message reporting');
 assert.ok(page.includes('blocked: !current.blocked'), 'Demo must expose reversible blocking');

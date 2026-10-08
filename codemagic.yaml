@@ -118,7 +118,7 @@ workflows:
             IOS_BUILD_NUMBER="$CI_BUILD_NUMBER"
           fi
           echo "IOS_BUILD_NUMBER=$IOS_BUILD_NUMBER" >> "$CM_ENV"
-          echo "Using iOS build number $IOS_BUILD_NUMBER; marketing version remains 1.0."
+          echo "Using iOS build number $IOS_BUILD_NUMBER; marketing version remains 1.0.1."
       - name: Build signed App Store IPA
         script: |
           #!/usr/bin/env bash
@@ -233,7 +233,7 @@ workflows:
             IOS_BUILD_NUMBER="$CI_BUILD_NUMBER"
           fi
           echo "IOS_BUILD_NUMBER=$IOS_BUILD_NUMBER" >> "$CM_ENV"
-          echo "Using iOS build number $IOS_BUILD_NUMBER; marketing version remains 1.0."
+          echo "Using iOS build number $IOS_BUILD_NUMBER; marketing version remains 1.0.1."
       - name: Build signed App Store IPA
         script: |
           #!/usr/bin/env bash

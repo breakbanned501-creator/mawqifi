@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PlusCircle } from 'lucide-react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getOrCreateConversation } from '@/lib/conversations';
 import { getMawqifiPostHref } from '@/lib/capacitor';
@@ -275,17 +274,6 @@ export default function Home() {
         <Toast message={publishError ?? ''} visible={publishErrorToast} onHide={hidePublishErrorToast}
           duration={3000} variant="info" />
         <PlaceSelector />
-        <Link
-          href="/review-demo"
-          className="mb-5 block rounded-2xl border border-amber-300/25 bg-amber-300/10 px-4 py-3 text-center transition-colors hover:bg-amber-300/15"
-        >
-          <span className="block text-sm font-extrabold text-amber-100">
-            {dir === 'rtl' ? 'وضع مراجعة App Store' : 'App Review Demo'}
-          </span>
-          <span className="mt-1 block text-xs text-white/60">
-            {dir === 'rtl' ? 'تجربة مستقلة ببيانات تجريبية فقط' : 'An isolated experience using synthetic data only'}
-          </span>
-        </Link>
         {publishError && <div className="mb-5"><ErrorBanner message={publishError} onRetry={() => void leaveSpot()} /></div>}
 
         {error && place && (

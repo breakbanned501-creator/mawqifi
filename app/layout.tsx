@@ -10,6 +10,7 @@ import PwaInstallPrompt from '@/components/PwaInstallPrompt'
 import PwaSplash from '@/components/PwaSplash'
 import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar'
 import TutorialProvider, { TutorialContent } from '@/components/TutorialProvider'
+import UpdateAvailableNotice from '@/components/UpdateAvailableNotice'
 import './globals.css'
 
 const cairo = Cairo({ 
@@ -148,6 +149,7 @@ export default function RootLayout({
                 <TutorialContent>
                   {children}
                   <PwaInstallPrompt />
+                  <UpdateAvailableNotice />
                 </TutorialContent>
               </TutorialProvider>
             </NotificationProvider>

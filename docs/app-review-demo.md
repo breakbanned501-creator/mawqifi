@@ -1,12 +1,14 @@
 # App Review Demo Mode
 
-Mawqifi 1.0 includes a deterministic, isolated demonstration for App Store Review. It requires no credentials, second device, second installation, or developer intervention.
+Mawqifi 1.0.1 includes a deterministic, isolated demonstration for App Store Review. It requires no credentials, second device, second installation, or developer intervention. The demonstration is not presented in normal Home or Account navigation.
 
 ## Access
 
 1. Launch Mawqifi and wait for the normal anonymous session initialization.
-2. On Home, tap **App Review Demo** / **وضع مراجعة App Store**. The same entry is also visible in **Account / Settings**.
-3. The amber notice confirms that the page uses synthetic data only.
+2. Open **Account** from the bottom navigation.
+3. Tap **About Mawqifi** / **حول موقفي**.
+4. Tap the app version label **five times** within five seconds.
+5. The Review Demo opens and its notice confirms that it uses synthetic data only.
 
 ## Suggested review walkthrough
 
@@ -35,5 +37,5 @@ The reset button in the page header restores the complete demonstration at any t
 
 ## App Review notes text
 
-> No login credentials are required. Launch the app and tap **App Review Demo** on the Home screen. This isolated single-device demonstration uses only synthetic data and provides place selection, parking publish/discovery/claim, private chat, text/image messaging, private location and Maps handoff, arrival/countdown/read-only completion, reporting, blocking, profile, and reusable account deletion. Tap the reset icon at any time to restore the demo.
+> No login credentials are required. Launch the app, open **Account**, tap **About Mawqifi**, then tap the app version label five times within five seconds. This isolated single-device demonstration uses only synthetic data and provides place selection, parking publish/discovery/claim, private chat, text/image messaging, private location and Maps handoff, arrival/countdown/read-only completion, reporting, blocking, profile, and reusable account deletion. Tap the reset icon at any time to restore the demo.
 

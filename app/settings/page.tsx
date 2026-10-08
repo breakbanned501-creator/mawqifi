@@ -2,7 +2,7 @@
 
 import { type MouseEvent, useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { Bell, CircleHelp, Languages, LogOut, MessageCircle, ShieldCheck, User, Trash2 } from 'lucide-react';
+import { Bell, CircleHelp, Info, Languages, LogOut, MessageCircle, ShieldCheck, User, Trash2 } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
 import ErrorBanner from '@/components/ErrorBanner';
 import PageHeader from '@/components/PageHeader';
@@ -279,18 +279,6 @@ export default function SettingsPage() {
         <PushNotificationControl />
 
         <Link
-          href="/review-demo"
-          className="block rounded-2xl border border-amber-300/25 bg-amber-300/10 px-4 py-3 text-center transition-colors hover:bg-amber-300/15"
-        >
-          <span className="block text-sm font-extrabold text-amber-100">
-            {locale === 'ar' ? 'وضع مراجعة App Store' : 'App Review Demo'}
-          </span>
-          <span className="mt-1 block text-xs text-white/60">
-            {locale === 'ar' ? 'تجربة مستقلة ببيانات تجريبية فقط' : 'An isolated experience using synthetic data only'}
-          </span>
-        </Link>
-
-        <Link
           href="/notifications"
           className="block rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-bold text-white/80 transition-colors hover:bg-white/10"
         >
@@ -324,6 +312,14 @@ export default function SettingsPage() {
           </div>
         </section>
 
+        <Link
+          href="/about"
+          className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-white/80 transition-colors hover:bg-white/10"
+        >
+          <Info className="h-5 w-5 shrink-0 text-cyan-300" aria-hidden="true" />
+          <span>{t('settings.about')}</span>
+        </Link>
+
         <section className="glass-card space-y-3 p-5">
           <h3 className="font-bold text-white">{t('settings.legalLinks')}</h3>
           <div className="space-y-2">
@@ -352,10 +348,6 @@ export default function SettingsPage() {
             </a>
           </div>
         </section>
-
-        <div className="text-center">
-          <p className="text-[10px] font-semibold text-white/30">{t('settings.version')}</p>
-        </div>
 
         <section className="glass-card space-y-3 p-5">
           <p className="text-sm leading-7 text-white/65">{t('deletion.summary')}</p>

@@ -151,8 +151,11 @@ workflows:
       app_store_connect: Mawqifi Codemagic
     environment:
       ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.mawqifi.app
+        provisioning_profiles:
+          - profile: mawqifi_app_store_push
+            environment_variable: MAWQIFI_PROVISIONING_PROFILE_PATH
+        certificates:
+          - Mawqifi Codemagic
       groups:
         - mawqifi_app_store_production
       vars:
@@ -216,8 +219,18 @@ workflows:
           scheme.configure_with_targets(target, nil, launch_target: true)
           scheme.save_as(project_path, 'App', true)
           RUBY
-      - name: Apply existing App Store provisioning profiles
-        script: xcode-project use-profiles
+      - name: Verify and apply production push provisioning profile
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          PROFILE_PLIST=$(mktemp)
+          trap 'rm -f "$PROFILE_PLIST"' EXIT
+          security cms -D -i "$MAWQIFI_PROVISIONING_PROFILE_PATH" > "$PROFILE_PLIST"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:aps-environment' "$PROFILE_PLIST")" = "production"
+          APP_IDENTIFIER=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$PROFILE_PLIST")
+          [[ "$APP_IDENTIFIER" = *.com.mawqifi.app ]]
+          echo "Provisioning profile authorizes production APNs for com.mawqifi.app."
+          xcode-project use-profiles
       - name: Select an incrementing App Store build number
         script: |
           #!/usr/bin/env bash

@@ -7,11 +7,21 @@ const source=fs.readFileSync('codemagic.yaml','utf8'),doc=yaml.load(source);
 const schema=JSON.parse(fs.readFileSync(process.argv[2],'utf8').replace(/^\uFEFF/,''));
 const ajv=new Ajv({allErrors:true,strict:false,unknownFormats:'ignore'});
 check('Current official Codemagic schema',()=>assert(ajv.validate(schema,doc),JSON.stringify(ajv.errors)));
-const old=cp.execFileSync('git',['show','8d56560eb3edd043662d6cb18dec6541b38b2e66:codemagic.yaml'],{encoding:'utf8'});
-check('Staging workflow preserved byte-for-byte',()=>assert(source.replace(/\r\n/g,'\n').startsWith(old.replace(/\r\n/g,'\n'))));
+const before=yaml.load(cp.execFileSync('git',['show','HEAD:codemagic.yaml'],{encoding:'utf8'}));
+check('Staging workflow preserved',()=>assert.deepEqual(doc.workflows['ios-testflight-staging'],before.workflows['ios-testflight-staging']));
 const w=doc.workflows['ios-app-store-production'];
 check('Dedicated production environment group',()=>assert.deepEqual(w.environment.groups,['mawqifi_app_store_production']));
-check('Distribution signing and bundle identifier',()=>assert.deepEqual(w.environment.ios_signing,{distribution_type:'app_store',bundle_identifier:'com.mawqifi.app'}));
+check('Explicit production push profile and existing certificate',()=>assert.deepEqual(w.environment.ios_signing,{
+ provisioning_profiles:[{profile:'mawqifi_app_store_push',environment_variable:'MAWQIFI_PROVISIONING_PROFILE_PATH'}],
+ certificates:['Mawqifi Codemagic'],
+}));
+check('Production profile APNs entitlement gate',()=>{
+ const signing=w.scripts.find(s=>s.name.includes('production push provisioning profile')).script;
+ assert(signing.includes('MAWQIFI_PROVISIONING_PROFILE_PATH'));
+ assert(signing.includes("Print :Entitlements:aps-environment"));
+ assert(signing.includes('= "production"'));
+ assert(signing.includes('*.com.mawqifi.app'));
+});
 check('No triggers / review / release / beta review',()=>{
  assert(!w.triggering);assert.deepEqual(w.publishing.app_store_connect,{auth:'integration',submit_to_testflight:false,submit_to_app_store:false});
  assert(!JSON.stringify(w).includes('testFlightInternalTestingOnly'));

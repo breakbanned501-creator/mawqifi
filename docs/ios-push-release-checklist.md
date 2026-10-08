@@ -5,7 +5,7 @@ Mawqifi uses the native APNs token returned by `@capacitor/push-notifications`. 
 Before producing an App Store build:
 
 1. In Apple Developer → Certificates, Identifiers & Profiles → Identifiers → `com.mawqifi.app`, enable **Push Notifications**.
-2. Regenerate the App Store distribution provisioning profile for `com.mawqifi.app`. Replace the Codemagic profile referenced as `mawqifi_app_store` if the existing profile predates the capability.
+2. Use the App Store distribution provisioning profile referenced in Codemagic as `mawqifi_app_store_push`.
 3. Configure these server-only variables in the Vercel **Production** environment: `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY`, `APNS_TOPIC=com.mawqifi.app`, and `APNS_ENVIRONMENT=production`. Never add them to `NEXT_PUBLIC_*` or the Codemagic native build group.
 4. Deploy the server changes to the production backend before testing the new app build.
 5. Build through the production Codemagic workflow. Its signed-IPA gate verifies that both the embedded profile and signed app contain `aps-environment=production` and that the application identifier ends in `com.mawqifi.app`.

@@ -47,8 +47,13 @@ async function main() {
   const notice = fs.readFileSync(path.join(root, 'components/UpdateAvailableNotice.tsx'), 'utf8');
   assert.ok(notice.includes("new Set(['/', '/about', '/settings'])"));
   assert.ok(!notice.includes("'/post/view'"));
+  assert.ok(notice.includes("App.addListener('appStateChange'"));
+  assert.ok(notice.includes('window.sessionStorage'));
   assert.ok(notice.includes('catch {'));
-  console.log('[app-update] Version comparison, trusted lookup response, passive routes, and graceful failure passed.');
+  const translations = fs.readFileSync(path.join(root, 'lib/i18n/index.ts'), 'utf8');
+  assert.ok(translations.includes('🚀 تحديث جديد لموقفي!'));
+  assert.ok(translations.includes('يتوفر إصدار جديد من تطبيق موقفي يتضمن تحسينات وإصلاحات مهمة. حدّث التطبيق الآن واستمتع بأفضل تجربة.'));
+  console.log('[app-update] Version comparison, trusted lookup response, foreground checks, session dismissal, passive routes, and graceful failure passed.');
 }
 
 main().catch((error) => {

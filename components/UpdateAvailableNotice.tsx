@@ -21,20 +21,24 @@ export default function UpdateAvailableNotice() {
 
   useEffect(() => {
     if (!isNativeIOS()) return;
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 8000);
+    let disposed = false;
+    let activeController: AbortController | null = null;
+    let removeAppStateListener: (() => Promise<void>) | null = null;
 
-    void (async () => {
+    const checkForUpdate = async (App: typeof import('@capacitor/app').App) => {
+      activeController?.abort();
+      const controller = new AbortController();
+      activeController = controller;
+      const timeout = window.setTimeout(() => controller.abort(), 8000);
       try {
-        const [{ App }, published] = await Promise.all([
-          import('@capacitor/app'),
+        const [published, { version: installed }] = await Promise.all([
           fetchPublishedIOSVersion(controller.signal),
+          App.getInfo(),
         ]);
         if (!published) return;
-        const { version: installed } = await App.getInfo();
         if (
-          isNewerVersion(installed, published)
-          && window.localStorage.getItem(DISMISSED_VERSION_KEY) !== published
+          !disposed && isNewerVersion(installed, published)
+          && window.sessionStorage.getItem(DISMISSED_VERSION_KEY) !== published
         ) {
           setAvailableVersion(published);
         }
@@ -42,19 +46,30 @@ export default function UpdateAvailableNotice() {
         // Offline, timeout and store lookup errors must never interrupt the app.
       } finally {
         window.clearTimeout(timeout);
+        if (activeController === controller) activeController = null;
       }
-    })();
+    };
+
+    void import('@capacitor/app').then(async ({ App }) => {
+      if (disposed) return;
+      await checkForUpdate(App);
+      const listener = await App.addListener('appStateChange', ({ isActive }) => {
+        if (isActive) void checkForUpdate(App);
+      });
+      removeAppStateListener = () => listener.remove();
+    }).catch(() => undefined);
 
     return () => {
-      window.clearTimeout(timeout);
-      controller.abort();
+      disposed = true;
+      activeController?.abort();
+      void removeAppStateListener?.();
     };
   }, []);
 
   if (!availableVersion || !PASSIVE_ROUTES.has(pathname)) return null;
 
   const dismiss = () => {
-    window.localStorage.setItem(DISMISSED_VERSION_KEY, availableVersion);
+    window.sessionStorage.setItem(DISMISSED_VERSION_KEY, availableVersion);
     setAvailableVersion(null);
   };
 

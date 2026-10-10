@@ -5,9 +5,10 @@ const cp = require('node:child_process');
 const REF = 'opsyvdsivxoqphkfdsbb';
 const APPROVED_CI_ONLY_FILES = ['codemagic.yaml', 'scripts/verify-production-build-env.cjs'];
 function verify(env, git, names) {
-  assert.equal(env.CM_BRANCH, 'ios-release-hardening', 'Release branch required');
   assert(/^[a-f0-9]{40}$/.test(env.APPROVED_RELEASE_COMMIT || ''), 'Final approved commit required');
   assert(/^mawqifi-production-[A-Za-z0-9._-]+$/.test(env.APPROVED_RELEASE_TAG || ''), 'Explicit approved production tag required');
+  const approvedSource = env.CM_BRANCH === 'ios-release-hardening' || env.CM_TAG === env.APPROVED_RELEASE_TAG;
+  assert(approvedSource, 'Release branch or exact approved tag required');
   const head = git(['rev-parse', 'HEAD']);
   if (head !== env.APPROVED_RELEASE_COMMIT) {
     assert.equal(git(['rev-parse', 'HEAD^']), env.APPROVED_RELEASE_COMMIT, 'CI-only guard commit must directly follow the approved application commit');
@@ -40,5 +41,9 @@ if (require.main === module) {
   try {
     verify(process.env, args => cp.execFileSync('git', args, {encoding:'utf8', stdio:['ignore','pipe','pipe']}).trim(), fs.readdirSync('.'));
     console.log('Approved production commit/tag and public build configuration verified.');
-  } catch { console.error('Production guard failed; check approved commit/tag and isolated public configuration.'); process.exitCode = 1; }
+  } catch (error) {
+    // Guard errors contain assertion labels only; never print environment values.
+    console.error('Production guard failed:', error && error.message ? error.message : 'validation failed');
+    process.exitCode = 1;
+  }
 }

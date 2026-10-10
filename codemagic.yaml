@@ -169,6 +169,8 @@ workflows:
           #!/usr/bin/env bash
           set -euo pipefail
           [[ "${APPROVED_RELEASE_TAG:-}" =~ ^mawqifi-production-[A-Za-z0-9._-]+$ ]]
+          # Tag-triggered builds may not populate CM_BRANCH. The Node guard accepts
+          # only the release branch or CM_TAG matching this exact approved tag.
           # Codemagic may omit unrelated tags from a branch checkout. Prefer the
           # local ref and, only when absent, fetch this public tag anonymously.
           # Disabling every credential path prevents macOS Keychain prompts in CI.

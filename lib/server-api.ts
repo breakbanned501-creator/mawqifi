@@ -6,6 +6,7 @@ const SERVER_API_PATHS = [
   '/api/push/native-token',
   '/api/push/notify-new-post',
   '/api/push/notify-chat-message',
+  '/api/push/notify-match-offer',
 ] as const;
 
 export type MawqifiServerApiPath = (typeof SERVER_API_PATHS)[number];

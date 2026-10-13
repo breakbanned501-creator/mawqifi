@@ -12,7 +12,8 @@
     "start": "next start",
     "lint": "eslint app components lib scripts --ext .js,.cjs,.jsx,.ts,.tsx",
     "typecheck": "tsc --noEmit",
-    "test:release-hardening": "node scripts/test-release-hardening.cjs"
+    "test:release-hardening": "node scripts/test-release-hardening.cjs",
+    "test:reverse-matching": "node scripts/test-reverse-matching.cjs"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.1",

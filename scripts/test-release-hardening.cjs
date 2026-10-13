@@ -26,7 +26,7 @@ async function main() {
     assert.throws(() => api.getMawqifiServerApiUrl('/api/push/native-token'), /required/);
     tests++;
     process.env.NEXT_PUBLIC_SERVER_API_ORIGIN = 'https://native-preview.example';
-    for (const p of ['/api/push/subscribe', '/api/push/native-token', '/api/push/notify-new-post', '/api/push/notify-chat-message'])
+    for (const p of ['/api/push/subscribe', '/api/push/native-token', '/api/push/notify-new-post', '/api/push/notify-chat-message', '/api/push/notify-match-offer'])
         check(api.getMawqifiServerApiUrl(p) === 'https://native-preview.example' + p, 'Native explicit backend ' + p);
     assert.throws(() => api.getMawqifiServerApiUrl('/api/other'), /Unsupported/);
     tests++;

@@ -23,7 +23,7 @@ type StoredNotificationPreferences = {
 
 type StoredNativeToken = { id: string; user_id: string; device_token: string };
 
-export type PushNotificationType = 'parking_post' | 'chat_message';
+export type PushNotificationType = 'parking_post' | 'chat_message' | 'parking_match_offer';
 
 export type PushNotificationPayload = {
   title: string;
@@ -66,7 +66,6 @@ export class PushConfigurationError extends Error {
 
 export function configurePushDelivery(): void {
   configureWebPush();
-  if (!getApnsConfiguration()) throw new PushConfigurationError();
 }
 
 /**
@@ -155,9 +154,9 @@ export async function deliverPushNotifications({
 
   const isAllowedForType = (preference: StoredNotificationPreferences | undefined) => {
     if (!preference) return true;
-    return notificationType === 'parking_post'
-      ? preference.parking_push_enabled
-      : preference.chat_push_enabled;
+    return notificationType === 'chat_message'
+      ? preference.chat_push_enabled
+      : preference.parking_push_enabled;
   };
 
   const eligibleSubscriptions = activeSubscriptions.filter((subscription) =>

@@ -1,6 +1,7 @@
 # Manual-only: select ios-release-hardening in Codemagic.
 # Create group mawqifi_testflight_staging with NEXT_PUBLIC_SUPABASE_URL,
-# NEXT_PUBLIC_SUPABASE_ANON_KEY, NEXT_PUBLIC_SERVER_API_ORIGIN, APP_STORE_APPLE_ID.
+# NEXT_PUBLIC_SUPABASE_ANON_KEY, NEXT_PUBLIC_SERVER_API_ORIGIN,
+# NEXT_PUBLIC_REVERSE_MATCHING=1, and APP_STORE_APPLE_ID.
 # Keep server-side Supabase, VAPID, and APNs credentials out of this group.
 workflows:
   ios-testflight-staging:
@@ -11,8 +12,11 @@ workflows:
       app_store_connect: Mawqifi Codemagic
     environment:
       ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.mawqifi.app
+        provisioning_profiles:
+          - profile: mawqifi_app_store_push
+            environment_variable: MAWQIFI_PROVISIONING_PROFILE_PATH
+        certificates:
+          - Mawqifi Codemagic
       groups:
         - mawqifi_testflight_staging
       vars:
@@ -26,13 +30,16 @@ workflows:
         script: |
           #!/usr/bin/env bash
           set -euo pipefail
-          test "$CM_BRANCH" = "ios-release-hardening"
-          git merge-base --is-ancestor 399a817dcc0724250004ac35b1f1d5ef555f38f5 HEAD
+          APP_BASELINE=0813b56aab8700793a5ea850cec9bf114241a134
+          test "$CM_BRANCH" = "codex/mawqifi-2-reverse-matching"
+          git merge-base --is-ancestor "$APP_BASELINE" HEAD
+          test "$(git diff --name-only "$APP_BASELINE"..HEAD)" = "codemagic.yaml"
           node <<'NODE'
           const assert = require('node:assert/strict');
           const fs = require('node:fs');
           const env = process.env;
           const ref = 'jrmiwmsgnztqwbigumlw';
+          assert.equal(env.NEXT_PUBLIC_REVERSE_MATCHING, '1', 'Reverse matching must be enabled for this staging build');
           assert.equal(env.NEXT_PUBLIC_SUPABASE_URL, 'https://' + ref + '.supabase.co', 'Expected staging Supabase URL');
           assert.equal(env.NEXT_PUBLIC_SERVER_API_ORIGIN, 'https://mawqifi-testflight-staging.vercel.app', 'Expected staging API origin');
           assert(/^[0-9]+$/.test(env.APP_STORE_APPLE_ID || ''), 'Set the numeric App Store Connect Apple ID');
@@ -98,9 +105,18 @@ workflows:
           scheme.save_as(project_path, 'App', true)
           RUBY
       - name: Apply existing App Store provisioning profiles
-        # Resolves the uploaded matching profile (mawqifi_app_store) and certificate.
+        # The explicit push-enabled profile is decoded before Xcode assignment.
         # Internal-only exports cannot be distributed externally or to customers.
         script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          PROFILE_PLIST=$(mktemp)
+          trap 'rm -f "$PROFILE_PLIST"' EXIT
+          security cms -D -i "$MAWQIFI_PROVISIONING_PROFILE_PATH" > "$PROFILE_PLIST"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:aps-environment' "$PROFILE_PLIST")" = "production"
+          APP_IDENTIFIER=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$PROFILE_PLIST")
+          [[ "$APP_IDENTIFIER" = *.com.mawqifi.app ]]
+          echo "Push-enabled App Store profile verified for com.mawqifi.app."
           xcode-project use-profiles \
             --custom-export-options='{"testFlightInternalTestingOnly": true}'
       - name: Select an incrementing TestFlight build number
@@ -130,6 +146,36 @@ workflows:
             --no-show-build-settings \
             --archive-xcargs "COMPILER_INDEX_STORE_ENABLE=NO CURRENT_PROJECT_VERSION=$IOS_BUILD_NUMBER" \
             --ipa-directory "$CM_BUILD_DIR/build/ios/ipa"
+      - name: Verify signed staging IPA isolation and entitlements
+        script: |-
+          #!/usr/bin/env bash
+          set -euo pipefail
+          shopt -s nullglob
+          IPAS=("$CM_BUILD_DIR"/build/ios/ipa/*.ipa)
+          test "${#IPAS[@]}" -eq 1
+          SCAN_DIR="$CM_BUILD_DIR/build/staging-ipa-scan"
+          rm -rf "$SCAN_DIR"
+          mkdir -p "$SCAN_DIR"
+          unzip -q "${IPAS[0]}" -d "$SCAN_DIR"
+          APPS=("$SCAN_DIR"/Payload/*.app)
+          test "${#APPS[@]}" -eq 1
+          APP="${APPS[0]}"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" = "com.mawqifi.app"
+          SIGNED_ENTITLEMENTS="$SCAN_DIR/signed-entitlements.plist"
+          PROFILE_PLIST="$SCAN_DIR/profile.plist"
+          codesign -d --entitlements :- "$APP" > "$SIGNED_ENTITLEMENTS" 2>/dev/null
+          security cms -D -i "$APP/embedded.mobileprovision" > "$PROFILE_PLIST"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :aps-environment' "$SIGNED_ENTITLEMENTS")" = "production"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:aps-environment' "$PROFILE_PLIST")" = "production"
+          APP_IDENTIFIER=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$PROFILE_PLIST")
+          [[ "$APP_IDENTIFIER" = *.com.mawqifi.app ]]
+          grep -R -a -q 'jrmiwmsgnztqwbigumlw' "$APP"
+          grep -R -a -q 'mawqifi-testflight-staging.vercel.app' "$APP"
+          if grep -R -a -E -q 'opsyvdsivxoqphkfdsbb|SUPABASE_SERVICE_ROLE_KEY|APNS_PRIVATE_KEY|APNS_AUTH_KEY|VAPID_PRIVATE_KEY' "$APP"; then
+            echo "Forbidden production reference or server-only credential marker found in staging archive." >&2
+            exit 1
+          fi
+          echo "Signed staging IPA bundle, APNs entitlement, backend isolation, and secret-marker scan passed."
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log

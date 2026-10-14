@@ -30,7 +30,7 @@ workflows:
         script: |
           #!/usr/bin/env bash
           set -euo pipefail
-          APP_BASELINE=0813b56aab8700793a5ea850cec9bf114241a134
+          APP_BASELINE=c18d66600ab7af14653560bb3a6b223f7289ed6b
           test "$CM_BRANCH" = "codex/mawqifi-2-reverse-matching"
           git merge-base --is-ancestor "$APP_BASELINE" HEAD
           test "$(git diff --name-only "$APP_BASELINE"..HEAD)" = "codemagic.yaml"

@@ -10,13 +10,13 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { Bell, Car, MessageCircle, PlusCircle, Sparkles, type LucideIcon } from 'lucide-react';
+import { Bell, Car, Clock3, MapPin, MessageCircle, Sparkles, type LucideIcon } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { useLocale } from '@/components/LocaleProvider';
 import { completeTutorial, hasCompletedTutorial } from '@/lib/tutorial';
 
-type TutorialTarget = 'feed' | 'publish' | 'chat' | 'notifications';
+type TutorialTarget = 'place' | 'request' | 'nearby' | 'offer' | 'chat' | 'notifications';
 
 type TutorialStep = {
   titleKey: string;
@@ -44,16 +44,34 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     icon: Sparkles,
   },
   {
-    titleKey: 'tutorial.findTitle',
-    descriptionKey: 'tutorial.findBody',
-    target: 'feed',
+    titleKey: 'tutorial.scopeTitle',
+    descriptionKey: 'tutorial.scopeBody',
+    target: 'place',
+    icon: MapPin,
+  },
+  {
+    titleKey: 'tutorial.requestTitle',
+    descriptionKey: 'tutorial.requestBody',
+    target: 'request',
     icon: Car,
   },
   {
-    titleKey: 'tutorial.shareTitle',
-    descriptionKey: 'tutorial.shareBody',
-    target: 'publish',
-    icon: PlusCircle,
+    titleKey: 'tutorial.nearbyTitle',
+    descriptionKey: 'tutorial.nearbyBody',
+    target: 'nearby',
+    icon: MapPin,
+  },
+  {
+    titleKey: 'tutorial.offerTitle',
+    descriptionKey: 'tutorial.offerBody',
+    target: 'nearby',
+    icon: Bell,
+  },
+  {
+    titleKey: 'tutorial.decisionTitle',
+    descriptionKey: 'tutorial.decisionBody',
+    target: 'offer',
+    icon: Clock3,
   },
   {
     titleKey: 'tutorial.chatTitle',

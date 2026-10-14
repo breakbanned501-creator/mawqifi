@@ -10,6 +10,7 @@ import PwaInstallPrompt from '@/components/PwaInstallPrompt'
 import PwaSplash from '@/components/PwaSplash'
 import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar'
 import TutorialProvider, { TutorialContent } from '@/components/TutorialProvider'
+import NotificationPermissionPrompt from '@/components/NotificationPermissionPrompt'
 import UpdateAvailableNotice from '@/components/UpdateAvailableNotice'
 import './globals.css'
 
@@ -150,6 +151,7 @@ export default function RootLayout({
                   {children}
                   <PwaInstallPrompt />
                   <UpdateAvailableNotice />
+                  <NotificationPermissionPrompt />
                 </TutorialContent>
               </TutorialProvider>
             </NotificationProvider>

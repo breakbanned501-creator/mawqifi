@@ -106,6 +106,14 @@ export async function openExternalUrl(rawUrl: string): Promise<void> {
   window.open(url.href, '_blank', 'noopener,noreferrer');
 }
 
+/** Opens this application's iOS Settings page after notification permission was denied. */
+export async function openNativeAppSettings(): Promise<void> {
+  if (!isNativeIOS()) throw new Error('Native iOS settings are unavailable.');
+  const { AppLauncher } = await import('@capacitor/app-launcher');
+  const result = await AppLauncher.openUrl({ url: 'app-settings:' });
+  if (!result.completed) throw new Error('Unable to open iOS Settings.');
+}
+
 /** A small native acknowledgement for a completed student action. */
 export async function triggerNativeLightHaptic(): Promise<void> {
   if (!isNativeCapacitor()) return;

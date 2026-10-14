@@ -10,9 +10,10 @@ import { useLocale } from '@/components/LocaleProvider';
 export default function BottomChrome() {
   const pathname = usePathname();
   const { t } = useLocale();
+  const reverseMatching = process.env.NEXT_PUBLIC_REVERSE_MATCHING === '1';
   const items = [
     { href: '/', label: t('nav.home'), icon: Home },
-    { href: '/create', label: t('nav.create'), icon: PlusCircle },
+    ...(reverseMatching ? [] : [{ href: '/create', label: t('nav.create'), icon: PlusCircle }]),
     { href: '/conversations', label: t('nav.conversations'), icon: MessageCircle },
     { href: '/settings', label: t('nav.account'), icon: User },
   ];
@@ -25,7 +26,7 @@ export default function BottomChrome() {
         </p>
       </footer>
       <nav className="safe-bottom px-1.5 sm:px-3 pb-2 pt-1.5" aria-label={t('nav.main')}>
-        <div className="mx-auto grid w-full max-w-md min-[440px]:max-w-lg md:max-w-xl grid-cols-4 gap-0.5 min-[360px]:gap-1">
+        <div className={`mx-auto grid w-full max-w-md min-[440px]:max-w-lg md:max-w-xl ${reverseMatching ? 'grid-cols-3' : 'grid-cols-4'} gap-0.5 min-[360px]:gap-1`}>
           {items.map((item) => {
             const Icon = item.icon;
             const active =
@@ -34,6 +35,7 @@ export default function BottomChrome() {
               <Link
                 key={item.href}
                 href={item.href}
+                data-tutorial-target={item.href === '/conversations' ? 'chat' : undefined}
                 onClick={() => {if(item.href==='/create')publishTiming('tap');}}
                 className={`flex flex-col items-center justify-center gap-1 rounded-2xl px-1 py-1.5 min-[360px]:px-1.5 min-[360px]:py-2 transition-all ${
                   active

@@ -373,7 +373,9 @@ export default function ReverseParkingHome() {
             if (myLocation) void refreshNearby(myLocation).catch(() => {});
           }}
         />
-        <PlaceSelector />
+        <div data-tutorial-target="place">
+          <PlaceSelector />
+        </div>
 
         {error && (
           <p role="alert" className="glass-card mb-4 border border-rose-400/30 p-3 text-sm text-rose-200">
@@ -392,7 +394,7 @@ export default function ReverseParkingHome() {
             className="btn btn-primary mb-5 flex min-h-20 w-full items-center justify-center gap-2 text-lg"
             disabled={busy || !ready}
             onClick={startRequest}
-            data-tutorial-target="feed"
+            data-tutorial-target="request"
           >
             <CarFront className="h-6 w-6" aria-hidden="true" />
             {locating
@@ -423,7 +425,7 @@ export default function ReverseParkingHome() {
                 : 'طلبك يستمر 15 دقيقة حتى لو سكرت التطبيق. يوصلك تنبيه إذا أحد عرض عليك موقف.'}
             </p>
             {pendingOffer && (
-              <div className="rounded-xl border border-cyan-300/30 bg-cyan-500/10 p-4">
+              <div data-tutorial-target="offer" className="rounded-xl border border-cyan-300/30 bg-cyan-500/10 p-4">
                 <div className="flex items-center gap-2">
                   <BellRing className="h-5 w-5 text-cyan-300" aria-hidden="true" />
                   <strong>{english ? 'Someone is offering you a spot!' : 'في شخص قريب يبي يعطيك موقف!'}</strong>
@@ -456,7 +458,7 @@ export default function ReverseParkingHome() {
         )}
 
         {!active && !acceptedOffer && (
-          <section className="mb-6 space-y-3" aria-label={english ? 'Nearby parking requests' : 'طلبات المواقف القريبة'}>
+          <section data-tutorial-target="nearby" className="mb-6 space-y-3" aria-label={english ? 'Nearby parking requests' : 'طلبات المواقف القريبة'}>
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-lg font-bold">{english ? 'Nearby parking requests' : 'طلبات المواقف القريبة'}</h2>
               <button

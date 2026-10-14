@@ -14,7 +14,12 @@ import { useNotifications } from '@/components/NotificationProvider';
 import type { ParkingLocation } from '@/lib/handoff';
 import { getSupabase } from '@/lib/supabase';
 import { getMawqifiPostHref } from '@/lib/capacitor';
-import { acquirePublishLocation, cancelPublishLocation, usablePublishLocation } from '@/lib/publish-location';
+import {
+  acquirePublishLocation,
+  cancelPublishLocation,
+  hasGrantedLocationPermission,
+  usablePublishLocation,
+} from '@/lib/publish-location';
 import { fetchMawqifiServerApi } from '@/lib/server-api';
 
 type ParkingRequest = {
@@ -85,6 +90,7 @@ export default function ReverseParkingHome() {
   const [myLocation, setMyLocation] = useState<ParkingLocation | null>(null);
   const [busy, setBusy] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [locationPermissionGranted, setLocationPermissionGranted] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [clock, setClock] = useState(Date.now());
@@ -92,6 +98,7 @@ export default function ReverseParkingHome() {
   const locked = useRef(false);
   const mineRefresh = useRef<Promise<void> | null>(null);
   const nearbyRefresh = useRef<Promise<void> | null>(null);
+  const automaticLocationScope = useRef<string | null>(null);
   const scopeRef = useRef('');
   const placeId = place?.id ?? null;
   const scopeKey = JSON.stringify([userId, placeId, subPlaceId]);
@@ -140,6 +147,39 @@ export default function ReverseParkingHome() {
     setError(null);
     cancelPublishLocation();
   }, [scopeKey]);
+
+  useEffect(() => {
+    const requestOpen = myRequest?.request?.status === 'active' || myRequest?.request?.status === 'offered';
+    const offerAccepted = myRequest?.offer?.status === 'accepted';
+    if (!userId || !ready || !placeId || requestOpen || offerAccepted || automaticLocationScope.current === scopeKey) return;
+    automaticLocationScope.current = scopeKey;
+    let disposed = false;
+    void hasGrantedLocationPermission().then(async granted => {
+      if (disposed) return;
+      setLocationPermissionGranted(granted);
+      if (!granted) return;
+      try {
+        setLocating(true);
+        const fix = await acquirePublishLocation();
+        if (!usablePublishLocation(fix)) throw new Error('REQUEST_LOCATION_REQUIRED');
+        const location: ParkingLocation = {
+          latitude: fix.latitude,
+          longitude: fix.longitude,
+          accuracy_meters: fix.accuracy_meters,
+        };
+        if (disposed || scopeRef.current !== scopeKey) return;
+        setMyLocation(location);
+        await refreshNearby(location);
+      } catch {
+        if (!disposed) setError(english ? 'Unable to update nearby requests.' : 'تعذر تحديث الطلبات القريبة');
+      } finally {
+        if (!disposed) setLocating(false);
+      }
+    }).catch(() => {
+      if (!disposed) setLocationPermissionGranted(false);
+    });
+    return () => { disposed = true; };
+  }, [userId, ready, placeId, scopeKey, myRequest, refreshNearby, english]);
 
   useEffect(() => {
     if (!userId) return;
@@ -210,6 +250,7 @@ export default function ReverseParkingHome() {
       throw new Error('OFFER_SCOPE_MISMATCH');
     }
     const location = await acquirePreciseLocation();
+    setLocationPermissionGranted(true);
     setMyLocation(location);
     await refreshNearby(location);
   });
@@ -425,14 +466,18 @@ export default function ReverseParkingHome() {
                 className="flex items-center gap-1 rounded-lg p-2 text-xs text-cyan-300 disabled:opacity-50"
               >
                 <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                {myLocation ? (english ? 'Refresh' : 'تحديث') : (english ? 'Show nearby' : 'عرض القريب')}
+                {myLocation
+                  ? (english ? 'Refresh' : 'تحديث')
+                  : locationPermissionGranted === false
+                    ? (english ? 'Allow location' : 'السماح بالموقع')
+                    : (english ? 'Show nearby' : 'عرض القريب')}
               </button>
             </div>
             {!myLocation && (
               <p className="text-sm text-white/60">
                 {english
-                  ? 'Choose Show nearby to share your current location for distance matching.'
-                  : 'اختر عرض القريب لمشاركة موقعك الحالي وحساب المسافة.'}
+                  ? 'Allow location to show nearby requests. Your exact coordinates stay private.'
+                  : 'اسمح بالموقع لعرض الطلبات القريبة. إحداثياتك الدقيقة تبقى خاصة.'}
               </p>
             )}
             {myLocation && nearby.length === 0 && (

@@ -207,3 +207,19 @@ export function acquirePublishLocation(): Promise<PublishLocation> {
   })();
   return operation.result;
 }
+
+/** Checks an existing grant without opening a browser or iOS permission prompt. */
+export async function hasGrantedLocationPermission(): Promise<boolean> {
+  if (isNativeCapacitor()) {
+    const { Geolocation } = await import('@capacitor/geolocation');
+    const status = await Geolocation.checkPermissions();
+    return status.location === 'granted';
+  }
+  if (typeof navigator === 'undefined' || !navigator.geolocation || !navigator.permissions) return false;
+  try {
+    const status = await navigator.permissions.query({ name: 'geolocation' });
+    return status.state === 'granted';
+  } catch {
+    return false;
+  }
+}

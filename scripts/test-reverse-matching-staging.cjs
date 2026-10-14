@@ -3,6 +3,7 @@ const { createClient } = require('@supabase/supabase-js');
 
 const url = process.env.STAGING_SUPABASE_URL;
 const key = process.env.STAGING_SUPABASE_KEY;
+const previewUrl = process.env.STAGING_PREVIEW_URL;
 assert.equal(new URL(url).hostname, 'jrmiwmsgnztqwbigumlw.supabase.co');
 assert.ok(key);
 
@@ -26,7 +27,7 @@ async function createUser(label) {
     });
     assert.ifError(profileError);
   }
-  return { label, id: data.user.id, db };
+  return { label, id: data.user.id, accessToken: data.session.access_token, db };
 }
 
 async function rpc(actor, name, args = {}) {
@@ -115,6 +116,64 @@ async function main() {
     .select('id').eq('user_id', loser.id);
   assert.equal(loserPost?.length ?? 0, 0, 'losing atomic transaction creates no post');
 
+  const declineRequest = await rpc(outsider, 'create_parking_request', {
+    p_place_id: 'gust', p_sub_place_id: null,
+    p_lat: lat, p_lng: lng, p_accuracy: 8,
+  });
+  assert.equal(declineRequest.status, 'active');
+  const declineOffer = await rpc(loser, 'give_parking_to_request', {
+    p_request_id: declineRequest.id, p_place_id: 'gust', p_sub_place_id: null,
+    p_lat: lat + 0.0001, p_lng: lng, p_accuracy: 8,
+  });
+  const { data: markedOffer, error: markedOfferError } = await loser.db.from('parking_match_offers')
+    .select('auto_created_post').eq('id', declineOffer.offer_id).single();
+  assert.ifError(markedOfferError);
+  assert.equal(markedOffer.auto_created_post, true, 'GPS offer post is marked automatic');
+  if (previewUrl) {
+    const response = await fetch(new URL('/api/push/notify-match-offer', previewUrl), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + loser.accessToken },
+      body: JSON.stringify({ offerId: declineOffer.offer_id }),
+    });
+    const result = await response.json();
+    assert.equal(response.status, 200, 'targeted staging notification endpoint accepts authorized offer');
+    assert.equal(result.success, true, 'targeted staging notification path completes');
+  }
+  assert.equal(await rpc(outsider, 'decline_parking_offer', { p_offer_id: declineOffer.offer_id }), true);
+  const reopened = await rpc(outsider, 'my_parking_request');
+  assert.equal(reopened.request.status, 'active');
+  const { data: declinedPost, error: declinedPostError } = await loser.db.from('parking_posts')
+    .select('id').eq('id', declineOffer.post_id);
+  assert.ifError(declinedPostError);
+  assert.equal(declinedPost.length, 0, 'declined automatic post leaves authenticated discovery');
+  const { data: declinedLocation, error: declinedLocationError } = await loser.db.from('parking_post_locations')
+    .select('post_id').eq('post_id', declineOffer.post_id);
+  assert.ifError(declinedLocationError);
+  assert.equal(declinedLocation.length, 0, 'declined automatic post coordinate is deleted');
+
+  const cancelledOffer = await rpc(loser, 'give_parking_to_request', {
+    p_request_id: declineRequest.id, p_place_id: 'gust', p_sub_place_id: null,
+    p_lat: lat + 0.0001, p_lng: lng, p_accuracy: 8,
+  });
+  assert.equal(await rpc(outsider, 'cancel_parking_request', { p_request_id: declineRequest.id }), true);
+  const { data: cancelledPost, error: cancelledPostError } = await loser.db.from('parking_posts')
+    .select('id').eq('id', cancelledOffer.post_id);
+  assert.ifError(cancelledPostError);
+  assert.equal(cancelledPost.length, 0, 'cancelled automatic post leaves authenticated discovery');
+  const { data: cancelledLocation, error: cancelledLocationError } = await loser.db.from('parking_post_locations')
+    .select('post_id').eq('post_id', cancelledOffer.post_id);
+  assert.ifError(cancelledLocationError);
+  assert.equal(cancelledLocation.length, 0, 'cancelled automatic post coordinate is deleted');
+  const { data: offerNotifications, error: notificationError } = await outsider.db.from('app_notifications')
+    .select('data').eq('kind', 'system');
+  assert.ifError(notificationError);
+  const matchingNotifications = offerNotifications.filter(item =>
+    String(item.data?.event_key ?? '').startsWith('parking_match_offer:'),
+  );
+  assert.ok(matchingNotifications.length >= 2, 'repeated legitimate offers each persist a notification');
+  assert.equal(new Set(matchingNotifications.map(item => item.data.event_key)).size,
+    matchingNotifications.length, 'offer notification keys are unique');
+
   console.log(JSON.stringify({
     pass: true,
     user_ids: users.map(user => user.id),
@@ -122,7 +181,7 @@ async function main() {
     offer_id: offer.offer_id,
     conversation_id: accepted.claim.conversation_id,
     winner: winner.label,
-    assertions: 18,
+    assertions: previewUrl ? 32 : 30,
   }));
 }
 

@@ -12,7 +12,7 @@ const check = (condition, label) => {
 
 const page = read('app/page.tsx');
 check(page.includes("NEXT_PUBLIC_REVERSE_MATCHING !== '1'"), 'feature flag required');
-check(page.includes('jrmiwmsgnztqwbigumlw.supabase.co'), 'feature is hard-guarded to staging');
+check(page.includes('jrmiwmsgnztqwbigumlw.supabase.co') && page.includes('opsyvdsivxoqphkfdsbb.supabase.co'), 'feature is restricted to known staging and production projects');
 
 const screen = read('components/ReverseParkingHome.tsx');
 check(screen.includes("english ? 'I Need Parking' : 'أبي موقف'"), 'single primary request action');

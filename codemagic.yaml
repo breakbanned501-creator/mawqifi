@@ -208,6 +208,7 @@ workflows:
       vars:
         XCODE_WORKSPACE: ios/App/App.xcworkspace
         XCODE_SCHEME: App
+        NEXT_PUBLIC_REVERSE_MATCHING: 1
       node: 22
       xcode: latest
     scripts:

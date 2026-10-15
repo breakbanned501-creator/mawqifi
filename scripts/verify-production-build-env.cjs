@@ -20,6 +20,7 @@ function verify(env, git, names) {
   git(['merge-base', '--is-ancestor', '8d56560eb3edd043662d6cb18dec6541b38b2e66', 'HEAD']);
   assert.equal(env.NEXT_PUBLIC_SUPABASE_URL, 'https://' + REF + '.supabase.co', 'Production Supabase URL required');
   assert.equal(env.NEXT_PUBLIC_SERVER_API_ORIGIN, 'https://mawqifiapp.vercel.app', 'Approved production API origin required');
+  assert.equal(env.NEXT_PUBLIC_REVERSE_MATCHING, '1', 'Mawqifi 2.0 reverse matching must be explicitly enabled');
   assert(/^[0-9]+$/.test(env.APP_STORE_APPLE_ID || ''), 'Numeric Apple app ID required');
   assert(!env.MAWQIFI_NATIVE_ENV_FILE && !env.NEXT_PUBLIC_PUBLISH_TIMING, 'No native overrides or development timing');
   for (const name of ['SUPABASE_SERVICE_ROLE_KEY', 'VAPID_PRIVATE_KEY', 'VAPID_SUBJECT', 'APNS_PRIVATE_KEY', 'APNS_AUTH_KEY']) {

@@ -295,7 +295,7 @@ workflows:
             IOS_BUILD_NUMBER="$CI_BUILD_NUMBER"
           fi
           echo "IOS_BUILD_NUMBER=$IOS_BUILD_NUMBER" >> "$CM_ENV"
-          echo "Using iOS build number $IOS_BUILD_NUMBER; marketing version remains 1.0.1."
+          echo "Using iOS build number $IOS_BUILD_NUMBER; marketing version is 1.0.2."
       - name: Build signed App Store IPA
         script: |
           #!/usr/bin/env bash
@@ -305,7 +305,7 @@ workflows:
             --scheme "$XCODE_SCHEME" \
             --config Release \
             --no-show-build-settings \
-            --archive-xcargs "COMPILER_INDEX_STORE_ENABLE=NO CURRENT_PROJECT_VERSION=$IOS_BUILD_NUMBER" \
+            --archive-xcargs "COMPILER_INDEX_STORE_ENABLE=NO MARKETING_VERSION=1.0.2 CURRENT_PROJECT_VERSION=$IOS_BUILD_NUMBER" \
             --ipa-directory "$CM_BUILD_DIR/build/ios/ipa"
       - name: Scan expanded signed IPA and local assets before upload
         script: |-
@@ -326,6 +326,7 @@ workflows:
           test "$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:aps-environment' "$PROFILE_PLIST")" = "production"
           APP_IDENTIFIER=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$PROFILE_PLIST")
           [[ "$APP_IDENTIFIER" = *.com.mawqifi.app ]]
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "${APPS[0]}/Info.plist")" = "1.0.2"
           echo "Signed archive and provisioning profile contain production APNs entitlement."
           test "$(/usr/libexec/PlistBuddy -c 'Print :UIDeviceFamily:0' "${APPS[0]}/Info.plist")" = "1"
           if /usr/libexec/PlistBuddy -c 'Print :UIDeviceFamily:1' "${APPS[0]}/Info.plist" >/dev/null 2>&1; then

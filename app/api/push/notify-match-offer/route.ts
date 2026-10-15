@@ -5,6 +5,7 @@ import { getRequestUser, getSupabaseServiceRole } from '@/lib/supabase-server';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type Offer = { id: string; requester_id: string; departing_user_id: string; status: string; expires_at: string; post_id: string; distance_meters: number | null };
+type Claim = { conversation_id: string; status: string; chat_closes_at: string | null };
 export async function OPTIONS(request: Request) { return nativeApiOptions(request); }
 export async function POST(request: Request) {
   return withNativeApiCorsHandler(request, async () => {
@@ -28,21 +29,31 @@ export async function POST(request: Request) {
         .select('sub_place_id').eq('id',offer.post_id).single();
       if(postError) throw postError;
       const {data:claim,error:claimError}=await db.from('parking_claims')
-        .select('conversation_id').eq('post_id',offer.post_id).single();
+        .select('conversation_id,status,chat_closes_at').eq('post_id',offer.post_id).single();
       if(claimError) throw claimError;
+      const activeClaim=claim as Claim;
+      if(activeClaim.status==='cancelled'||activeClaim.status==='completed'||
+        activeClaim.chat_closes_at===null||Date.parse(activeClaim.chat_closes_at)<=Date.now())
+        return NextResponse.json({error:'Match expired'},{status:410});
+      const {data:conversation,error:conversationError}=await db.from('conversations')
+        .select('closed').eq('id',activeClaim.conversation_id).single();
+      if(conversationError) throw conversationError;
+      if(conversation.closed) return NextResponse.json({error:'Match expired'},{status:410});
       const area=String(post?.sub_place_id??'').replaceAll('_',' ');
       const distance=offer.distance_meters==null?'':` · ${Math.round(offer.distance_meters)} m`;
-      const url=`/post/${offer.post_id}?chat=${claim.conversation_id}`;
+      const url=`/post/${offer.post_id}?chat=${activeClaim.conversation_id}`;
       configurePushDelivery();
       const {error: eventError} = await db.from('parking_match_push_events').insert({offer_id:offer.id});
       if (eventError?.code === '23505') return NextResponse.json({success:true,duplicate:true});
       if (eventError) throw eventError;
       const result = await deliverPushNotifications({
         notificationType:'parking_match_offer', recipientUserId:offer.requester_id,
+        excludeUserId:user.id,
         payloadForLocale:(locale)=>({
           title:locale==='ar'?'حصلنا لك موقف!':'We found you a parking spot!',
           body:locale==='ar'?`الموقع: ${area}${distance} — افتح المحادثة والموقع`:`Area: ${area}${distance} — open chat and location`,
-          url,type:'parking_match_offer',lang:locale,dir:locale==='ar'?'rtl':'ltr',
+          url,type:'parking_match_offer',postId:offer.post_id,chatId:activeClaim.conversation_id,
+          lang:locale,dir:locale==='ar'?'rtl':'ltr',
         }),
       });
       if (result.sentCount === 0) {

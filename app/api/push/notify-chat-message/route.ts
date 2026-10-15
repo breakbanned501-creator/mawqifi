@@ -22,7 +22,10 @@ type StoredConversation = {
   post_id: string;
   owner_id: string;
   requester_id: string;
+  closed: boolean;
 };
+
+type StoredClaim = { status: string; chat_closes_at: string | null };
 
 function isUuid(value: unknown): value is string {
   return typeof value === 'string' && UUID_PATTERN.test(value);
@@ -66,13 +69,29 @@ export async function POST(request: Request) {
 
     const { data: rawConversation, error: conversationError } = await supabase
       .from('conversations')
-      .select('id, post_id, owner_id, requester_id')
+      .select('id, post_id, owner_id, requester_id, closed')
       .eq('id', message.conversation_id)
       .maybeSingle();
     if (conversationError) throw conversationError;
     if (!rawConversation) return NextResponse.json({ error: 'المحادثة غير موجودة.' }, { status: 404 });
 
     const conversation = rawConversation as StoredConversation;
+    if (conversation.closed) {
+      return NextResponse.json({ error: 'انتهت المحادثة.' }, { status: 410 });
+    }
+    const { data: rawClaim, error: claimError } = await supabase
+      .from('parking_claims')
+      .select('status, chat_closes_at')
+      .eq('conversation_id', conversation.id)
+      .maybeSingle();
+    if (claimError) throw claimError;
+    const claim = rawClaim as StoredClaim | null;
+    if (claim && (
+      claim.status === 'cancelled' || claim.status === 'completed' ||
+      (claim.chat_closes_at !== null && Date.parse(claim.chat_closes_at) <= Date.now())
+    )) {
+      return NextResponse.json({ error: 'انتهت المحادثة.' }, { status: 410 });
+    }
     const recipientId =
       conversation.owner_id === user.id
         ? conversation.requester_id

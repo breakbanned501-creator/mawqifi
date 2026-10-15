@@ -34,6 +34,12 @@ check(route.includes("notificationType:'parking_match_offer'"), 'dedicated notif
 check(route.includes("recipientUserId:offer.requester_id"), 'push targets requester');
 check(route.includes("parking_match_push_events"), 'idempotency event used');
 check(route.includes("result.sentCount === 0"), 'failed delivery remains retryable');
+check(route.includes("activeClaim.chat_closes_at===null") && route.includes("status:410"), 'expired matches cannot dispatch delayed push');
+check(route.includes("chatId:activeClaim.conversation_id"), 'native match payload carries the direct conversation route');
+const chatRoute = read('app/api/push/notify-chat-message/route.ts');
+check(chatRoute.includes('recipientId === user.id'), 'chat push rejects self-notification');
+check(chatRoute.includes("claim.status === 'cancelled'") && chatRoute.includes("status: 410"), 'closed or expired chats cannot dispatch delayed push');
+check(chatRoute.includes('chatId: conversation.id'), 'native chat payload carries the direct conversation route');
 
 const migrationNames = fs.readdirSync(path.join(root, 'supabase/migrations'))
   .filter(name => name.includes('reverse_matching'));

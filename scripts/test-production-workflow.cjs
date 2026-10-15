@@ -28,6 +28,13 @@ check('No triggers / review / release / beta review',()=>{
 });
 check('Build numbering preserved',()=>assert.equal(w.scripts.find(s=>s.name.includes('incrementing')).script,doc.workflows['ios-testflight-staging'].scripts.find(s=>s.name.includes('incrementing')).script));
 check('Archive scan precedes publishing',()=>assert(w.scripts.at(-1).script.includes('scan-production-archive.cjs')&&w.scripts.at(-1).script.includes('unzip -q')));
+check('Production archive is pinned to marketing version 1.0.2',()=>{
+ const archive=w.scripts.find(s=>s.name==='Build signed App Store IPA').script;
+ const scan=w.scripts.find(s=>s.name.includes('Scan expanded signed IPA')).script;
+ assert(archive.includes('MARKETING_VERSION=1.0.2'));
+ assert(scan.includes('CFBundleShortVersionString'));
+ assert(scan.includes('= "1.0.2"'));
+});
 const bash=process.platform==='win32'?'C:/Program Files/Git/bin/bash.exe':'bash';
 for(const workflow of Object.values(doc.workflows))for(const s of workflow.scripts)check('Bash syntax '+workflow.name+'/'+s.name,()=>assert.equal(cp.spawnSync(bash,['-n'],{input:s.script,encoding:'utf8'}).status,0));
 const commit='a'.repeat(40),tag='mawqifi-production-approved-fixture';

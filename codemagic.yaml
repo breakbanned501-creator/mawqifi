@@ -144,7 +144,7 @@ workflows:
             --scheme "$XCODE_SCHEME" \
             --config Release \
             --no-show-build-settings \
-            --archive-xcargs "COMPILER_INDEX_STORE_ENABLE=NO CURRENT_PROJECT_VERSION=$IOS_BUILD_NUMBER" \
+            --archive-xcargs "COMPILER_INDEX_STORE_ENABLE=NO MARKETING_VERSION=1.0.2 CURRENT_PROJECT_VERSION=$IOS_BUILD_NUMBER" \
             --ipa-directory "$CM_BUILD_DIR/build/ios/ipa"
       - name: Verify signed staging IPA isolation and entitlements
         script: |-
@@ -161,6 +161,7 @@ workflows:
           test "${#APPS[@]}" -eq 1
           APP="${APPS[0]}"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" = "com.mawqifi.app"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Info.plist")" = "1.0.2"
           SIGNED_ENTITLEMENTS="$SCAN_DIR/signed-entitlements.plist"
           PROFILE_PLIST="$SCAN_DIR/profile.plist"
           codesign -d --entitlements :- "$APP" > "$SIGNED_ENTITLEMENTS" 2>/dev/null

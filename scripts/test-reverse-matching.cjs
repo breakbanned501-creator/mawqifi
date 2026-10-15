@@ -18,9 +18,9 @@ const screen = read('components/ReverseParkingHome.tsx');
 check(screen.includes("english ? 'I Need Parking' : 'أبي موقف'"), 'single primary request action');
 check(!screen.includes("I'm leaving my spot") && !screen.includes('بطلع من موقفي'), 'direct leave action removed');
 check(screen.includes("give_parking_to_request"), 'atomic give RPC used');
-check(screen.includes("accept_parking_offer"), 'atomic accept RPC used');
+check(!screen.includes("accept_parking_offer") && !screen.includes("decline_parking_offer"), 'extra accept/decline step removed');
 check(screen.includes("Date.parse(myRequest.request.expires_at)"), 'request expiry uses server timestamp');
-check(screen.includes("Date.parse(pendingOffer.expires_at)"), 'offer expiry uses server timestamp');
+check(screen.includes("p_auto_match: true"), 'requester explicitly opts into automatic matching');
 check(screen.includes("acquirePublishLocation"), 'foreground precise location acquisition reused');
 check(screen.includes("cancelPublishLocation"), 'location acquisition cleanup retained');
 check(!screen.includes('.latitude}') && !screen.includes('.longitude}'), 'coordinates are not rendered');
@@ -37,13 +37,16 @@ check(route.includes("result.sentCount === 0"), 'failed delivery remains retryab
 
 const migrationNames = fs.readdirSync(path.join(root, 'supabase/migrations'))
   .filter(name => name.includes('reverse_matching'));
-check(migrationNames.length === 11, 'eight staging prototype migrations plus three hardening migrations recorded');
+check(migrationNames.length === 12, 'direct automatic-match migration recorded after prototype hardening');
 check(read('supabase/migrations/20261013074503_harden_reverse_matching_discovery.sql')
   .includes('order by meters, created_at, id'), 'nearest-first server ordering');
 check(read('supabase/migrations/20261013063644_reverse_matching_requests_offers_foundation.sql')
   .includes("interval '15 minutes'"), '15-minute request lifetime is database-owned');
-check(read('supabase/migrations/20261013065943_reverse_matching_rpc_prototype.sql')
-  .includes("interval '60 seconds'"), '60-second offer window is database-owned');
+const direct = read('supabase/migrations/20261015034200_reverse_matching_direct_auto_match.sql');
+check(direct.includes('auto_match boolean not null default false'), 'automatic matching requires stored opt-in');
+check(direct.includes("status = 'matched'"), 'request becomes matched in the give transaction');
+check(direct.includes('insert into public.conversations'), 'private conversation is created atomically');
+check(direct.includes('cancel_reverse_match'), 'participants have a server-side unmatch action');
 const lifecycle = read('supabase/migrations/20261014004500_reverse_matching_lifecycle_cleanup.sql');
 check(lifecycle.includes('auto_created_post boolean not null default false'), 'automatic offer posts are explicitly marked');
 check(lifecycle.includes('retire_reverse_offer_post'), 'terminal offers retire automatic posts');

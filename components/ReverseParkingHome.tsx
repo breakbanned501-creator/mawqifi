@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BellRing, CarFront, Clock3, MapPin, RefreshCw, X } from 'lucide-react';
+import { CarFront, Clock3, MapPin, RefreshCw, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import BottomNav from '@/components/BottomNav';
 import HomeHeader from '@/components/HomeHeader';
@@ -43,8 +43,7 @@ type NearbyRequest = {
   expires_at: string;
   distance_band: 'near' | 'medium' | 'far';
 };
-type OfferCreation = { offer_id: string; post_id: string; expires_at: string };
-type AcceptedHandoff = { claim?: { post_id: string; conversation_id: string } };
+type DirectHandoff = { offer_id: string; post_id: string; conversation_id: string };
 
 const bandLabel = (band: NearbyRequest['distance_band'], english: boolean) =>
   band === 'near'
@@ -269,6 +268,7 @@ export default function ReverseParkingHome() {
       p_lat: location.latitude,
       p_lng: location.longitude,
       p_accuracy: location.accuracy_meters,
+      p_auto_match: true,
     });
     if (rpcError) throw rpcError;
     setMyLocation(location);
@@ -300,10 +300,10 @@ export default function ReverseParkingHome() {
       p_accuracy: fix.accuracy_meters,
     });
     if (rpcError) throw rpcError;
-    const offer = data as OfferCreation;
-    if (!offer?.offer_id) throw new Error('OFFER_EXPIRED');
+    const offer = data as DirectHandoff;
+    if (!offer?.offer_id || !offer.conversation_id || !offer.post_id) throw new Error('OFFER_EXPIRED');
     setNearby(current => current.filter(item => item.id !== requestId));
-    setSuccess(english ? 'Your parking offer was sent.' : 'تم إرسال عرض موقفك للطالب');
+    setSuccess(english ? 'Matched. Opening the private handoff…' : 'تم الربط. جاري فتح المحادثة الخاصة…');
 
     // The database offer and in-app notification are already committed. Remote
     // push is targeted and best-effort, so a delivery outage cannot duplicate it.
@@ -320,27 +320,7 @@ export default function ReverseParkingHome() {
     } catch {
       // Realtime/in-app delivery remains available.
     }
-  });
-
-  const acceptOffer = () => void run(async () => {
-    const offer = myRequest?.offer;
-    if (!offer) return;
-    const { data, error: rpcError } = await getSupabase().rpc('accept_parking_offer', {
-      p_offer_id: offer.id,
-    });
-    if (rpcError) throw rpcError;
-    const handoff = data as AcceptedHandoff;
-    if (!handoff?.claim?.conversation_id || !handoff.claim.post_id) throw new Error('OFFER_EXPIRED');
-    router.push(getMawqifiPostHref(handoff.claim.post_id, handoff.claim.conversation_id));
-  });
-
-  const declineOffer = () => void run(async () => {
-    if (!myRequest?.offer) return;
-    const { error: rpcError } = await getSupabase().rpc('decline_parking_offer', {
-      p_offer_id: myRequest.offer.id,
-    });
-    if (rpcError) throw rpcError;
-    await refreshMine();
+    router.push(getMawqifiPostHref(offer.post_id, offer.conversation_id));
   });
 
   const serverClock = clock + serverOffsetMs;
@@ -349,16 +329,9 @@ export default function ReverseParkingHome() {
     ['active', 'offered'].includes(myRequest.request.status) &&
     Date.parse(myRequest.request.expires_at) > serverClock,
   );
-  const pendingOffer =
-    myRequest?.offer?.status === 'pending' && Date.parse(myRequest.offer.expires_at) > serverClock
-      ? myRequest.offer
-      : null;
   const acceptedOffer = myRequest?.offer?.status === 'accepted' ? myRequest.offer : null;
   const requestSecs = myRequest?.request
     ? Math.max(0, Math.ceil((Date.parse(myRequest.request.expires_at) - serverClock) / 1000))
-    : 0;
-  const offerSecs = pendingOffer
-    ? Math.max(0, Math.ceil((Date.parse(pendingOffer.expires_at) - serverClock) / 1000))
     : 0;
   const formatClock = (seconds: number) =>
     `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
@@ -424,28 +397,6 @@ export default function ReverseParkingHome() {
                 ? 'Your request stays active for 15 minutes, even if you close the app.'
                 : 'طلبك يستمر 15 دقيقة حتى لو سكرت التطبيق. يوصلك تنبيه إذا أحد عرض عليك موقف.'}
             </p>
-            {pendingOffer && (
-              <div data-tutorial-target="offer" className="rounded-xl border border-cyan-300/30 bg-cyan-500/10 p-4">
-                <div className="flex items-center gap-2">
-                  <BellRing className="h-5 w-5 text-cyan-300" aria-hidden="true" />
-                  <strong>{english ? 'Someone is offering you a spot!' : 'في شخص قريب يبي يعطيك موقف!'}</strong>
-                </div>
-                <p className="mt-2 text-sm text-white/70">
-                  {english
-                    ? 'The exact location appears only after accepting. You have one minute to decide.'
-                    : 'الموقع الدقيق يطلع لك فقط بعد الموافقة، وعندك دقيقة تقرر.'}
-                </p>
-                <p className="my-2 font-mono" dir="ltr">{formatClock(offerSecs)}</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button disabled={busy} onClick={acceptOffer} className="btn btn-primary">
-                    {english ? 'Accept' : 'أوافق'}
-                  </button>
-                  <button disabled={busy} onClick={declineOffer} className="btn btn-secondary">
-                    {english ? 'Decline' : 'مو مناسب'}
-                  </button>
-                </div>
-              </div>
-            )}
             <button
               disabled={busy}
               onClick={cancelRequest}

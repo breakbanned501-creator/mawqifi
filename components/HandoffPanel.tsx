@@ -5,9 +5,11 @@ import ErrorBanner from './ErrorBanner';
 import { arriveHandoff,currentParkingLocation,distanceMeters,loadHandoff,openParkingNavigation,type HandoffState } from '@/lib/handoff';
 import { isNativeCapacitor } from '@/lib/capacitor';
 import { safetyErrorKey } from '@/lib/safety';
+import { useRouter } from 'next/navigation';
 
 export default function HandoffPanel({conversationId,userId,blocked,onClosed}:{conversationId:string;userId:string;blocked:boolean;onClosed:(closed:boolean)=>void}) {
  const {t,dir}=useLocale();
+ const router=useRouter();
  const [state,setState]=useState<HandoffState|null>(null);
  const [remaining,setRemaining]=useState<number|null>(null);
  const [monitor,setMonitor]=useState(false);
@@ -89,10 +91,18 @@ export default function HandoffPanel({conversationId,userId,blocked,onClosed}:{c
     <button type="button" className="btn btn-secondary w-full" onClick={()=>setConfirmArrival(false)}>{t('common.cancel')}</button>
    </div>
   </div>}
-  {state.claim.owner_id===userId&&!closed&&<button type="button" disabled={busy} className="btn btn-danger w-full" onClick={async()=>{
+  {!closed&&(state.reverse_match||state.claim.owner_id===userId)&&<button type="button" disabled={busy} className="btn btn-danger w-full" onClick={async()=>{
    if(!window.confirm(t('handoff.cancelConfirm')))return;
-   const {error:cancelError}=await (await import('@/lib/supabase')).getSupabase().from('parking_posts').update({status:'cancelled'}).eq('id',state.claim!.post_id);
-   if(cancelError)setError(t(safetyErrorKey(cancelError)));else accept(await loadHandoff(conversationId));
+   setBusy(true);setError(null);
+   const supabase=(await import('@/lib/supabase')).getSupabase();
+   if(state.reverse_match){
+    const {error:matchError}=await supabase.rpc('cancel_reverse_match',{p_conversation_id:conversationId});
+    if(matchError){setError(t(safetyErrorKey(matchError)));setBusy(false);return;}
+   }else if(state.claim!.owner_id===userId){
+    const {error:cancelError}=await supabase.from('parking_posts').update({status:'cancelled'}).eq('id',state.claim!.post_id);
+    if(cancelError){setError(t(safetyErrorKey(cancelError)));setBusy(false);return;}
+   }else{setBusy(false);return;}
+   router.replace('/');
   }}>{t('handoff.cancel')}</button>}
   {error&&<ErrorBanner message={error}/>}
  </aside>;

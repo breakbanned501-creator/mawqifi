@@ -10,7 +10,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { Bell, Car, Clock3, MapPin, MessageCircle, Sparkles, type LucideIcon } from 'lucide-react';
+import { Bell, Car, MapPin, MessageCircle, Sparkles, type LucideIcon } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { useLocale } from '@/components/LocaleProvider';
@@ -66,12 +66,6 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     descriptionKey: 'tutorial.offerBody',
     target: 'nearby',
     icon: Bell,
-  },
-  {
-    titleKey: 'tutorial.decisionTitle',
-    descriptionKey: 'tutorial.decisionBody',
-    target: 'offer',
-    icon: Clock3,
   },
   {
     titleKey: 'tutorial.chatTitle',

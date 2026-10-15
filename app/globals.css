@@ -164,5 +164,8 @@ input, textarea { scroll-margin-block: 6rem; }
 .chat-composer { z-index: 40; }
 
 .keyboard-editing .bottom-chrome { display: none; }
-.keyboard-editing .page-with-chrome { padding-bottom: 5rem; }
-.keyboard-editing .chat-composer { bottom: 3.5rem; }
+.keyboard-editing .page-with-chrome { padding-bottom: 1rem; }
+/* Capacitor's native resize and Safari's visual viewport already end at the
+   keyboard. Keep the composer on that edge; a second fixed bar/offset hid it. */
+.keyboard-open .chat-composer,
+.keyboard-editing .chat-composer { bottom: 0; }

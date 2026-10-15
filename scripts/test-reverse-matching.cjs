@@ -47,6 +47,10 @@ check(direct.includes('auto_match boolean not null default false'), 'automatic m
 check(direct.includes("status = 'matched'"), 'request becomes matched in the give transaction');
 check(direct.includes('insert into public.conversations'), 'private conversation is created atomically');
 check(direct.includes('cancel_reverse_match'), 'participants have a server-side unmatch action');
+const directChat = read('supabase/migrations/20261015043000_reverse_match_sixty_minute_chat.sql');
+check(directChat.includes("claimed_at + interval '60 minutes'"), 'direct match chat receives a server-owned 60-minute deadline');
+check(directChat.includes("claim.status = 'claimed'"), 'scheduled closure does not complete the handoff claim');
+check(directChat.includes('HANDOFF_ARRIVAL_NOT_REQUIRED'), 'reverse matches reject legacy arrival transitions');
 const lifecycle = read('supabase/migrations/20261014004500_reverse_matching_lifecycle_cleanup.sql');
 check(lifecycle.includes('auto_created_post boolean not null default false'), 'automatic offer posts are explicitly marked');
 check(lifecycle.includes('retire_reverse_offer_post'), 'terminal offers retire automatic posts');

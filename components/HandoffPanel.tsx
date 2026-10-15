@@ -73,19 +73,19 @@ export default function HandoffPanel({conversationId,userId,blocked,onClosed}:{c
  const claimant=state.claim.claimant_id===userId;
  return <aside className="mx-auto w-full max-w-2xl space-y-3 px-4 py-3" dir={dir}>
   <div className="glass-card p-4 text-sm leading-7" role="status">
-   <p>{t(state.claim.status==='cancelled'?'handoff.cancelled':closed?'handoff.closed':state.claim.arrived_at?'handoff.arrived':'handoff.reserved')}</p>
+   <p>{t(state.claim.status==='cancelled'?'handoff.cancelled':closed?'handoff.closed':state.reverse_match?'handoff.matchActive':state.claim.arrived_at?'handoff.arrived':'handoff.reserved')}</p>
    {remaining!==null&&!closed&&<p className="mt-2 text-2xl font-black tabular-nums" dir="ltr">{String(Math.floor(remaining/60)).padStart(2,'0')}:{String(remaining%60).padStart(2,'0')}</p>}
   </div>
   {state.location&&!closed&&!blocked&&<div className="glass-card space-y-3 p-4">
    <h2 className="font-bold">{t('handoff.location')}</h2>
    <button type="button" className="btn btn-primary w-full" onClick={()=>void openParkingNavigation(state.location!).catch(()=>setError(t('common.error')))}>{t('handoff.maps')}</button>
-   {claimant&&!state.claim.arrived_at&&<>
+   {claimant&&!state.reverse_match&&!state.claim.arrived_at&&<>
     <p className="text-xs leading-6 text-white/60">{t('handoff.radius',{meters:state.arrival_radius_meters??25})}</p>
     <button type="button" disabled={busy} className="btn btn-secondary w-full" onClick={()=>setMonitor(value=>!value)}>{t(monitor?'handoff.stopArrival':'handoff.detectArrival')}</button>
    </>}
   </div>}
-  {claimant&&!closed&&!state.claim.arrived_at&&!blocked&&<button type="button" disabled={busy} className="btn btn-secondary w-full" onClick={()=>setConfirmArrival(true)}>{t('handoff.manualArrival')}</button>}
-  {confirmArrival&&<div role="dialog" aria-modal="true" aria-labelledby="arrival-confirm-title" className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4">
+  {claimant&&!state.reverse_match&&!closed&&!state.claim.arrived_at&&!blocked&&<button type="button" disabled={busy} className="btn btn-secondary w-full" onClick={()=>setConfirmArrival(true)}>{t('handoff.manualArrival')}</button>}
+  {!state.reverse_match&&confirmArrival&&<div role="dialog" aria-modal="true" aria-labelledby="arrival-confirm-title" className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4">
    <div className="glass-card max-w-md space-y-4 p-5"><h2 id="arrival-confirm-title" className="font-bold">{t('handoff.confirmArrival')}</h2>
     <button autoFocus type="button" disabled={busy} className="btn btn-primary w-full" onClick={()=>void register(true)}>{t('handoff.manualArrival')}</button>
     <button type="button" className="btn btn-secondary w-full" onClick={()=>setConfirmArrival(false)}>{t('common.cancel')}</button>

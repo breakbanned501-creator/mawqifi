@@ -3,7 +3,7 @@ import { isNativeCapacitor } from './capacitor';
 import { getNativeCurrentLocation } from './native-media';
 
 export type ParkingLocation = { latitude: number; longitude: number; accuracy_meters: number | null };
-export type ParkingClaim = { id: string; post_id: string; owner_id: string; claimant_id: string; conversation_id: string; status: 'claimed' | 'arrived' | 'completed' | 'cancelled'; arrived_at: string | null; chat_closes_at: string | null };
+export type ParkingClaim = { id: string; post_id: string; owner_id: string; claimant_id: string; conversation_id: string; status: 'claimed' | 'arrived' | 'completed' | 'cancelled'; claimed_at: string; arrived_at: string | null; chat_closes_at: string | null; reverse_match?: boolean };
 export type HandoffState = { claim: ParkingClaim | null; location?: ParkingLocation | null; server_now: string; arrival_radius_meters?: number; reverse_match?: boolean };
 export async function loadHandoff(conversationId: string): Promise<HandoffState> {
  const { data,error }=await getSupabase().rpc('get_parking_handoff',{conversation_id:conversationId});

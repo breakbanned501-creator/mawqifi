@@ -96,6 +96,19 @@ async function main() {
   assert.equal(requesterState.claim.claimant_id, requester.id);
   assert.equal(ownerState.claim.owner_id, winner.id);
   assert.equal(requesterState.reverse_match, true);
+  assert.equal(requesterState.claim.reverse_match, true);
+  assert.equal(requesterState.claim.arrived_at, null);
+  assert.equal(
+    Date.parse(requesterState.claim.chat_closes_at) - Date.parse(requesterState.claim.claimed_at),
+    60 * 60 * 1000,
+    'reverse-match chat closes 60 minutes after the server claim time',
+  );
+  await denied(
+    () => rpc(requester, 'arrive_parking_handoff', {
+      conversation_id:handoff.conversation_id, manual:true,
+    }),
+    'reverse match has no manual arrival transition',
+  );
   assert.ok(Number.isFinite(requesterState.location.latitude));
   await denied(
     () => rpc(outsider, 'get_parking_handoff', {conversation_id:handoff.conversation_id}),
@@ -119,7 +132,7 @@ async function main() {
   assert.equal(conversation.closed, true, 'cancel keeps the conversation as read-only history');
 
   console.log(JSON.stringify({
-    pass:true, assertions:19, conversation_id:handoff.conversation_id,
+    pass:true, assertions:23, conversation_id:handoff.conversation_id,
     test_user_count:5,
   }));
 }

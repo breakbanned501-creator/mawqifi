@@ -30,9 +30,9 @@ workflows:
         script: |
           #!/usr/bin/env bash
           set -euo pipefail
-          APP_BASELINE=c18d66600ab7af14653560bb3a6b223f7289ed6b
+          APP_BASELINE=8746af3dd2190a6d7b32a210fc84cf16f5789492
           test "$CM_BRANCH" = "codex/mawqifi-2-reverse-matching"
-          git merge-base --is-ancestor "$APP_BASELINE" HEAD
+          test "$(git rev-parse HEAD^)" = "$APP_BASELINE"
           test "$(git diff --name-only "$APP_BASELINE"..HEAD)" = "codemagic.yaml"
           node <<'NODE'
           const assert = require('node:assert/strict');

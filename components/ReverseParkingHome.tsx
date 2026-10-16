@@ -90,6 +90,7 @@ export default function ReverseParkingHome() {
   const [busy, setBusy] = useState(false);
   const [locating, setLocating] = useState(false);
   const [locationPermissionGranted, setLocationPermissionGranted] = useState<boolean | null>(null);
+  const [nearbyError, setNearbyError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [clock, setClock] = useState(Date.now());
@@ -97,6 +98,7 @@ export default function ReverseParkingHome() {
   const locked = useRef(false);
   const mineRefresh = useRef<Promise<void> | null>(null);
   const nearbyRefresh = useRef<Promise<void> | null>(null);
+  const nearbyLastAttemptAt = useRef(0);
   const automaticLocationScope = useRef<string | null>(null);
   const scopeRef = useRef('');
   const placeId = place?.id ?? null;
@@ -125,6 +127,10 @@ export default function ReverseParkingHome() {
     if (nearbyRefresh.current) return nearbyRefresh.current;
     const capturedScope = JSON.stringify([userId, placeId, subPlaceId]);
     const task = (async () => {
+      const waitMs = Math.max(0, 8250 - (Date.now() - nearbyLastAttemptAt.current));
+      if (waitMs > 0) await new Promise(resolve => window.setTimeout(resolve, waitMs));
+      if (capturedScope !== scopeRef.current) return;
+      nearbyLastAttemptAt.current = Date.now();
       const { data, error: rpcError } = await getSupabase().rpc('nearby_parking_requests', {
         p_place_id: placeId,
         p_sub_place_id: subPlaceId,
@@ -144,6 +150,8 @@ export default function ReverseParkingHome() {
     setNearby([]);
     setMyLocation(null);
     setError(null);
+    setNearbyError(null);
+    nearbyLastAttemptAt.current = 0;
     cancelPublishLocation();
   }, [scopeKey]);
 
@@ -202,11 +210,37 @@ export default function ReverseParkingHome() {
 
   useEffect(() => {
     if (!myLocation || !ready) return;
-    const interval = window.setInterval(() => {
-      if (document.visibilityState === 'visible') void refreshNearby(myLocation).catch(() => {});
-    }, 12000);
-    return () => window.clearInterval(interval);
-  }, [myLocation, ready, refreshNearby]);
+    let disposed = false;
+    const tick = () => {
+      if (document.visibilityState !== 'visible') return;
+      void refreshNearby(myLocation).then(() => {
+        if (!disposed) setNearbyError(null);
+      }).catch(failure => {
+        if (disposed) return;
+        const message = failure && typeof failure === 'object' && 'message' in failure
+          ? String(failure.message)
+          : '';
+        if (!message.includes('DISCOVERY_RATE_LIMIT')) {
+          setNearbyError(english ? 'Nearby requests will retry automatically.' : 'تعذر تحديث الطلبات القريبة، وبنحاول تلقائيًا');
+        }
+      });
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') tick();
+    };
+    tick();
+    const interval = window.setInterval(tick, 9000);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('focus', tick);
+    window.addEventListener('pageshow', tick);
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('focus', tick);
+      window.removeEventListener('pageshow', tick);
+    };
+  }, [myLocation, ready, refreshNearby, english]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setClock(Date.now()), 1000);
@@ -432,6 +466,9 @@ export default function ReverseParkingHome() {
                   ? 'Allow location to show nearby requests. Your exact coordinates stay private.'
                   : 'اسمح بالموقع لعرض الطلبات القريبة. إحداثياتك الدقيقة تبقى خاصة.'}
               </p>
+            )}
+            {nearbyError && (
+              <p role="status" className="text-sm text-amber-200">{nearbyError}</p>
             )}
             {myLocation && nearby.length === 0 && (
               <p className="glass-card p-5 text-center text-sm text-white/70">

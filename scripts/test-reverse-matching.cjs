@@ -27,6 +27,10 @@ check(!screen.includes('.latitude}') && !screen.includes('.longitude}'), 'coordi
 check(screen.includes("fetchMawqifiServerApi('/api/push/notify-match-offer'"), 'targeted push endpoint called');
 check(screen.includes('hasGrantedLocationPermission'), 'existing location grant triggers automatic discovery');
 check(screen.includes("english ? 'Allow location' : 'السماح بالموقع'"), 'missing location grant has a clear action');
+check(screen.includes('8250 - (Date.now() - nearbyLastAttemptAt.current)'), 'automatic discovery respects the eight-second server limit');
+check(screen.includes('window.setInterval(tick, 9000)'), 'nearby discovery polls within ten seconds');
+check(screen.includes("window.addEventListener('focus', tick)") && screen.includes("window.addEventListener('pageshow', tick)"), 'foreground and focus refresh nearby discovery');
+check(screen.includes('Nearby requests will retry automatically.'), 'transient discovery failures are visible and recover automatically');
 
 const route = read('app/api/push/notify-match-offer/route.ts');
 check(route.includes("offer.departing_user_id !== user.id"), 'offer sender authorization enforced');

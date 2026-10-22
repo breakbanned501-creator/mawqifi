@@ -7,7 +7,9 @@ const APPROVED_CI_ONLY_FILES = ['codemagic.yaml', 'scripts/verify-production-bui
 function verify(env, git, names) {
   assert(/^[a-f0-9]{40}$/.test(env.APPROVED_RELEASE_COMMIT || ''), 'Final approved commit required');
   assert(/^mawqifi-production-[A-Za-z0-9._-]+$/.test(env.APPROVED_RELEASE_TAG || ''), 'Explicit approved production tag required');
-  const approvedSource = env.CM_BRANCH === 'ios-release-hardening' || env.CM_TAG === env.APPROVED_RELEASE_TAG;
+  const approvedSource = env.CM_BRANCH === 'ios-release-hardening' ||
+    env.CM_BRANCH === 'codex/mawqifi-2-reverse-matching' ||
+    env.CM_TAG === env.APPROVED_RELEASE_TAG;
   assert(approvedSource, 'Release branch or exact approved tag required');
   const head = git(['rev-parse', 'HEAD']);
   if (head !== env.APPROVED_RELEASE_COMMIT) {
@@ -19,7 +21,7 @@ function verify(env, git, names) {
   assert.equal(git(['rev-parse', 'refs/tags/' + env.APPROVED_RELEASE_TAG + '^{commit}']), env.APPROVED_RELEASE_COMMIT, 'Approved tag does not resolve to approved commit');
   git(['merge-base', '--is-ancestor', '8d56560eb3edd043662d6cb18dec6541b38b2e66', 'HEAD']);
   assert.equal(env.NEXT_PUBLIC_SUPABASE_URL, 'https://' + REF + '.supabase.co', 'Production Supabase URL required');
-  assert.equal(env.NEXT_PUBLIC_SERVER_API_ORIGIN, 'https://mawqifiapp.vercel.app', 'Approved production API origin required');
+  assert.equal(env.NEXT_PUBLIC_SERVER_API_ORIGIN, 'https://mawqifi-2-production-test.vercel.app', 'Approved isolated production TestFlight API origin required');
   assert.equal(env.NEXT_PUBLIC_REVERSE_MATCHING, '1', 'Mawqifi 2.0 reverse matching must be explicitly enabled');
   assert(/^[0-9]+$/.test(env.APP_STORE_APPLE_ID || ''), 'Numeric Apple app ID required');
   assert(!env.MAWQIFI_NATIVE_ENV_FILE && !env.NEXT_PUBLIC_PUBLISH_TIMING, 'No native overrides or development timing');

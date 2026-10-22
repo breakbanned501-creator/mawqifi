@@ -209,6 +209,7 @@ workflows:
         XCODE_WORKSPACE: ios/App/App.xcworkspace
         XCODE_SCHEME: App
         NEXT_PUBLIC_REVERSE_MATCHING: 1
+        NEXT_PUBLIC_SERVER_API_ORIGIN: https://mawqifi-2-production-test.vercel.app
       node: 22
       xcode: latest
     scripts:
@@ -343,5 +344,5 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
-        submit_to_testflight: false
+        submit_to_testflight: true
         submit_to_app_store: false

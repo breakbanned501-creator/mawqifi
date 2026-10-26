@@ -46,6 +46,22 @@ check('Valid multi-commit release branch accepted',()=>verify({...env,CM_BRANCH:
  if(args[0]==='diff' && args[1]==='--name-only') return 'codemagic.yaml\nscripts/verify-production-build-env.cjs\nscripts/test-production-workflow.cjs';
  return args[0]==='merge-base'?'':commit;
 },[]));
+check('All approved CI-only paths are excluded from strict diff',()=>{
+ const calls=[];
+ verify({...env,CM_BRANCH:'mawqifi-production-release-1.0.2'},args=>{
+  calls.push(args);
+  if(args[0]==='rev-parse' && args[1]==='HEAD') return 'c'.repeat(40);
+  if(args[0]==='diff' && args[1]==='--name-only') return 'codemagic.yaml\nscripts/verify-production-build-env.cjs\nscripts/test-production-workflow.cjs';
+  return args[0]==='merge-base'?'':commit;
+ },[]);
+ const strict=calls.find(args=>args[0]==='diff'&&args[1]==='--quiet');
+ assert.deepEqual(strict.slice(-3),[':(exclude)codemagic.yaml',':(exclude)scripts/test-production-workflow.cjs',':(exclude)scripts/verify-production-build-env.cjs']);
+});
+check('Application path still rejected',()=>assert.throws(()=>verify({...env,CM_BRANCH:'mawqifi-production-release-1.0.2'},args=>{
+ if(args[0]==='rev-parse'&&args[1]==='HEAD') return 'c'.repeat(40);
+ if(args[0]==='diff'&&args[1]==='--name-only') return 'src/app.tsx';
+ return args[0]==='merge-base'?'':commit;
+},[])));
 for(const [name,changes] of Object.entries({branch:{CM_BRANCH:'main'},commit:{APPROVED_RELEASE_COMMIT:''},tag:{APPROVED_RELEASE_TAG:''},supabase:{NEXT_PUBLIC_SUPABASE_URL:'https://jrmiwmsgnztqwbigumlw.supabase.co'},api:{NEXT_PUBLIC_SERVER_API_ORIGIN:'https://mawqifi-testflight-staging.vercel.app'},feature:{NEXT_PUBLIC_REVERSE_MATCHING:'0'},secret:{SUPABASE_SERVICE_ROLE_KEY:'offline-fixture'},vapid:{VAPID_PRIVATE_KEY:'offline-fixture'},apns:{APNS_AUTH_KEY:'offline-fixture'},override:{MAWQIFI_NATIVE_ENV_FILE:'file'},timing:{NEXT_PUBLIC_PUBLISH_TIMING:'1'},publicKey:{NEXT_PUBLIC_SUPABASE_ANON_KEY:''},hiddenStaging:{UNRELATED:'jrmiwmsgnztqwbigumlw'}}))check('Reject '+name,()=>assert.throws(()=>verify({...env,...changes},git,[])));
 check('Stale local tag is ignored in favor of fetched CI ref',()=>{
  const staleGit=args=>args[0]==='rev-parse'&&args[1]&&args[1].startsWith('refs/codemagic/')?commit:(args[0]==='rev-parse'?'b'.repeat(40):git(args));

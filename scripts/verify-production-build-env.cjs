@@ -16,7 +16,7 @@ function verify(env, git, names) {
     git(['merge-base', '--is-ancestor', env.APPROVED_RELEASE_COMMIT, 'HEAD']);
     const changed = git(['diff', '--name-only', env.APPROVED_RELEASE_COMMIT, 'HEAD']).split(/\r?\n/).filter(Boolean).sort();
     assert(changed.every(file => APPROVED_CI_ONLY_FILES.includes(file)), 'CI-only guard commit contains application changes');
-    git(['diff', '--quiet', env.APPROVED_RELEASE_COMMIT, 'HEAD', '--', '.', ':(exclude)codemagic.yaml', ':(exclude)scripts/verify-production-build-env.cjs']);
+    git(['diff', '--quiet', env.APPROVED_RELEASE_COMMIT, 'HEAD', '--', '.', ...APPROVED_CI_ONLY_FILES.map(file => `:(exclude)${file}`)]);
   }
   assert.equal(git(['rev-parse', APPROVED_TAG_REF + '^{commit}']), env.APPROVED_RELEASE_COMMIT, 'Approved tag does not resolve to approved commit');
   git(['merge-base', '--is-ancestor', '8d56560eb3edd043662d6cb18dec6541b38b2e66', 'HEAD']);

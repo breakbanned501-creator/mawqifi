@@ -41,13 +41,18 @@ const commit='a'.repeat(40),tag='mawqifi-production-approved-fixture';
 const env={CM_BRANCH:'ios-release-hardening',APPROVED_RELEASE_COMMIT:commit,APPROVED_RELEASE_TAG:tag,NEXT_PUBLIC_SUPABASE_URL:'https://opsyvdsivxoqphkfdsbb.supabase.co',NEXT_PUBLIC_SUPABASE_ANON_KEY:'sb_publishable_offline_fixture',NEXT_PUBLIC_SERVER_API_ORIGIN:'https://mawqifiapp.vercel.app',NEXT_PUBLIC_REVERSE_MATCHING:'1',APP_STORE_APPLE_ID:'1234567890'};
 const git=args=>args[0]==='merge-base'?'':commit;
 check('Approved environment accepted offline',()=>verify(env,git,[]));
+check('Valid multi-commit release branch accepted',()=>verify({...env,CM_BRANCH:'mawqifi-production-release-1.0.2'},args=>{
+ if(args[0]==='rev-parse' && args[1]==='HEAD') return 'c'.repeat(40);
+ if(args[0]==='diff' && args[1]==='--name-only') return 'codemagic.yaml\nscripts/verify-production-build-env.cjs\nscripts/test-production-workflow.cjs';
+ return args[0]==='merge-base'?'':commit;
+},[]));
 for(const [name,changes] of Object.entries({branch:{CM_BRANCH:'main'},commit:{APPROVED_RELEASE_COMMIT:''},tag:{APPROVED_RELEASE_TAG:''},supabase:{NEXT_PUBLIC_SUPABASE_URL:'https://jrmiwmsgnztqwbigumlw.supabase.co'},api:{NEXT_PUBLIC_SERVER_API_ORIGIN:'https://mawqifi-testflight-staging.vercel.app'},feature:{NEXT_PUBLIC_REVERSE_MATCHING:'0'},secret:{SUPABASE_SERVICE_ROLE_KEY:'offline-fixture'},vapid:{VAPID_PRIVATE_KEY:'offline-fixture'},apns:{APNS_AUTH_KEY:'offline-fixture'},override:{MAWQIFI_NATIVE_ENV_FILE:'file'},timing:{NEXT_PUBLIC_PUBLISH_TIMING:'1'},publicKey:{NEXT_PUBLIC_SUPABASE_ANON_KEY:''},hiddenStaging:{UNRELATED:'jrmiwmsgnztqwbigumlw'}}))check('Reject '+name,()=>assert.throws(()=>verify({...env,...changes},git,[])));
 check('Stale local tag is ignored in favor of fetched CI ref',()=>{
  const staleGit=args=>args[0]==='rev-parse'&&args[1]&&args[1].startsWith('refs/codemagic/')?commit:(args[0]==='rev-parse'?'b'.repeat(40):git(args));
  verify(env,staleGit,[]);
 });
 check('Fetched tag mismatch rejected',()=>assert.throws(()=>verify(env,args=>args[0]==='rev-parse'&&args[1]&&args[1].startsWith('refs/codemagic/')?'b'.repeat(40):git(args),[])));
-check('Commit mismatch rejected',()=>assert.throws(()=>verify(env,()=>'',[])));
+check('Invalid ancestry rejected',()=>assert.throws(()=>verify(env,args=>args[0]==='merge-base'?(()=>{throw Error('not an ancestor')})():'',[])));
 check('Local env override rejected',()=>assert.throws(()=>verify(env,git,['.env.local'])));
 for(const text of ['jrmiwmsgnztqwbigumlw','https://mawqifi-testflight-staging.vercel.app','sb_secret_'+ 'a'.repeat(30),'-----BEGIN '+ 'PRIVATE KEY-----','APNS_PRIVATE_KEY'])check('Archive forbidden material rejected',()=>assert.throws(()=>inspectText(text)));
 check('Private env value rejected',()=>assert.throws(()=>inspectText('secret-'+ 'x'.repeat(30),{BUILD_SECRET:'secret-'+ 'x'.repeat(30)})));

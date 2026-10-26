@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const cp = require('node:child_process');
 const REF = 'opsyvdsivxoqphkfdsbb';
+const APPROVED_TAG_REF = 'refs/codemagic/approved-release-tag';
 const APPROVED_CI_ONLY_FILES = ['codemagic.yaml', 'scripts/verify-production-build-env.cjs'];
 function verify(env, git, names) {
   assert(/^[a-f0-9]{40}$/.test(env.APPROVED_RELEASE_COMMIT || ''), 'Final approved commit required');
@@ -17,7 +18,7 @@ function verify(env, git, names) {
     assert.deepEqual(changed, APPROVED_CI_ONLY_FILES, 'CI-only guard commit contains application changes');
     git(['diff', '--quiet', env.APPROVED_RELEASE_COMMIT, 'HEAD', '--', '.', ':(exclude)codemagic.yaml', ':(exclude)scripts/verify-production-build-env.cjs']);
   }
-  assert.equal(git(['rev-parse', 'refs/tags/' + env.APPROVED_RELEASE_TAG + '^{commit}']), env.APPROVED_RELEASE_COMMIT, 'Approved tag does not resolve to approved commit');
+  assert.equal(git(['rev-parse', APPROVED_TAG_REF + '^{commit}']), env.APPROVED_RELEASE_COMMIT, 'Approved tag does not resolve to approved commit');
   git(['merge-base', '--is-ancestor', '8d56560eb3edd043662d6cb18dec6541b38b2e66', 'HEAD']);
   assert.equal(env.NEXT_PUBLIC_SUPABASE_URL, 'https://' + REF + '.supabase.co', 'Production Supabase URL required');
   assert.equal(env.NEXT_PUBLIC_SERVER_API_ORIGIN, 'https://mawqifiapp.vercel.app', 'Approved production API origin required');

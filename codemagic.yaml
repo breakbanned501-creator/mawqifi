@@ -278,7 +278,6 @@ workflows:
           [[ "$APP_IDENTIFIER" = *.com.mawqifi.app ]]
           echo "Provisioning profile authorizes production APNs for com.mawqifi.app."
           xcode-project use-profiles \
-            --custom-export-options='{"testFlightInternalTestingOnly": true}'
       - name: Select an incrementing App Store build number
         script: |
           #!/usr/bin/env bash

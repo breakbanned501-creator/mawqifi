@@ -67,6 +67,10 @@ check('Stale local tag is ignored in favor of fetched CI ref',()=>{
  const staleGit=args=>args[0]==='rev-parse'&&args[1]&&args[1].startsWith('refs/codemagic/')?commit:(args[0]==='rev-parse'?'b'.repeat(40):git(args));
  verify(env,staleGit,[]);
 });
+check('Fetched ref rejects the prior 1.0.1 stale-tag commit',()=>assert.throws(()=>verify(env,args=>{
+ if(args[0]==='rev-parse'&&args[1]&&args[1].startsWith('refs/codemagic/')) return '4e492733163b1ba68b4f58c89ba8d84c25bf98e1';
+ return git(args);
+},[]),/Approved tag does not resolve to approved commit/));
 check('Fetched tag mismatch rejected',()=>assert.throws(()=>verify(env,args=>args[0]==='rev-parse'&&args[1]&&args[1].startsWith('refs/codemagic/')?'b'.repeat(40):git(args),[])));
 check('Invalid ancestry rejected',()=>assert.throws(()=>verify(env,args=>args[0]==='merge-base'?(()=>{throw Error('not an ancestor')})():'',[])));
 check('Local env override rejected',()=>assert.throws(()=>verify(env,git,['.env.local'])));

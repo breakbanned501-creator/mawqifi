@@ -61,7 +61,7 @@ check('Application path still rejected',()=>assert.throws(()=>verify({...env,CM_
   if(args[0]==='rev-parse'&&args[1]==='HEAD') return 'c'.repeat(40);
   if(args[0]==='diff'&&args[1]==='--name-only') return 'src/app.tsx';
   return args[0]==='merge-base'?'':commit;
-},[]))));
+},[])));
 for(const [name,changes] of Object.entries({branch:{CM_BRANCH:'main'},commit:{APPROVED_RELEASE_COMMIT:''},tag:{APPROVED_RELEASE_TAG:''},supabase:{NEXT_PUBLIC_SUPABASE_URL:'https://jrmiwmsgnztqwbigumlw.supabase.co'},api:{NEXT_PUBLIC_SERVER_API_ORIGIN:'https://mawqifi-testflight-staging.vercel.app'},reverse:{NEXT_PUBLIC_REVERSE_MATCHING:'0'},apple:{APP_STORE_APPLE_ID:'abc'},localenv:{MAWQIFI_NATIVE_ENV_FILE:'1'},secret:{SUPABASE_SERVICE_ROLE_KEY:'secret'},publishable:{NEXT_PUBLIC_SUPABASE_ANON_KEY:'not-a-key'},privatekey:{APNS_PRIVATE_KEY:'-----BEGIN PRIVATE KEY-----'}})){
   check('Bad '+name+' rejected',()=>assert.throws(()=>verify({...env,...changes},git,[])));
 }

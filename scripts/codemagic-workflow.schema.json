@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Mawqifi Codemagic workflow contract",
+  "description": "Repository-maintained offline structural validation for codemagic.yaml. This contract checks the workflow fields and script structure used by Mawqifi; it is not a vendored Codemagic platform schema.",
+  "type": "object",
+  "required": ["workflows"],
+  "properties": {
+    "workflows": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/definitions/workflow" }
+    }
+  },
+  "additionalProperties": true,
+  "definitions": {
+    "workflow": {
+      "type": "object",
+      "required": ["name", "instance_type", "max_build_duration", "scripts"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "instance_type": { "type": "string", "minLength": 1 },
+        "max_build_duration": { "type": "integer", "minimum": 1 },
+        "integrations": { "type": "object" },
+        "environment": { "$ref": "#/definitions/environment" },
+        "triggering": { "type": "object" },
+        "scripts": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/script" }
+        },
+        "artifacts": { "type": "array", "items": { "type": "string" } },
+        "publishing": { "type": "object" }
+      },
+      "additionalProperties": true
+    },
+    "script": {
+      "type": "object",
+      "required": ["name", "script"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "script": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": true
+    },
+    "environment": {
+      "type": "object",
+      "properties": {
+        "ios_signing": { "type": "object" },
+        "groups": { "type": "array", "items": { "type": "string" } },
+        "vars": { "type": "object" },
+        "node": { "type": ["string", "integer"] },
+        "xcode": { "type": "string" }
+      },
+      "additionalProperties": true
+    }
+  }
+}

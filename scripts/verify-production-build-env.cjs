@@ -4,12 +4,12 @@ const fs = require('node:fs');
 const cp = require('node:child_process');
 const REF = 'opsyvdsivxoqphkfdsbb';
 const APPROVED_TAG_REF = 'refs/codemagic/approved-release-tag';
-const APPROVED_CI_ONLY_FILES = ['codemagic.yaml', 'scripts/test-production-workflow.cjs', 'scripts/verify-production-build-env.cjs'];
+const APPROVED_CI_ONLY_FILES = ['codemagic.yaml', 'scripts/codemagic-workflow.schema.json', 'scripts/test-production-workflow.cjs', 'scripts/verify-production-build-env.cjs'];
 function verify(env, git, names) {
   assert(/^[a-f0-9]{40}$/.test(env.APPROVED_RELEASE_COMMIT || ''), 'Final approved commit required');
   assert(/^mawqifi-production-[A-Za-z0-9._-]+$/.test(env.APPROVED_RELEASE_TAG || ''), 'Explicit approved production tag required');
   const allowedReleaseBranches = new Set(['ios-release-hardening', 'mawqifi-production-release-1.0.2']);
-  const approvedSource = allowedReleaseBranches.has(env.CM_BRANCH) || env.CM_TAG === env.APPROVED_RELEASE_TAG;
+  const approvedSource = (!env.CM_TAG && allowedReleaseBranches.has(env.CM_BRANCH)) || env.CM_TAG === env.APPROVED_RELEASE_TAG;
   assert(approvedSource, 'Release branch or exact approved tag required');
   const head = git(['rev-parse', 'HEAD']);
   if (head !== env.APPROVED_RELEASE_COMMIT) {

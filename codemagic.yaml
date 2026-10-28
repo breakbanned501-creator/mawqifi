@@ -235,6 +235,8 @@ workflows:
           NODE
       - name: Install locked dependencies
         script: npm ci
+      - name: Test production release guards
+        script: node scripts/test-production-workflow.cjs
       - name: Typecheck
         script: npm run typecheck
       - name: Lint
@@ -277,7 +279,7 @@ workflows:
           APP_IDENTIFIER=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$PROFILE_PLIST")
           [[ "$APP_IDENTIFIER" = *.com.mawqifi.app ]]
           echo "Provisioning profile authorizes production APNs for com.mawqifi.app."
-          xcode-project use-profiles \
+          xcode-project use-profiles
       - name: Select an incrementing App Store build number
         script: |
           #!/usr/bin/env bash

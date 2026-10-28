@@ -1,13 +1,15 @@
-// Offline guards + current Codemagic schema. No cloud writes/build/upload.
+// Offline guards + repository-maintained Codemagic workflow schema. No cloud writes/build/upload.
 const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process'),assert=require('node:assert/strict'),os=require('node:os');
 const yaml=require('js-yaml'),Ajv=require('ajv');
 const {verify}=require('./verify-production-build-env.cjs'),{inspectText,scan}=require('./scan-production-archive.cjs');
+const root=path.resolve(__dirname,'..');
 let count=0;const check=(name,f)=>{f();count++;console.log('PASS '+name);};
-const source=fs.readFileSync('codemagic.yaml','utf8'),doc=yaml.load(source);
-const schema=JSON.parse(fs.readFileSync(process.argv[2],'utf8').replace(/^\uFEFF/,''));
+const source=fs.readFileSync(path.join(root,'codemagic.yaml'),'utf8'),doc=yaml.load(source);
+const schema=JSON.parse(fs.readFileSync(path.join(__dirname,'codemagic-workflow.schema.json'),'utf8'));
 const ajv=new Ajv({allErrors:true,strict:false,unknownFormats:'ignore'});
-check('Current official Codemagic schema',()=>assert(ajv.validate(schema,doc),JSON.stringify(ajv.errors)));
-const before=yaml.load(cp.execFileSync('git',['show','HEAD:codemagic.yaml'],{encoding:'utf8'}));
+check('Repository Codemagic workflow schema',()=>assert(ajv.validate(schema,doc),JSON.stringify(ajv.errors)));
+check('Schema rejects malformed workflow structure',()=>assert.equal(ajv.validate(schema,{workflows:{broken:{scripts:[{}]}}}),false));
+const before=yaml.load(cp.execFileSync('git',['show','HEAD^:codemagic.yaml'],{cwd:root,encoding:'utf8'}));
 check('Staging workflow preserved',()=>assert.deepEqual(doc.workflows['ios-testflight-staging'],before.workflows['ios-testflight-staging']));
 const w=doc.workflows['ios-app-store-production'];
 check('Dedicated production environment group',()=>assert.deepEqual(w.environment.groups,['mawqifi_app_store_production']));
@@ -26,7 +28,21 @@ check('No triggers / review / release / beta review',()=>{
   assert(!w.triggering);assert.deepEqual(w.publishing.app_store_connect,{auth:'integration',submit_to_testflight:false,submit_to_app_store:false});
   assert(!JSON.stringify(w).includes('testFlightInternalTestingOnly'));
 });
-check('Build numbering preserved',()=>assert.equal(w.scripts.find(s=>s.name.includes('incrementing')).script,doc.workflows['ios-testflight-staging'].scripts.find(s=>s.name.includes('incrementing')).script));
+check('Production signing uses the existing profile without internal-only export',()=>{
+  const signing=w.scripts.find(s=>s.name.includes('production push provisioning profile')).script;
+  assert(signing.includes('xcode-project use-profiles'));
+  assert(!signing.includes('testFlightInternalTestingOnly'));
+});
+check('Production fetches the approved remote tag into the verified ref',()=>{
+  const approval=w.scripts.find(s=>s.name.includes('approved production commit/tag')).script;
+  assert(approval.includes('git -c credential.helper= -c core.askPass= fetch --no-tags'));
+  assert(approval.includes('+refs/tags/$APPROVED_RELEASE_TAG:refs/codemagic/approved-release-tag'));
+  assert(w.scripts.some(s=>s.name==='Test production release guards'&&s.script==='node scripts/test-production-workflow.cjs'));
+});
+check('Build numbering logic preserved',()=>{
+  const normalize=script=>script.replace(/^echo "Using iOS build number.*$/m,'');
+  assert.equal(normalize(w.scripts.find(s=>s.name.includes('incrementing')).script),normalize(doc.workflows['ios-testflight-staging'].scripts.find(s=>s.name.includes('incrementing')).script));
+});
 check('Archive scan precedes publishing',()=>assert(w.scripts.at(-1).script.includes('scan-production-archive.cjs')&&w.scripts.at(-1).script.includes('unzip -q')));
 check('Production archive is pinned to marketing version 1.0.2',()=>{
   const archive=w.scripts.find(s=>s.name==='Build signed App Store IPA').script;
@@ -43,19 +59,20 @@ const git=args=>args[0]==='merge-base'?'':commit;
 check('Approved environment accepted offline',()=>verify(env,git,[]));
 check('Valid multi-commit release branch accepted',()=>verify({...env,CM_BRANCH:'mawqifi-production-release-1.0.2'},args=>{
   if(args[0]==='rev-parse' && args[1]==='HEAD') return 'c'.repeat(40);
-  if(args[0]==='diff' && args[1]==='--name-only') return 'codemagic.yaml\nscripts/verify-production-build-env.cjs\nscripts/test-production-workflow.cjs';
+  if(args[0]==='diff' && args[1]==='--name-only') return 'codemagic.yaml\nscripts/codemagic-workflow.schema.json\nscripts/verify-production-build-env.cjs\nscripts/test-production-workflow.cjs';
   return args[0]==='merge-base'?'':commit;
 },[]));
+check('Mismatched CI tag rejected on approved branch',()=>assert.throws(()=>verify({...env,CM_BRANCH:'mawqifi-production-release-1.0.2',CM_TAG:'mawqifi-production-other'},git,[]),/Release branch or exact approved tag required/));
 check('All approved CI-only paths are excluded from strict diff',()=>{
   const calls=[];
   verify({...env,CM_BRANCH:'mawqifi-production-release-1.0.2'},args=>{
    calls.push(args);
    if(args[0]==='rev-parse' && args[1]==='HEAD') return 'c'.repeat(40);
-   if(args[0]==='diff' && args[1]==='--name-only') return 'codemagic.yaml\nscripts/verify-production-build-env.cjs\nscripts/test-production-workflow.cjs';
+  if(args[0]==='diff' && args[1]==='--name-only') return 'codemagic.yaml\nscripts/codemagic-workflow.schema.json\nscripts/verify-production-build-env.cjs\nscripts/test-production-workflow.cjs';
    return args[0]==='merge-base'?'':commit;
   },[]);
   const strict=calls.find(args=>args[0]==='diff'&&args[1]==='--quiet');
-  assert.deepEqual(strict.slice(-3),[':(exclude)codemagic.yaml',':(exclude)scripts/test-production-workflow.cjs',':(exclude)scripts/verify-production-build-env.cjs']);
+  assert.deepEqual(strict.slice(-4),[':(exclude)codemagic.yaml',':(exclude)scripts/codemagic-workflow.schema.json',':(exclude)scripts/test-production-workflow.cjs',':(exclude)scripts/verify-production-build-env.cjs']);
 });
 check('Application path still rejected',()=>assert.throws(()=>verify({...env,CM_BRANCH:'mawqifi-production-release-1.0.2'},args=>{
   if(args[0]==='rev-parse'&&args[1]==='HEAD') return 'c'.repeat(40);
@@ -66,8 +83,15 @@ for(const [name,changes] of Object.entries({branch:{CM_BRANCH:'main'},commit:{AP
   check('Bad '+name+' rejected',()=>assert.throws(()=>verify({...env,...changes},git,[])));
 }
 check('Stale local tag is ignored in favor of fetched CI ref',()=>{
-  const staleGit=args=>args[0]==='rev-parse'&&args[1]&&args[1].startsWith('refs/codemagic/')?commit:(args[0]==='rev-parse'?'b'.repeat(40):git(args));
+  const calls=[];
+  const staleGit=args=>{
+    calls.push(args);
+    if(args[0]==='rev-parse'&&args[1]==='HEAD')return commit;
+    if(args[0]==='rev-parse'&&args[1]&&args[1].startsWith('refs/codemagic/'))return commit;
+    return git(args);
+  };
   verify(env,staleGit,[]);
+  assert(!calls.some(args=>args[0]==='rev-parse'&&args[1]&&args[1].startsWith('refs/tags/')));
 });
 check('Fetched ref rejects the prior 1.0.1 stale-tag commit',()=>assert.throws(()=>verify(env,args=>{
   if(args[0]==='rev-parse'&&args[1]&&args[1].startsWith('refs/codemagic/')) return '4e492733163b1ba68b4f58c89ba8d84c25bf98e1';

@@ -258,8 +258,11 @@ export async function getNativePushDeviceState(): Promise<PushDeviceState> {
       platform: 'ios',
       token: storedDevice.token,
     });
+    if (!response.ok) {
+      return nativePushState('error', 'تعذر التحقق من تسجيل الإشعارات لهذا الجهاز. حاول مرة أخرى.', 'server-save');
+    }
     const body = (await response.json().catch(() => null)) as NativePushResponse | null;
-    if (response.ok && body?.active === true) {
+    if (body?.active === true) {
       return nativePushState('enabled', 'الإشعارات مفعلة ✓');
     }
 
@@ -302,6 +305,17 @@ async function registerNativePush(): Promise<PushActionResult> {
 
     const auth = await getNativeAuth();
     const previousDevice = await readNativePushDevice();
+    // A device token owned by another account must be disabled by that account
+    // before this account can register. Never transfer ownership based only on
+    // a client-supplied token value.
+    if (previousDevice && previousDevice.userId !== auth.userId) {
+      return {
+        success: false,
+        state: 'not-registered',
+        stage: 'server-save',
+        message: 'تم تغيير الحساب. سجّل الخروج من الحساب السابق مع اتصال بالإنترنت ثم أعد تفعيل الإشعارات.',
+      };
+    }
     const token = await requestNativeToken();
     const response = await sendNativePushRequest('POST', auth.accessToken, {
       platform: 'ios',
@@ -353,6 +367,8 @@ export async function refreshNativePushRegistration(): Promise<boolean> {
   try {
     const storedDevice = await readNativePushDevice();
     if (!storedDevice || await nativePermission() !== 'granted') return false;
+    const auth = await getNativeAuth();
+    if (storedDevice.userId !== auth.userId) return false;
     const result = await subscribeToNativePushNotifications();
     return result.success;
   } catch {

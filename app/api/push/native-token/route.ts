@@ -14,6 +14,7 @@ type NativeTokenPayload = {
 type StoredNativeToken = {
   id: string;
   user_id: string;
+  enabled: boolean;
 };
 
 function errorCode(error: unknown): string | undefined {
@@ -33,7 +34,7 @@ function isValidPlatform(platform: unknown): boolean {
 async function findNativeToken(token: string): Promise<{ data: StoredNativeToken | null; error: unknown }> {
   const { data, error } = await getSupabaseServiceRole()
     .from('native_push_tokens')
-    .select('id, user_id')
+    .select('id, user_id, enabled')
     .eq('platform', NATIVE_PLATFORM)
     .eq('device_token', token)
     .maybeSingle();
@@ -67,6 +68,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'بيانات إشعارات الجهاز غير صالحة.' }, { status: 400 });
     }
     const token = payload.token.trim();
+    const previousToken = isValidToken(payload.previousToken) ? payload.previousToken.trim() : null;
 
     if (payload.action === 'status') {
       phase = 'status';
@@ -85,9 +87,17 @@ export async function POST(request: Request) {
     phase = 'find';
     let { data: existing, error: findError } = await findNativeToken(token);
     if (findError) throw findError;
-    if (existing && existing.user_id !== user.id) {
-      console.warn('[native-push] token request rejected', { phase, reason: 'token_owned_by_another_user' });
-      return NextResponse.json({ error: 'هذا الجهاز مرتبط بحساب آخر.' }, { status: 409 });
+    if (previousToken && previousToken !== token) {
+      const { data: previous, error: previousError } = await getSupabaseServiceRole()
+        .from('native_push_tokens')
+        .select('id, user_id')
+        .eq('platform', NATIVE_PLATFORM)
+        .eq('device_token', previousToken)
+        .maybeSingle();
+      if (previousError) throw previousError;
+      if (previous && previous.user_id !== user.id) {
+        return NextResponse.json({ error: 'تعذر التحقق من ملكية تسجيل الجهاز السابق.' }, { status: 409 });
+      }
     }
 
     const now = new Date().toISOString();
@@ -99,6 +109,32 @@ export async function POST(request: Request) {
       last_seen_at: now,
       updated_at: now,
     };
+
+    if (existing && existing.user_id !== user.id) {
+      if (existing.enabled) {
+        console.warn('[native-push] token request rejected', { phase, reason: 'token_owned_by_another_user' });
+        return NextResponse.json({ error: 'هذا الجهاز مرتبط بحساب آخر.' }, { status: 409 });
+      }
+
+      // A different account may claim this device token only after its prior
+      // owner explicitly disabled it. The conditional update makes concurrent
+      // account switches fail closed without trusting a client-supplied owner.
+      phase = 'transfer-disabled-token';
+      const { data: transferred, error: transferError } = await getSupabaseServiceRole()
+        .from('native_push_tokens')
+        .update(tokenRecord)
+        .eq('id', existing.id)
+        .eq('user_id', existing.user_id)
+        .eq('enabled', false)
+        .select('id')
+        .maybeSingle();
+      if (transferError) throw transferError;
+      if (!transferred) {
+        return NextResponse.json({ error: 'تعذر نقل تسجيل الإشعارات إلى الحساب الحالي. أعد المحاولة.' }, { status: 409 });
+      }
+      console.info('[native-push] token saved', { action: 'transferred' });
+      return NextResponse.json({ success: true, enabled: true });
+    }
 
     phase = existing ? 'update' : 'insert';
     let writeError = existing
@@ -121,7 +157,6 @@ export async function POST(request: Request) {
     }
     if (writeError) throw writeError;
 
-    const previousToken = isValidToken(payload.previousToken) ? payload.previousToken.trim() : null;
     if (previousToken && previousToken !== token) {
       const { error: disablePreviousError } = await getSupabaseServiceRole()
         .from('native_push_tokens')

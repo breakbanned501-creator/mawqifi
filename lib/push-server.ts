@@ -66,7 +66,6 @@ export class PushConfigurationError extends Error {
 
 export function configurePushDelivery(): void {
   configureWebPush();
-  if (!getApnsConfiguration()) throw new PushConfigurationError();
 }
 
 /**
@@ -206,7 +205,15 @@ export async function deliverPushNotifications({
     staleSubscriptionId ? [staleSubscriptionId] : [],
   );
 
-  const apnsConfiguration = getApnsConfiguration();
+  let apnsConfiguration: ReturnType<typeof getApnsConfiguration> = null;
+  try {
+    apnsConfiguration = getApnsConfiguration();
+  } catch (error) {
+    console.warn('APNs configuration unavailable; continuing with Web Push.', {
+      notificationType,
+      errorName: error instanceof Error ? error.name : 'unknown',
+    });
+  }
   const nativeDeliveries = apnsConfiguration
     ? await Promise.all(eligibleNativeTokens.map(async (token) => {
         const locale = preferencesByUser.get(token.user_id)?.locale === 'en' ? 'en' : 'ar';

@@ -16,7 +16,7 @@ import {
   subscribeToNativePushNotifications,
   unsubscribeFromNativePushNotifications,
 } from '@/lib/native-push';
-import { isNativeCapacitor } from '@/lib/capacitor';
+import { isNativeCapacitor, openNativeAppSettings } from '@/lib/capacitor';
 
 const PUSH_EXPLAINER_DEFERRED_KEY = 'mawqifi_push_explainer_deferred';
 
@@ -207,6 +207,16 @@ export default function PushNotificationControl() {
         }`}>
           <p className="whitespace-pre-line font-bold">{message}</p>
         </div>
+      )}
+
+      {pushState.kind === 'permission-denied' && nativeRuntime && (
+        <button
+          type="button"
+          onClick={() => { void openNativeAppSettings().catch(() => undefined); }}
+          className="btn btn-secondary w-full"
+        >
+          {locale === 'ar' ? 'فتح إعدادات الإشعارات' : 'Open notification settings'}
+        </button>
       )}
 
       {showExplainer && (

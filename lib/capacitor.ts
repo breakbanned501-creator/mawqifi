@@ -117,3 +117,10 @@ export async function triggerNativeLightHaptic(): Promise<void> {
     // Native feedback is optional and must never affect the saved action.
   }
 }
+
+/** Opens the iOS application settings after the user explicitly chooses it. */
+export async function openNativeAppSettings(): Promise<void> {
+  if (!isNativeCapacitor() || !isNativeIOS()) return;
+  const { AppLauncher } = await import('@capacitor/app-launcher');
+  await AppLauncher.openUrl({ url: 'app-settings:' });
+}

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
-import { Cairo } from 'next/font/google'
+import localFont from 'next/font/local'
 import AuthProvider from '@/components/AuthProvider'
 import LocaleProvider from '@/components/LocaleProvider'
 import PlaceProvider from '@/components/PlaceProvider'
@@ -14,9 +14,11 @@ import NotificationPermissionPrompt from '@/components/NotificationPermissionPro
 import UpdateAvailableNotice from '@/components/UpdateAvailableNotice'
 import './globals.css'
 
-const cairo = Cairo({ 
-  subsets: ['arabic', 'latin'],
-  weight: ['400', '600', '700'],
+const cairo = localFont({
+  src: './fonts/Cairo[slnt,wght].ttf',
+  display: 'swap',
+  style: 'normal',
+  weight: '200 1000',
   variable: '--font-cairo',
 })
 

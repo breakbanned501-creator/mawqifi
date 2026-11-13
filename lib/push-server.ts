@@ -205,7 +205,17 @@ export async function deliverPushNotifications({
     staleSubscriptionId ? [staleSubscriptionId] : [],
   );
 
-  const apnsConfiguration = getApnsConfiguration();
+  let apnsConfiguration: ReturnType<typeof getApnsConfiguration> = null;
+  try {
+    apnsConfiguration = getApnsConfiguration();
+  } catch (error) {
+    // APNs is an independent delivery channel: malformed APNs configuration
+    // must not turn already-completed Web Push sends into an API failure.
+    console.warn('APNs configuration unavailable; continuing with Web Push.', {
+      notificationType,
+      errorName: error instanceof Error ? error.name : 'unknown',
+    });
+  }
   const nativeDeliveries = apnsConfiguration
     ? await Promise.all(eligibleNativeTokens.map(async (token) => {
         const locale = preferencesByUser.get(token.user_id)?.locale === 'en' ? 'en' : 'ar';

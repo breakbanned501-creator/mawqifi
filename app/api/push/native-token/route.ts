@@ -14,6 +14,7 @@ type NativeTokenPayload = {
 type StoredNativeToken = {
   id: string;
   user_id: string;
+  enabled: boolean;
 };
 
 function errorCode(error: unknown): string | undefined {
@@ -33,7 +34,7 @@ function isValidPlatform(platform: unknown): boolean {
 async function findNativeToken(token: string): Promise<{ data: StoredNativeToken | null; error: unknown }> {
   const { data, error } = await getSupabaseServiceRole()
     .from('native_push_tokens')
-    .select('id, user_id')
+    .select('id, user_id, enabled')
     .eq('platform', NATIVE_PLATFORM)
     .eq('device_token', token)
     .maybeSingle();
@@ -67,6 +68,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'بيانات إشعارات الجهاز غير صالحة.' }, { status: 400 });
     }
     const token = payload.token.trim();
+    const previousToken = isValidToken(payload.previousToken) ? payload.previousToken.trim() : null;
 
     if (payload.action === 'status') {
       phase = 'status';
@@ -85,9 +87,18 @@ export async function POST(request: Request) {
     phase = 'find';
     let { data: existing, error: findError } = await findNativeToken(token);
     if (findError) throw findError;
-    if (existing && existing.user_id !== user.id) {
-      console.warn('[native-push] token request rejected', { phase, reason: 'token_owned_by_another_user' });
-      return NextResponse.json({ error: 'هذا الجهاز مرتبط بحساب آخر.' }, { status: 409 });
+    if (previousToken && previousToken !== token) {
+      const { data: previous, error: previousError } = await getSupabaseServiceRole()
+        .from('native_push_tokens')
+        .select('id, user_id')
+        .eq('platform', NATIVE_PLATFORM)
+        .eq('device_token', previousToken)
+        .maybeSingle();
+      if (previousError) throw previousError;
+      if (previous && previous.user_id !== user.id) {
+        console.warn('[native-push] token request rejected', { phase, reason: 'previous_token_owner_mismatch' });
+        return NextResponse.json({ error: 'تعذر التحقق من ملكية تسجيل الجهاز السابق.' }, { status: 409 });
+      }
     }
 
     const now = new Date().toISOString();
@@ -100,10 +111,36 @@ export async function POST(request: Request) {
       updated_at: now,
     };
 
-    phase = existing ? 'update' : 'insert';
-    let writeError = existing
-      ? (await getSupabaseServiceRole().from('native_push_tokens').update(tokenRecord).eq('id', existing.id)).error
-      : (await getSupabaseServiceRole().from('native_push_tokens').insert(tokenRecord)).error;
+    let writeError: { code?: string } | null | undefined = null;
+    if (existing && existing.user_id !== user.id) {
+      if (existing.enabled) {
+        console.warn('[native-push] token request rejected', { phase, reason: 'token_owned_by_another_user' });
+        return NextResponse.json({ error: 'هذا الجهاز مرتبط بحساب آخر.' }, { status: 409 });
+      }
+
+      // Transfer only a row already disabled by its authenticated prior owner.
+      // The conditional UPDATE is atomic and fails closed if another request
+      // changes ownership or re-enables the token first.
+      phase = 'transfer-disabled-token';
+      const { data: transferred, error: transferError } = await getSupabaseServiceRole()
+        .from('native_push_tokens')
+        .update(tokenRecord)
+        .eq('id', existing.id)
+        .eq('user_id', existing.user_id)
+        .eq('enabled', false)
+        .select('id')
+        .maybeSingle();
+      if (transferError) throw transferError;
+      if (!transferred) {
+        return NextResponse.json({ error: 'تعذر نقل تسجيل الإشعارات إلى الحساب الحالي. أعد المحاولة.' }, { status: 409 });
+      }
+      existing = { id: transferred.id, user_id: user.id, enabled: true };
+    } else {
+      phase = existing ? 'update' : 'insert';
+      writeError = existing
+        ? (await getSupabaseServiceRole().from('native_push_tokens').update(tokenRecord).eq('id', existing.id)).error
+        : (await getSupabaseServiceRole().from('native_push_tokens').insert(tokenRecord)).error;
+    }
 
     // A unique index keeps concurrent device registrations idempotent without
     // ever reassigning another student's native token.
@@ -121,7 +158,6 @@ export async function POST(request: Request) {
     }
     if (writeError) throw writeError;
 
-    const previousToken = isValidToken(payload.previousToken) ? payload.previousToken.trim() : null;
     if (previousToken && previousToken !== token) {
       const { error: disablePreviousError } = await getSupabaseServiceRole()
         .from('native_push_tokens')

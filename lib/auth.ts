@@ -74,6 +74,24 @@ export async function updateUsername(userId: string, username: string): Promise<
 
 export async function signOut(): Promise<void> {
   const supabase = getSupabase();
+  // Disable the current account's server-side APNs token before Auth changes
+  // identity. If that cannot be confirmed, keep the session so a later retry
+  // can safely finish the same account's cleanup.
+  try {
+    const { isNativeCapacitor, isNativeIOS } = await import('./capacitor');
+    if (isNativeCapacitor() && isNativeIOS()) {
+      const { unsubscribeFromNativePushNotifications } = await import('./native-push');
+      const result = await unsubscribeFromNativePushNotifications();
+      if (!result.success) {
+        throw new Error(result.message || 'تعذر إيقاف إشعارات الحساب الحالي قبل تسجيل الخروج.');
+      }
+    }
+  } catch (error) {
+    throw error instanceof Error
+      ? error
+      : new Error('تعذر إيقاف إشعارات الحساب الحالي قبل تسجيل الخروج. تحقق من الاتصال ثم أعد المحاولة.');
+  }
+
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
 }

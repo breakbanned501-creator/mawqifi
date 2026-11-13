@@ -16,7 +16,7 @@ import {
   subscribeToNativePushNotifications,
   unsubscribeFromNativePushNotifications,
 } from '@/lib/native-push';
-import { isNativeCapacitor } from '@/lib/capacitor';
+import { isNativeCapacitor, openNativeAppSettings } from '@/lib/capacitor';
 
 const PUSH_EXPLAINER_DEFERRED_KEY = 'mawqifi_push_explainer_deferred';
 
@@ -100,6 +100,28 @@ export default function PushNotificationControl() {
 
     return () => {
       cancelled = true;
+    };
+  }, [nativeRuntime, t, userId]);
+
+  useEffect(() => {
+    if (!userId || !nativeRuntime) return;
+
+    let cancelled = false;
+    const refreshState = () => {
+      if (document.visibilityState !== 'visible') return;
+      void getNativePushDeviceState().then((next) => {
+        if (!cancelled) setPushState(next);
+      }).catch(() => {
+        if (!cancelled) setPushState({ kind: 'error', message: t('common.error') });
+      });
+    };
+
+    window.addEventListener('focus', refreshState);
+    document.addEventListener('visibilitychange', refreshState);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', refreshState);
+      document.removeEventListener('visibilitychange', refreshState);
     };
   }, [nativeRuntime, t, userId]);
 
@@ -207,6 +229,16 @@ export default function PushNotificationControl() {
         }`}>
           <p className="whitespace-pre-line font-bold">{message}</p>
         </div>
+      )}
+
+      {nativeRuntime && pushState.kind === 'permission-denied' && (
+        <button
+          type="button"
+          onClick={() => { void openNativeAppSettings().catch(() => undefined); }}
+          className="btn btn-secondary w-full"
+        >
+          {locale === 'ar' ? 'فتح إعدادات الإشعارات' : 'Open notification settings'}
+        </button>
       )}
 
       {showExplainer && (

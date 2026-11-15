@@ -22,6 +22,7 @@ workflows:
       vars:
         XCODE_WORKSPACE: ios/App/App.xcworkspace
         XCODE_SCHEME: App
+        CM_CLONE_DEPTH: 3
       node: 22
       xcode: latest
     # No triggering section: pushing this file must not start an upload.
@@ -30,10 +31,59 @@ workflows:
         script: |
           #!/usr/bin/env bash
           set -euo pipefail
-          APP_BASELINE=c27e34bd1d82a17345023948003f980f5acb18be
-          test "$CM_BRANCH" = "codex/mawqifi-2-reverse-matching"
-          test "$(git rev-parse HEAD^)" = "$APP_BASELINE"
-          test "$(git diff --name-only "$APP_BASELINE"..HEAD)" = "codemagic.yaml"
+          node <<'RC_GUARD'
+          const assert = require('node:assert/strict');
+          const { execFileSync } = require('node:child_process');
+          const BASE = 'b4c3ffa2125a71cd6b862fbf18a7939def7d77b4';
+          const RC = '92972dc569daa5e568465a35a7cdfe1564b391ff';
+          const BRANCH = 'codex/mawqifi-ios-push-rc-1.0.2';
+          const REPO = 'breakbanned501-creator/mawqifi';
+          const RC_FILES = [
+            'app/api/push/native-token/route.ts',
+            'app/fonts/Cairo[slnt,wght].ttf',
+            'app/fonts/OFL.txt',
+            'app/layout.tsx',
+            'components/PushNotificationControl.tsx',
+            'lib/auth.ts',
+            'lib/native-push.ts',
+            'lib/push-server.ts',
+            'scripts/test-ios-push-hardening.cjs',
+          ].sort();
+          const git = (args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
+          const env = process.env;
+          const head = git(['rev-parse', '--verify', 'HEAD^{commit}']);
+          const remote = git(['remote', 'get-url', 'origin']);
+          let remoteRepo;
+          if (/^git@github\.com:/i.test(remote)) {
+            remoteRepo = remote.replace(/^git@github\.com:/i, '').replace(/\.git$/i, '');
+          } else {
+            const parsed = new URL(remote);
+            assert.equal(parsed.hostname.toLowerCase(), 'github.com', 'Unexpected Git remote host');
+            remoteRepo = parsed.pathname.replace(/^\/+/, '').replace(/\.git$/i, '');
+          }
+          assert.equal(remoteRepo, REPO, 'Unexpected Git repository');
+          assert.equal(env.CM_REPO_SLUG, REPO, 'Unexpected Codemagic repository context');
+          assert.equal(env.CM_BRANCH, BRANCH, 'Build must use the exact RC branch');
+          assert.equal(env.CM_COMMIT, head, 'Codemagic commit context does not match Git HEAD');
+          assert.equal(env.CM_TAG || '', '', 'Tag-triggered builds are not allowed');
+          assert.equal(env.CM_PULL_REQUEST, 'false', 'Pull-request builds are not allowed');
+          assert.equal(env.CM_PULL_REQUEST_NUMBER || '', '', 'Pull-request context is not allowed');
+          assert.equal(env.CM_TRIGGER_SOURCE, 'api', 'Only a manual Codemagic UI/API trigger is allowed');
+
+          const remoteBranchRef = `refs/remotes/origin/${BRANCH}`;
+          const branchHead = git(['rev-parse', '--verify', `${remoteBranchRef}^{commit}`]);
+          assert.equal(branchHead, head, 'Remote RC branch must point to the exact checked-out HEAD');
+          assert.equal(git(['tag', '--points-at', head]), '', 'A tag-triggered or tagged HEAD is not allowed');
+          assert.equal(git(['rev-list', '--parents', '-n', '1', RC]), `${RC} ${BASE}`, 'RC must be a direct, single-parent child of the approved base');
+          assert.equal(git(['rev-list', '--parents', '-n', '1', head]), `${head} ${RC}`, 'Protection commit must be a direct, single-parent child of the RC');
+
+          const rcFiles = git(['diff', '--name-only', BASE, RC]).split(/\r?\n/).filter(Boolean).sort();
+          assert.deepEqual(rcFiles, RC_FILES, 'RC changed-file allowlist mismatch');
+          const protectionFiles = git(['diff', '--name-only', RC, head]).split(/\r?\n/).filter(Boolean).sort();
+          assert.deepEqual(protectionFiles, ['codemagic.yaml'], 'Protection commit may change only codemagic.yaml');
+          assert.equal(git(['status', '--porcelain', '--untracked-files=all']), '', 'Build checkout must be clean');
+          console.log('Approved RC Git source and CI-only protection commit verified.');
+          RC_GUARD
           node <<'NODE'
           const assert = require('node:assert/strict');
           const fs = require('node:fs');

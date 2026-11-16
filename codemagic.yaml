@@ -183,8 +183,11 @@ workflows:
           if (( CI_BUILD_NUMBER > IOS_BUILD_NUMBER )); then
             IOS_BUILD_NUMBER="$CI_BUILD_NUMBER"
           fi
+          if (( IOS_BUILD_NUMBER < 54 )); then
+            IOS_BUILD_NUMBER=54
+          fi
           echo "IOS_BUILD_NUMBER=$IOS_BUILD_NUMBER" >> "$CM_ENV"
-          echo "Using iOS build number $IOS_BUILD_NUMBER; marketing version remains 1.0.1."
+          echo "Using iOS build number $IOS_BUILD_NUMBER; marketing version is 1.0.3."
       - name: Build signed App Store IPA
         script: |
           #!/usr/bin/env bash
@@ -194,7 +197,7 @@ workflows:
             --scheme "$XCODE_SCHEME" \
             --config Release \
             --no-show-build-settings \
-            --archive-xcargs "COMPILER_INDEX_STORE_ENABLE=NO MARKETING_VERSION=1.0.2 CURRENT_PROJECT_VERSION=$IOS_BUILD_NUMBER" \
+            --archive-xcargs "COMPILER_INDEX_STORE_ENABLE=NO MARKETING_VERSION=1.0.3 CURRENT_PROJECT_VERSION=$IOS_BUILD_NUMBER" \
             --ipa-directory "$CM_BUILD_DIR/build/ios/ipa"
       - name: Verify signed staging IPA isolation and entitlements
         script: |-
@@ -211,7 +214,10 @@ workflows:
           test "${#APPS[@]}" -eq 1
           APP="${APPS[0]}"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" = "com.mawqifi.app"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Info.plist")" = "1.0.2"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Info.plist")" = "1.0.3"
+          ACTUAL_BUILD_NUMBER=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist")
+          [[ "$ACTUAL_BUILD_NUMBER" =~ ^[0-9]+$ ]]
+          (( ACTUAL_BUILD_NUMBER >= 54 ))
           SIGNED_ENTITLEMENTS="$SCAN_DIR/signed-entitlements.plist"
           PROFILE_PLIST="$SCAN_DIR/profile.plist"
           codesign -d --entitlements :- "$APP" > "$SIGNED_ENTITLEMENTS" 2>/dev/null

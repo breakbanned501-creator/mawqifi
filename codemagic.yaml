@@ -22,7 +22,7 @@ workflows:
       vars:
         XCODE_WORKSPACE: ios/App/App.xcworkspace
         XCODE_SCHEME: App
-        CM_CLONE_DEPTH: 3
+        CM_CLONE_DEPTH: 4
       node: 22
       xcode: latest
     # No triggering section: pushing this file must not start an upload.
@@ -31,11 +31,14 @@ workflows:
         script: |
           #!/usr/bin/env bash
           set -euo pipefail
+          git fetch --no-tags --deepen=1 origin refs/heads/codex/mawqifi-ios-push-rc-1.0.2:refs/remotes/origin/codex/mawqifi-ios-push-rc-1.0.2
           node <<'RC_GUARD'
           const assert = require('node:assert/strict');
           const { execFileSync } = require('node:child_process');
           const BASE = 'b4c3ffa2125a71cd6b862fbf18a7939def7d77b4';
           const RC = '92972dc569daa5e568465a35a7cdfe1564b391ff';
+          const GUARD = '483a6fd0ed81ab89dc89e8ed87f4fe29d77b84f6';
+          const VERSION = 'c025c36bee255bb382d904da4f898c8a6e657c96';
           const BRANCH = 'codex/mawqifi-ios-push-rc-1.0.2';
           const REPO = 'breakbanned501-creator/mawqifi';
           const RC_FILES = [
@@ -75,7 +78,13 @@ workflows:
           assert.equal(branchHead, head, 'Remote RC branch must point to the exact checked-out HEAD');
           assert.equal(git(['tag', '--points-at', head]), '', 'A tag-triggered or tagged HEAD is not allowed');
           assert.equal(git(['rev-list', '--parents', '-n', '1', RC]), `${RC} ${BASE}`, 'RC must be a direct, single-parent child of the approved base');
-          assert.equal(git(['rev-list', '--parents', '-n', '1', head]), `${head} ${RC}`, 'Protection commit must be a direct, single-parent child of the RC');
+          assert.equal(git(['rev-list', '--parents', '-n', '1', GUARD]), `${GUARD} ${RC}`, 'Guard commit must be a direct, single-parent child of the RC');
+          assert.equal(git(['rev-list', '--parents', '-n', '1', VERSION]), `${VERSION} ${GUARD}`, 'Version 1.0.3 commit must be a direct, single-parent child of the Guard');
+          const versionFiles = git(['diff', '--name-only', GUARD, VERSION]).split(/\r?\n/).filter(Boolean).sort();
+          assert.deepEqual(versionFiles, ['codemagic.yaml'], 'Version commit may change only codemagic.yaml');
+          assert.equal(git(['rev-list', '--parents', '-n', '1', head]), `${head} ${VERSION}`, 'Only one CI guard commit may follow the approved version commit');
+          const guardUpdateFiles = git(['diff', '--name-only', VERSION, head]).split(/\r?\n/).filter(Boolean).sort();
+          assert.deepEqual(guardUpdateFiles, ['codemagic.yaml'], 'Final guard update may change only codemagic.yaml');
 
           const rcFiles = git(['diff', '--name-only', BASE, RC]).split(/\r?\n/).filter(Boolean).sort();
           assert.deepEqual(rcFiles, RC_FILES, 'RC changed-file allowlist mismatch');

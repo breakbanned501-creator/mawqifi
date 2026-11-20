@@ -52,6 +52,9 @@ export type PushDeliveryOptions = {
 export type PushDeliveryResult = {
   subscriptionCount: number;
   sentCount: number;
+  eligibleCount: number;
+  attemptedCount: number;
+  failedCount: number;
   staleCount: number;
   nativeTokenCount: number;
   nativeSentCount: number;
@@ -205,7 +208,27 @@ export async function deliverPushNotifications({
     staleSubscriptionId ? [staleSubscriptionId] : [],
   );
 
-  const apnsConfiguration = getApnsConfiguration();
+  let resolvedApnsConfiguration: ReturnType<typeof getApnsConfiguration> = null;
+  let apnsConfigurationFailed = false;
+  try {
+    resolvedApnsConfiguration = getApnsConfiguration();
+  } catch (error) {
+    apnsConfigurationFailed = true;
+    console.warn('APNs configuration unavailable.', {
+      notificationType,
+      errorName: error instanceof Error ? error.name : 'unknown',
+      eligibleNativeTokenCount: eligibleNativeTokens.length,
+    });
+  }
+  if (!resolvedApnsConfiguration && eligibleNativeTokens.length > 0 && !apnsConfigurationFailed) {
+    apnsConfigurationFailed = true;
+    console.warn('APNs configuration unavailable.', {
+      notificationType,
+      eligibleNativeTokenCount: eligibleNativeTokens.length,
+    });
+  }
+
+  const apnsConfiguration = resolvedApnsConfiguration;
   const nativeDeliveries = apnsConfiguration
     ? await Promise.all(eligibleNativeTokens.map(async (token) => {
         const locale = preferencesByUser.get(token.user_id)?.locale === 'en' ? 'en' : 'ar';
@@ -218,7 +241,7 @@ export async function deliverPushNotifications({
           return { sent: false, staleTokenId: null };
         }
       }))
-    : [];
+    : eligibleNativeTokens.map(() => ({ sent: false, staleTokenId: null as string | null }));
   const staleNativeTokenIds = nativeDeliveries.flatMap(({ staleTokenId }) => staleTokenId ? [staleTokenId] : []);
   if (staleNativeTokenIds.length) {
     const { error } = await supabase.from('native_push_tokens').update({ enabled: false }).in('id', staleNativeTokenIds);
@@ -239,18 +262,29 @@ export async function deliverPushNotifications({
 
   const webSentCount = deliveries.filter(({ sent }) => sent).length;
   const nativeSentCount = nativeDeliveries.filter(({ sent }) => sent).length;
-  console.info('Web push delivery completed.', {
+  const eligibleCount = eligibleSubscriptions.length + eligibleNativeTokens.length;
+  const sentCount = webSentCount + nativeSentCount;
+  const failedCount = eligibleCount - sentCount;
+  const attemptedCount = eligibleSubscriptions.length + (apnsConfiguration ? eligibleNativeTokens.length : 0);
+  console.info('Push delivery attempt completed.', {
     notificationType,
     subscriptionCount: activeSubscriptions.length,
     eligibleSubscriptionCount: eligibleSubscriptions.length,
     sentCount: webSentCount,
     nativeSentCount,
+    eligibleNativeTokenCount: eligibleNativeTokens.length,
+    attemptedCount,
+    failedCount,
+    apnsConfigurationFailed,
     staleCount: staleSubscriptionIds.length,
   });
 
   return {
     subscriptionCount: activeSubscriptions.length,
-    sentCount: webSentCount + nativeSentCount,
+    sentCount,
+    eligibleCount,
+    attemptedCount,
+    failedCount,
     staleCount: staleSubscriptionIds.length + staleNativeTokenIds.length,
     nativeTokenCount: nativeTokens.length,
     nativeSentCount,
